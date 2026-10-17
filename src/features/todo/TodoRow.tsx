@@ -1,0 +1,147 @@
+import { useState, type ReactNode } from 'react'
+import { localDay, md } from '@/domain/date.ts'
+import { dLabel, isUrgent } from '@/domain/priority.ts'
+import { projShort } from '@/domain/project.ts'
+import { Button } from '@/components/ui/Button.tsx'
+import { Highlight } from '@/components/ui/Highlight.tsx'
+import { ConfirmLine } from '@/components/ui/Layout.tsx'
+import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
+import { Tag } from '@/components/ui/Tag.tsx'
+import { cx } from '@/lib/cx.ts'
+import { dismissTodo, rollOver, toSomeday, toggleDone } from '@/store/actions.ts'
+import { openModal, openPopover, useApp } from '@/store/ui.ts'
+import type { Todo } from '@/types/domain.ts'
+import { startDrag, wasJustDropped } from '../drag/drag.ts'
+import s from './TodoRow.module.css'
+
+interface Props {
+  todo: Todo
+  /** ⋮⋮ 손잡이로 끌 수 있게. 캘린더 칸에 놓으면 이 필드(마감 또는 착수)를 옮긴다 */
+  drag?: 'due' | 'start'
+  /** 제목 아래 붙는 버튼 줄 */
+  extra?: ReactNode
+  /** 검색어 강조 */
+  highlight?: string[]
+}
+
+const openEdit = (t: Todo) => openModal({ kind: 'todoEdit', id: t.id })
+
+export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
+  const projects = useApp((s) => s.projects)
+  const urgent = isUrgent(t)
+  const dd = localDay(t.doneAt)
+
+  const due = t.done ? (
+    <button
+      type="button"
+      data-due-button
+      className={s.due}
+      title="눌러서 완료일 바꾸기"
+      aria-label={'완료일 ' + (dd ? md(dd) : '미정') + ' 바꾸기'}
+      onClick={(e) => openPopover({ kind: 'done', id: t.id, anchor: e.currentTarget.getBoundingClientRect() })}
+    >
+      {dd ? md(dd) : '—'}
+      <span className={s.dd}>{'완료' + (t.due && t.due !== dd ? ' · 마감 ' + md(t.due) : '')}</span>
+    </button>
+  ) : (
+    <button
+      type="button"
+      data-due-button
+      className={s.due}
+      title="눌러서 마감일 바꾸기"
+      aria-label={t.due ? '마감일 ' + md(t.due) + ' 바꾸기' : '마감일 바꾸기'}
+      onClick={(e) => openPopover({ kind: 'due', id: t.id, anchor: e.currentTarget.getBoundingClientRect() })}
+    >
+      {t.due ? (
+        <>
+          {md(t.due) + (t.time ? ' ' + t.time : '')}
+          <span className={cx(s.dd, dLabel(t.due).late && !t.autoDue && s.late)}>{dLabel(t.due).t}</span>
+        </>
+      ) : (
+        <>
+          TBD<span className={s.dd}>{t.someday ? 'Someday' : '마감 미정'}</span>
+        </>
+      )}
+    </button>
+  )
+
+  return (
+    <div className={cx(s.row, t.done && s.done, urgent && s.urgent)} data-todo-id={t.id}>
+      <RoundCheckbox checked={!!t.done} onToggle={() => toggleDone(t)} label="완료 표시" tone={urgent ? 'danger' : 'default'} />
+      <div
+        className={s.body}
+        role="button"
+        tabIndex={0}
+        aria-label={t.title + ' 편집'}
+        onClick={(e) => {
+          if (wasJustDropped() || (e.target as Element).closest('[data-handle]')) return
+          openEdit(t)
+        }}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            openEdit(t)
+          }
+        }}
+      >
+        <div className={s.title}>
+          {drag && (
+            <span className={s.handle} data-handle title="끌어서 우선순위·날짜 바꾸기" aria-hidden="true" onPointerDown={(e) => startDrag(e, t.id, drag)}>
+              ⋮⋮
+            </span>
+          )}
+          <Highlight text={t.title} words={highlight} />
+        </div>
+        <div className={s.meta}>
+          {t.project && <Tag tone={urgent ? 'danger' : 'default'}>{projShort(projects, t.project)}</Tag>}
+          {t.verify && <Tag tone="warn">규칙 확인 필요</Tag>}
+          {t.start && !t.done && t.start !== t.due && <span>▶ 착수 {md(t.start)}</span>}
+          {!!t.rolled && !t.done && (
+            <span className={s.rolled}>{'이월 ' + t.rolled + '회' + (t.origDue ? ' · 원래 마감 ' + md(t.origDue) : '')}</span>
+          )}
+          {t.note && <span>{t.note}</span>}
+        </div>
+        {extra}
+      </div>
+      {due}
+    </div>
+  )
+}
+
+/** 지연된 할 일의 처리 버튼: 처음이면 미루기, 두 번째면 다시 잡기·Someday·삭제 */
+export function RollActions({ todo: t }: { todo: Todo }) {
+  const [confirming, setConfirming] = useState(false)
+  const stop = (fn: () => void) => (e: { stopPropagation: () => void }) => {
+    e.stopPropagation()
+    fn()
+  }
+  if (!(t.rolled || 0)) {
+    return (
+      <div className={s.acts}>
+        <Button size="sm" onClick={stop(() => rollOver(t))}>
+          다음 영업일로 미루기
+        </Button>
+      </div>
+    )
+  }
+  return (
+    <div className={s.acts}>
+      {confirming ? (
+        <ConfirmLine message="삭제할까요?" onConfirm={() => dismissTodo(t.id)} onCancel={() => setConfirming(false)} />
+      ) : (
+        <>
+          <Button size="sm" variant="solid" onClick={stop(() => openEdit(t))}>
+            날짜 다시 잡기
+          </Button>
+          <Button size="sm" onClick={stop(() => toSomeday(t))}>
+            Someday로
+          </Button>
+          <Button size="sm" variant="ghost" onClick={stop(() => setConfirming(true))}>
+            삭제
+          </Button>
+        </>
+      )}
+    </div>
+  )
+}

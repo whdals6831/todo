@@ -37,6 +37,9 @@ export const md = (s: DateStr) => {
   return d.getUTCMonth() + 1 + '/' + d.getUTCDate() + '(' + DOW[d.getUTCDay()] + ')'
 }
 
+/** 지금 시각 (ISO, UTC) */
+export const nowIso = () => new Date().toISOString()
+
 export const todayStr = (): DateStr => {
   const n = new Date()
   return n.getFullYear() + '-' + pad(n.getMonth() + 1) + '-' + pad(n.getDate())

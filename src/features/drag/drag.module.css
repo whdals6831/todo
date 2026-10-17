@@ -1,0 +1,29 @@
+.ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: var(--z-drag);
+  pointer-events: none;
+  max-width: 260px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--color-fg);
+  color: var(--color-on-fg);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: var(--shadow-pop);
+}
+
+/* 끌고 있는 동안 놓을 자리 표시 (행·칸에 data-drop 을 붙인다) */
+:global([data-drop="before"]) {
+  box-shadow: inset 0 2px 0 var(--color-fg);
+}
+:global([data-drop="after"]) {
+  box-shadow: inset 0 -2px 0 var(--color-fg);
+}
+:global([data-drop="cell"]) {
+  box-shadow: inset 0 0 0 2px var(--color-fg);
+  background: var(--color-soft);
+}

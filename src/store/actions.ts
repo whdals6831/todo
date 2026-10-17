@@ -7,7 +7,7 @@ import {
   FOLLOWUPS, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type NewTodo,
 } from '../domain/specials.ts'
 import { slotByTime } from '../domain/priority.ts'
-import type { CalEvent, DateStr, Ful, Todo } from '../types/domain.ts'
+import type { CalEvent, DateStr, Ful, Notes, Rule, Todo } from '../types/domain.ts'
 import { createMemoryRepository } from './localRepository.ts'
 import { newId, type Repository, type Snapshot } from './repository.ts'
 import {
@@ -370,6 +370,94 @@ export async function resetRanks(items: Todo[]) {
 
 export async function toggleDone(t: Todo) {
   await putTodo({ ...t, done: !t.done, doneAt: !t.done ? new Date().toISOString() : null })
+}
+
+/* ---------- 설정 ---------- */
+
+export interface ProjectDraft {
+  /** 저장 전 이름 (새 과제면 "") — 이름이 바뀌면 외근·할 일·규칙에 반영한다 */
+  orig: string
+  name: string
+  short: string
+  /** 한 줄에 하나 */
+  sites: string
+  /** 쉼표로 구분 */
+  aliases: string
+}
+
+/** 과제 목록 저장. 결과 안내 문구를 돌려준다 (이름이 겹치면 저장하지 않음) */
+export async function saveProjects(drafts: ProjectDraft[]): Promise<{ ok: boolean; message: string }> {
+  const clean = drafts
+    .map((p) => ({
+      orig: p.orig,
+      name: p.name.trim(),
+      short: (p.short || '').trim() || p.name.trim(),
+      sites: String(p.sites || '').split(/[\n,，]/).map((x) => x.trim()).filter(Boolean),
+      aliases: (p.aliases || '').split(/[,，]/).map((x) => x.trim()).filter(Boolean),
+    }))
+    .filter((p) => p.name)
+  const names = clean.map((p) => p.name)
+  if (new Set(names).size !== names.length) return { ok: false, message: '같은 이름의 과제가 두 개 있습니다. 이름을 다르게 해 주세요.' }
+  const renames = clean.filter((p) => p.orig && p.orig !== p.name)
+  let rules = S().rules
+  for (const rn of renames) rules = rules.map((r) => (r.project === rn.orig ? { ...r, project: rn.name } : r))
+  appStore.setState({ projects: clean.map((p) => ({ name: p.name, short: p.short, sites: p.sites, aliases: p.aliases })), rules })
+  await putConfig()
+  for (const rn of renames) {
+    for (const e of [...S().events.values()].filter((e) => e.project === rn.orig)) {
+      const n = { ...e, project: rn.name }
+      n.genKey = genKey(n, S())
+      await putEvent(n)
+    }
+    for (const t of [...S().todos.values()].filter((t) => t.project === rn.orig)) await putTodo({ ...t, project: rn.name })
+  }
+  return { ok: true, message: '저장했습니다 (' + clean.length + '개 과제)' + (renames.length ? ' · 이름 변경 ' + renames.length + '건 반영' : '') + '.' }
+}
+
+export async function saveCompanions(list: { project: string; keyword: string; items: string }[]) {
+  appStore.setState({
+    companions: list
+      .map((c) => ({ project: c.project, keyword: c.keyword.trim(), items: c.items.split(/[,，]/).map((x) => x.trim()).filter(Boolean) }))
+      .filter((c) => c.keyword && c.items.length),
+  })
+  await putConfig()
+}
+
+/** 규칙 저장 후 기존 외근의 미완료 자동 할 일에도 반영 */
+export async function saveRules(rules: Rule[]) {
+  appStore.setState({ rules: rules.map((r) => ({ ...r })) })
+  await putConfig()
+  await syncAll(false)
+}
+
+/** "YYYY-MM-DD 이름" 줄들을 공휴일로 저장하고 자동 할 일 기한을 다시 계산한다. 저장한 날 수를 돌려준다 */
+export async function saveHolidays(text: string) {
+  const h: Record<string, string> = {}
+  text.split('\n').forEach((l) => {
+    const m = l.trim().match(/^(\d{4}-\d{2}-\d{2})\s*(.*)$/)
+    if (m) h[m[1]] = m[2] || '휴일'
+  })
+  appStore.setState({ holidays: h })
+  await putConfig()
+  await syncAll(true)
+  return Object.keys(h).length
+}
+
+export async function saveNotes(notes: Notes) {
+  appStore.setState({ notes })
+  await putConfig()
+}
+
+/* ---------- FUL 메모 ---------- */
+
+export async function addFul(f: Omit<Ful, 'id'>) {
+  await putFul(f)
+  await applyFulsAll()
+}
+
+export async function updateFul(f: Ful, patch: Partial<Ful>) {
+  await putFul({ ...f, ...patch })
+  await applyFulsAll()
 }
 
 /* ---------- 불러오기 ---------- */

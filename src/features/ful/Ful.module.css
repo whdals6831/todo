@@ -1,0 +1,86 @@
+.form {
+  display: grid;
+  grid-template-columns: 150px 200px 120px 1fr auto;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+@media (max-width: 760px) {
+  .form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .text {
+    grid-column: 1 / -1;
+  }
+}
+
+/* 기관별 묶음 */
+.group {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  margin-bottom: var(--space-1);
+}
+.head > :last-child {
+  margin-left: auto;
+}
+.proj {
+  min-width: 96px;
+  text-align: center;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1-5) 0;
+  border-top: 1px dashed var(--color-line);
+  font-size: var(--text-sm);
+}
+
+/* 방문 종류 고르기 (가운데 맞춘 작은 알약) */
+.typeSel {
+  height: 30px;
+  padding: var(--space-1) 22px var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-soft);
+  color: var(--color-fg);
+  font-size: var(--text-xs);
+  text-align: center;
+  text-align-last: center;
+  cursor: pointer;
+}
+
+/* 바로 고치는 내용 칸 */
+.textIn {
+  width: 100%;
+  padding: var(--space-1-5) var(--space-2-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-size: var(--text-sm);
+}
+.textIn:hover {
+  border-color: var(--color-line);
+}
+.textIn:focus {
+  border-color: var(--color-fg);
+  background: var(--color-bg);
+  outline: none;
+}
+
+.moved {
+  color: var(--color-muted);
+}
+.movedType {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  text-align: center;
+}

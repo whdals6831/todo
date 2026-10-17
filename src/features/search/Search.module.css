@@ -1,0 +1,19 @@
+.ev {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3-5);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-line);
+  cursor: pointer;
+}
+.ev:hover {
+  background: var(--color-soft);
+}
+.date {
+  min-width: 92px;
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+}
+.name > :first-child {
+  margin-right: var(--space-1-5);
+}

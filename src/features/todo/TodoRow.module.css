@@ -1,0 +1,120 @@
+.row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.body {
+  min-width: 0;
+  cursor: pointer;
+}
+.body:hover .title {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--color-faint);
+}
+
+.title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* ⋮⋮ 끌기 손잡이 */
+.handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 32px;
+  margin: calc(-1 * var(--space-1-5)) var(--space-1-5) calc(-1 * var(--space-1-5)) calc(-1 * var(--space-2));
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+  font-size: var(--text-xl);
+  letter-spacing: -3px;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.handle:hover {
+  background: var(--color-soft);
+  color: var(--color-fg);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2-5);
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+.rolled {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-danger);
+}
+
+/* 오른쪽 날짜: 누르면 바꾸기 */
+.due {
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1-5)) 0 0;
+  padding: var(--space-1) var(--space-1-5);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-size: var(--text-sm);
+  text-align: right;
+  white-space: nowrap;
+}
+.due:hover,
+.due:focus-visible {
+  background: var(--color-soft);
+}
+.dd {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--text-2xs);
+  color: var(--color-faint);
+}
+.late {
+  color: var(--color-danger);
+  font-weight: var(--weight-semibold);
+}
+
+/* 완료 */
+.done .title {
+  color: var(--color-faint);
+  text-decoration: line-through;
+  font-weight: var(--weight-regular);
+}
+.done .meta {
+  opacity: 0.6;
+}
+
+/* 오늘·내일 마감이거나 지남 */
+.urgent .title,
+.urgent .meta,
+.urgent .due,
+.urgent .dd {
+  color: var(--color-danger);
+}
+.urgent .dd {
+  font-weight: var(--weight-semibold);
+}
+
+.acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+  margin-top: var(--space-2);
+}

@@ -1,0 +1,150 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2-5);
+  margin-bottom: var(--space-4);
+}
+.barEnd {
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-1-5);
+}
+
+.acc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2-5);
+}
+.section {
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+}
+.open {
+  border-color: var(--color-fg);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3-5);
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+button.head {
+  cursor: pointer;
+}
+button.head:hover {
+  background: var(--color-soft);
+}
+.head h3 {
+  min-width: 80px;
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-medium);
+}
+.chev {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-full);
+  font-size: var(--text-md);
+  color: var(--color-muted);
+}
+.sum {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+.count {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+.nameIn {
+  flex: 1;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-2) var(--space-8);
+  padding: var(--space-1) var(--space-5) var(--space-4);
+  border-top: 1px solid var(--color-line);
+}
+.sub {
+  margin: var(--space-3-5) 0 var(--space-1);
+  font-size: var(--text-2xs);
+  color: var(--color-muted);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.list li {
+  display: grid;
+  grid-template-columns: 24px 20px 1fr;
+  align-items: start;
+  gap: var(--space-0-5) var(--space-2);
+  padding: var(--space-1-5) 0;
+  border-bottom: 1px dashed var(--color-line);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+.list li:last-child {
+  border-bottom: 0;
+}
+.n {
+  padding-top: 1px;
+  font-size: var(--text-xs);
+  color: var(--color-faint);
+}
+.w {
+  grid-column: 3;
+  font-size: var(--text-2xs);
+  color: var(--color-muted);
+}
+.checked .t {
+  color: var(--color-faint);
+  text-decoration: line-through;
+}
+
+/* 편집 */
+.edit li {
+  grid-template-columns: 1fr;
+  gap: var(--space-1);
+}
+.btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-0-5);
+}
+.addSection {
+  min-height: 52px;
+  border: 1px dashed var(--color-line);
+}
+
+@media (max-width: 760px) {
+  .body {
+    grid-template-columns: 1fr;
+    padding: var(--space-1) var(--space-3-5) var(--space-3-5);
+  }
+  .head {
+    padding: var(--space-3-5);
+  }
+  .sum {
+    display: none;
+  }
+}

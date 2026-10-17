@@ -1,0 +1,7 @@
+.kind {
+  margin-bottom: var(--space-4);
+}
+.kind > span {
+  display: block;
+  margin-bottom: var(--space-2);
+}

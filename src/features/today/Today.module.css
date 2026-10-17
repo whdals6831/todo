@@ -1,0 +1,88 @@
+/* 제목: "10/18 일 오늘 할 일" */
+.head {
+  align-items: center;
+}
+.date {
+  margin-right: var(--space-3-5);
+}
+.wd {
+  margin-left: var(--space-1-5);
+  font-size: 0.62em;
+  color: var(--color-muted);
+}
+.nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0-5);
+}
+.nav > :first-child {
+  margin-right: var(--space-1-5);
+}
+
+.yay {
+  width: 22px;
+  height: auto;
+  margin-left: var(--space-1-5);
+  vertical-align: middle;
+}
+.yayMsg {
+  margin-left: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+
+/* 퇴근 무렵 브리핑 */
+.brief {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-4) var(--space-4);
+  border: 1px solid var(--color-fg);
+  border-radius: var(--radius-lg);
+}
+.brief h3 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2-5);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+}
+.rate {
+  margin-right: var(--space-1-5);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-none);
+}
+.bar {
+  height: 6px;
+  margin: var(--space-2) 0 var(--space-3);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-soft);
+}
+.bar i {
+  display: block;
+  height: 100%;
+  background: var(--color-fg);
+}
+.brief ul {
+  margin: var(--space-1) 0 var(--space-2-5);
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.brief li {
+  display: flex;
+  gap: var(--space-2-5);
+  padding: var(--space-0-5) 0;
+  border-bottom: 1px dashed var(--color-line);
+}
+.brief li > :first-child {
+  flex: none;
+  min-width: 62px;
+  color: var(--color-muted);
+}
+.lbl {
+  margin-top: var(--space-1-5);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}

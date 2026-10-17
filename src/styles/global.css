@@ -1,0 +1,92 @@
+@import "./fonts.css";
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html {
+  scroll-padding-top: env(safe-area-inset-top, 0px);
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+body {
+  margin: 0;
+  padding-inline: var(--gutter);
+  padding-block: 0 var(--space-14);
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+img {
+  max-width: 100%;
+}
+
+[hidden]:not([hidden="until-found" i]) {
+  display: none !important;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: 3px;
+  border-radius: var(--radius-xs);
+}
+
+kbd {
+  font-family: var(--font-serif);
+  font-size: var(--text-3xs);
+  line-height: var(--leading-normal);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-xs);
+  padding: 0 var(--space-1);
+  margin-left: var(--space-2);
+  opacity: 0.55;
+}
+
+mark {
+  background: var(--color-highlight);
+  color: inherit;
+  border-radius: var(--radius-xs);
+  padding: 0 1px;
+}
+
+/* 드래그 중에는 어디서든 잡은 커서 */
+body[data-dragging],
+body[data-dragging] * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

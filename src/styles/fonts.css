@@ -1,0 +1,12 @@
+/*
+ * ZEN SERIF (OA Entertainment · Leedotype) — 무료 사용 가능하나 수정·재배포 금지.
+ * 그래서 파일을 변환하지 않고 원본 woff 그대로 public/fonts 에 두며, 저장소에는 커밋하지 않는다.
+ * 파일이 없으면 --font-serif 의 대체 서체로 표시된다.
+ */
+@font-face {
+  font-family: "ZEN SERIF";
+  src: url("/fonts/zen-serif.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

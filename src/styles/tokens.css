@@ -1,0 +1,135 @@
+/*
+ * 디자인 토큰 — "printed planner"
+ * 종이(흰 바탕) 위에 잉크(검정)와 헤어라인. 강조는 달 숫자와 오늘의 검은 원 두 곳뿐이고,
+ * 빨강(signal)은 휴일과 마감 지남에만 쓴다.
+ *
+ * 브레이크포인트는 CSS 변수를 미디어쿼리에 쓸 수 없어 값으로 적는다.
+ *   sm 560px  — 캘린더 칸을 촘촘하게
+ *   md 760px  — 사이드바가 위쪽 가로 메뉴로
+ *   lg 1100px — 캘린더와 날짜 패널이 세로로
+ */
+:root {
+  color-scheme: light;
+
+  /* color */
+  --color-bg: #ffffff;
+  --color-fg: #000000;
+  --color-muted: #5c5c5c;
+  --color-faint: #bdbdbd;
+  --color-line: #ececea;
+  --color-soft: #f5f5f3;
+  --color-on-fg: #ffffff;
+  --color-danger: #d0021b;
+  --color-on-danger: #ffffff;
+  --color-highlight: var(--color-line);
+  --color-backdrop: color-mix(in srgb, var(--color-fg) 26%, transparent);
+  --color-danger-tint: color-mix(in srgb, var(--color-danger) 8%, transparent);
+
+  /* elevation */
+  --shadow-pop: 0 18px 50px rgb(0 0 0 / 0.14);
+  --shadow-panel: -16px 0 48px rgb(0 0 0 / 0.08);
+
+  /* typography */
+  --font-serif: "ZEN SERIF", "Nanum Myeongjo", "AppleMyungjo", "Batang", serif;
+
+  --text-3xs: 10px; /* 좁은 화면의 캘린더 칩 전용 */
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
+  --text-3xl: 40px;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  --leading-none: 1;
+  --leading-tight: 1.25;
+  --leading-snug: 1.4;
+  --leading-normal: 1.55;
+
+  --tracking-tight: -0.02em;
+  --tracking-snug: -0.01em;
+  --tracking-wide: 0.14em;
+
+  /* space (4px 기준) */
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-3-5: 14px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-14: 56px;
+
+  /* radius */
+  --radius-xs: 4px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+  --radius-full: 50%;
+
+  /* layer */
+  --z-raised: 1;
+  --z-sticky: 6;
+  --z-panel: 20;
+  --z-menu: 25;
+  --z-modal: 30;
+  --z-popover: 40;
+  --z-drag: 50;
+  --z-toast: 60;
+
+  /* motion */
+  --duration-fast: 0.12s;
+  --duration-base: 0.18s;
+
+  /* layout */
+  --layout-max: 1400px;
+  --sidebar-width: 208px;
+  --gutter: 20px;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --gutter: 16px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-bg: #121212;
+    --color-fg: #f4f4f2;
+    --color-muted: #a3a3a0;
+    --color-faint: #5a5a58;
+    --color-line: #2a2a28;
+    --color-soft: #1b1b1a;
+    --color-on-fg: #121212;
+    --color-danger: #ff5a5f;
+    --shadow-pop: 0 18px 50px rgb(0 0 0 / 0.6);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #121212;
+  --color-fg: #f4f4f2;
+  --color-muted: #a3a3a0;
+  --color-faint: #5a5a58;
+  --color-line: #2a2a28;
+  --color-soft: #1b1b1a;
+  --color-on-fg: #121212;
+  --color-danger: #ff5a5f;
+  --shadow-pop: 0 18px 50px rgb(0 0 0 / 0.6);
+}

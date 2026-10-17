@@ -1,0 +1,419 @@
+import { SCAN_RULE, kindOf } from '../domain/constants.ts'
+import { addWorkdays, localDay, md, nextWorkOrSame, prevWork, todayStr } from '../domain/date.ts'
+import { fulMatch } from '../domain/ful.ts'
+import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort } from '../domain/project.ts'
+import { genKey, normRule, planTodos, rulesFor } from '../domain/rules.ts'
+import {
+  FOLLOWUPS, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type NewTodo,
+} from '../domain/specials.ts'
+import { slotByTime } from '../domain/priority.ts'
+import type { CalEvent, DateStr, Ful, Todo } from '../types/domain.ts'
+import { createMemoryRepository } from './localRepository.ts'
+import { newId, type Repository, type Snapshot } from './repository.ts'
+import {
+  appStore, configOf, defaultConfig, getState as S, removeEvent, removeFul, removeTodo, setEvent, setFul, setTodo,
+} from './store.ts'
+
+/*
+ * 데이터를 바꾸는 모든 동작. 원본(protocol.html)의 store·동기화 함수를 그대로 옮겼다.
+ * 상태를 먼저 바꾸고 저장소에 쓴다. 저장에 실패하면 화면 위쪽에 알린다.
+ */
+
+let repo: Repository = createMemoryRepository()
+export const setRepository = (r: Repository) => {
+  repo = r
+}
+
+async function write(p: Promise<void>) {
+  try {
+    await p
+  } catch (e) {
+    appStore.setState({ notice: '저장하지 못했습니다: ' + (e instanceof Error ? e.message : String(e)) })
+  }
+}
+
+/** 직접 고친 자동 할 일 표시. 규칙이 바뀌어도 덮어쓰지 않는다 */
+export const manualId = (r?: string | null) => (r ? (r.endsWith('-manual') ? r : r + '-manual') : null)
+
+/* ---------- 문서 저장 ---------- */
+
+export async function putEvent(e: Omit<CalEvent, 'id'> & { id?: string }) {
+  const n = { ...e, id: e.id || newId() } as CalEvent
+  setEvent(n)
+  await write(repo.putEvent(n))
+  return n.id
+}
+
+export async function deleteEvent(id: string) {
+  removeEvent(id)
+  await write(repo.deleteEvent(id))
+}
+
+/** 할 일 저장. 완료 상태가 바뀌면 확인 할 일(FOLLOWUPS)을 만들거나 지우거나 옮긴다 */
+export async function putTodo(t0: NewTodo): Promise<string> {
+  const prev = t0.id ? (S().todos.get(t0.id) ?? null) : null
+  let t = slotByTime({ ...t0, id: t0.id || '' }, prev, S().todos)
+  if (!t.id) t = { ...t, id: newId() }
+  setTodo(t)
+  await write(repo.putTodo(t))
+  if (t.done && !prev?.done) await followUpsOnDone(t)
+  else if (!t.done && prev?.done) await followUpsUndo(t)
+  else if (t.done && prev?.done && localDay(t.doneAt) !== localDay(prev.doneAt)) await followUpsRedate(t)
+  return t.id
+}
+
+export async function deleteTodo(id: string) {
+  removeTodo(id)
+  await write(repo.deleteTodo(id))
+}
+
+export async function putFul(f: Omit<Ful, 'id'> & { id?: string }) {
+  const n = { ...f, id: f.id || newId() } as Ful
+  setFul(n)
+  await write(repo.putFul(n))
+  return n.id
+}
+
+export async function deleteFul(id: string) {
+  removeFul(id)
+  await write(repo.deleteFul(id))
+}
+
+export async function putConfig() {
+  await write(repo.putConfig(configOf(S())))
+}
+
+/** 사용자가 지운 할 일: 자동 할 일이면 그 규칙을 외근의 skip 에 남겨 다시 생기지 않게 하고, FUL 에서 온 것이면 메모를 완료로 */
+export async function dismissTodo(id: string) {
+  const t = S().todos.get(id)
+  if (t && t.eventId && t.ruleId) {
+    const base = t.ruleId.replace(/-manual$/, '')
+    const ev = S().events.get(t.eventId)
+    if (ev && !(ev.skip || []).includes(base)) await putEvent({ ...ev, skip: [...(ev.skip || []), base] })
+  }
+  if (t && t.fulId) {
+    const f = S().fuls.get(t.fulId)
+    if (f && !f.done) await putFul({ ...f, done: true })
+  }
+  await deleteTodo(id)
+}
+
+const unlinkFul = (f: Ful): Ful => {
+  const n = { ...f }
+  delete n.todoId
+  delete n.eventId
+  delete n.linkedAt
+  return n
+}
+
+/** 일정 삭제: 미완료 자동 할 일도 지우고(완료한 것은 기록으로 남김), 연결된 FUL 메모는 대기로 되돌린다 */
+export async function deleteEventCascade(id: string) {
+  for (const t of [...S().todos.values()].filter((t) => t.eventId === id && !t.done)) await deleteTodo(t.id)
+  for (const f of [...S().fuls.values()].filter((f) => f.eventId === id)) {
+    const t = f.todoId ? S().todos.get(f.todoId) : null
+    if (t && t.done) continue
+    if (t) await deleteTodo(t.id)
+    await putFul(unlinkFul(f))
+  }
+  await deleteEvent(id)
+}
+
+/* ---------- 완료하면 생기는 확인 할 일 ---------- */
+
+const followId = (t: Todo, fid: string) => safeId('f_' + t.id + '_' + fid)
+
+async function followUpsOnDone(t: Todo) {
+  const day = localDay(t.doneAt) || todayStr()
+  for (const f of FOLLOWUPS) {
+    if (t.followOf || !f.match(t.title || '')) continue
+    const id = followId(t, f.id)
+    if (S().todos.has(id)) continue
+    const due = addWorkdays(day, f.n, S().holidays)
+    await putTodo({
+      id, title: f.title(t.title), project: t.project || '', start: day, due, time: '', tbd: false, autoDue: false, done: false, followOf: t.id,
+      basis: '「' + t.title + '」 완료일 ' + md(day) + ' 후 WD' + f.n + ' = ' + md(due) + ' [' + f.basis + ']',
+      startBasis: '요청 완료한 당일 착수', created: new Date().toISOString(),
+    })
+  }
+}
+
+async function followUpsUndo(t: Todo) {
+  for (const x of [...S().todos.values()].filter((x) => x.followOf === t.id && !x.done)) await deleteTodo(x.id)
+}
+
+/** 완료일을 나중에 고치면 열린 확인 할 일도 따라 옮긴다 (직접 날짜를 바꾼 것은 그대로) */
+async function followUpsRedate(t: Todo) {
+  const day = localDay(t.doneAt) || todayStr()
+  for (const x of [...S().todos.values()].filter((x) => x.followOf === t.id && !x.done && !/직접 변경|Claude가 변경/.test(x.basis || ''))) {
+    const f = FOLLOWUPS.find((f) => followId(t, f.id) === x.id)
+    if (!f) continue
+    const due = addWorkdays(day, f.n, S().holidays)
+    if (x.due === due && x.start === day) continue
+    await putTodo({ ...x, start: day, due, basis: '「' + t.title + '」 완료일 ' + md(day) + ' 후 WD' + f.n + ' = ' + md(due) + ' [' + f.basis + ']' })
+  }
+}
+
+/* ---------- 외근 → 자동 할 일 동기화 ---------- */
+
+const busy = new Set<string>()
+const synced = new Map<string, string>()
+
+/**
+ * 외근의 자동 할 일을 규칙대로 맞춘다. 할 일 id 를 외근+규칙으로 고정해서
+ * 두 창이 동시에 맞춰도 같은 문서를 쓰고 중복되지 않는다.
+ */
+export async function syncEvent(ev: CalEvent, force = false) {
+  const key = genKey(ev, S())
+  if (!force && (ev.genKey === key || synced.get(ev.id) === key)) return
+  if (busy.has(ev.id)) return
+  busy.add(ev.id)
+  try {
+    await linkEnfPrep(ev)
+    await applyFuls(ev)
+    const detId = (r: string) => safeId('a_' + ev.id + '_' + r)
+    const mine = [...S().todos.values()].filter((t) => t.eventId === ev.id)
+    const skip = new Set(ev.skip || [])
+    const plan = planTodos(ev, S()).filter((p) => !skip.has(p.ruleId))
+    const want = new Set(plan.map((p) => detId(p.ruleId)))
+    for (const t of mine) {
+      if (!t.done && t.ruleId && !t.ruleId.endsWith('-manual') && !want.has(t.id)) await deleteTodo(t.id)
+    }
+    /* 이미 맞춘 외근을 다시 맞출 때(날짜·규칙·공휴일 변경): 완료한 할 일은 그대로, 열린 할 일은 날짜만 옮긴다.
+       새로 생길 할 일의 마감이 이미 지났으면 손으로 처리한 일이라 보고 만들지 않는다 */
+    const regen = !!ev.genKey
+    const today = todayStr()
+    for (const p of plan) {
+      if (mine.some((t) => (t.done && t.ruleId === p.ruleId) || t.ruleId === p.ruleId + '-manual')) continue
+      const id = detId(p.ruleId)
+      const old = S().todos.get(id)
+      if (regen && !old && p.due && p.due < today) continue
+      await putTodo({
+        id, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis,
+        ruleId: p.ruleId, verify: p.verify, eventId: ev.id, project: ev.project || '', done: false,
+        rank: old?.rank, note: old?.note, created: old?.created || new Date().toISOString(),
+      })
+    }
+    synced.set(ev.id, key)
+    await putEvent({ ...(S().events.get(ev.id) ?? ev), genKey: key })
+  } finally {
+    busy.delete(ev.id)
+  }
+}
+
+/** 일정이 사라진 자동 할 일·FUL 연결을 정리한다 (방금 만든 것은 2분 동안 둔다) */
+async function cleanOrphans() {
+  const { todos, events, fuls } = S()
+  for (const t of [...todos.values()].filter(
+    (t) => t.eventId && !t.done && !events.has(t.eventId) && !(t.created && Date.now() - Date.parse(t.created) < 120000),
+  ))
+    await deleteTodo(t.id)
+  for (const f of [...fuls.values()].filter((f) => f.eventId && !events.has(f.eventId))) {
+    const t = f.todoId ? S().todos.get(f.todoId) : null
+    if (t && t.done) continue
+    if (t) await deleteTodo(t.id)
+    await putFul(unlinkFul(f))
+  }
+}
+
+export async function syncAll(force = false) {
+  await cleanOrphans()
+  for (const ev of [...S().events.values()]) await syncEvent(ev, force)
+}
+
+/** 엔플론시아 SIV 외근이 등록되면 준비 할 일의 CL·EDC(와 완료한 것)는 외근 규칙에 넘긴다 */
+async function linkEnfPrep(ev: CalEvent) {
+  if (ev.project !== 'MSD - 엔플론시아' || ev.type !== 'SIV') return
+  const c = siteCoreRaw(ev.site)
+  if (c.length < 2) return
+  const rs = rulesFor(ev, S().rules)
+  for (const t of [...S().todos.values()].filter((x) => x.prepKey && !x.eventId && x.prepSite)) {
+    const k = siteCoreRaw(t.prepSite)
+    if (!(k.includes(c) || c.includes(k))) continue
+    const r = rs.find((x) => x.key === t.prepKey)
+    if (!r) await putTodo({ ...t, eventId: ev.id })
+    else if (t.done) await putTodo({ ...t, eventId: ev.id, ruleId: r.id })
+    else await deleteTodo(t.id)
+  }
+}
+
+/** FUL 메모를 가장 가까운 다가오는 해당 외근의 할 일로 (착수 = 등록일, 마감 = 방문 전 영업일) */
+async function applyFuls(ev: CalEvent) {
+  if (kindOf(ev) !== 'visit' || !ev.date || ev.date < todayStr()) return
+  const hol = S().holidays
+  const earlier = (f: Ful) =>
+    [...S().events.values()].some((o) => o.id !== ev.id && o.date && o.date >= todayStr() && o.date < ev.date && fulMatch(f, o))
+  for (const f of [...S().fuls.values()].filter((f) => !f.todoId && !f.done && fulMatch(f, ev) && !earlier(f))) {
+    const id = safeId('fu_' + f.id)
+    if (S().todos.has(id)) continue
+    const reg = nextWorkOrSame(ev.createdDate || todayStr(), hol)
+    let due = prevWork(ev.date, hol)
+    if (due < reg) due = reg
+    await putTodo({
+      id, title: projShort(S().projects, f.project) + ' ' + siteShort(ev.site) + ' ' + ev.type + ' FUL: ' + f.text,
+      project: f.project, start: reg, due, time: '', tbd: false, autoDue: false, done: false, fulId: f.id,
+      basis: 'FUL 메모(' + md(f.created.slice(0, 10)) + ') → ' + md(ev.date) + ' ' + ev.type + ' 등록 · 방문 WD1 전 = ' + md(due),
+      startBasis: '외근 등록한 날 착수', created: new Date().toISOString(),
+    })
+    await putFul({ ...f, todoId: id, eventId: ev.id, linkedAt: todayStr() })
+  }
+}
+
+export async function applyFulsAll() {
+  for (const ev of [...S().events.values()].sort((x, y) => (x.date || '').localeCompare(y.date || ''))) await applyFuls(ev)
+}
+
+/* ---------- 할 일 추가·이동 ---------- */
+
+/** Breztri 승인: 같은 기관의 [대기] 선정 확인 할 일을 완료로 */
+async function closeWaitingSsl(site: string) {
+  const c = siteCore(site)
+  for (const x of [...S().todos.values()].filter((x) => !x.done && x.ruleId && /^r-(b-)?ssl/.test(x.ruleId))) {
+    const ev = x.eventId ? S().events.get(x.eventId) : null
+    const k = siteCore(ev ? ev.site : x.title)
+    if (sameSite(k, c))
+      await putTodo({ ...x, done: true, doneAt: new Date().toISOString(), note: ((x.note || '') + ' 의뢰사 승인 → Site Selection CL 할 일로 넘김').trim() })
+  }
+}
+
+/** 할 일 추가. 특수 키워드 흐름과 "함께 추가할 할 일" 규칙을 적용한다 */
+export async function addTodo(t: NewTodo): Promise<string> {
+  const ap = breztriApproved(t, S())
+  if (ap) {
+    const ids: string[] = []
+    for (const x of ap) ids.push(await putTodo(x))
+    await closeWaitingSsl(ap[0].approvedSite)
+    return ids[0]
+  }
+  const prep = enfSivPrep(t, S())
+  if (prep) {
+    const ids: string[] = []
+    for (const x of prep) ids.push(await putTodo(x))
+    return ids[0]
+  }
+  const ns = newSiteMail(t, S())
+  if (ns) {
+    await putTodo(ns.ca)
+    t = ns.main
+  }
+  const id = await putTodo(t)
+  for (const c of companionsFor(t, S().companions)) {
+    const i = t.title.toLowerCase().indexOf(c.keyword.toLowerCase())
+    const lead = t.title.slice(0, i).trim() || projShort(S().projects, t.project)
+    for (const item of c.items) {
+      await putTodo({
+        title: (lead ? lead + ' ' : '') + item, due: t.due || '', tbd: !!t.tbd, time: t.time || '', start: t.start || '', project: t.project || '',
+        parentId: id, basis: '「' + t.title + '」와 함께 추가 · 마감 같이 이동', done: false, created: new Date().toISOString(),
+      })
+    }
+  }
+  return id
+}
+
+/** 원래 할 일의 마감이 바뀌면 함께 추가된 열린 할 일도 따라 옮긴다 (직접 날짜를 바꾼 것은 제외) */
+export async function syncChildren(parent: Todo) {
+  for (const c of [...S().todos.values()].filter((x) => x.parentId === parent.id && !x.done && !x.ownDate)) {
+    if (c.due === parent.due && !!c.tbd === !!parent.tbd) continue
+    await putTodo({ ...c, due: parent.due || '', tbd: !!parent.tbd, time: parent.time || c.time || '' })
+  }
+}
+
+/** 마감일(또는 착수일)을 d 로 옮긴다. how 는 근거에 남길 말 ("드래그로 변경") */
+export async function moveTodo(t: Todo | undefined, d: DateStr, how: string, field: 'due' | 'start' = 'due') {
+  if (!t) return
+  if (field === 'start') {
+    if (t.start === d) return
+    const nd = t.due && d && d > t.due ? d : t.due
+    await putTodo({ ...t, start: d, due: nd, startBasis: (t.startBasis ? t.startBasis + ' · ' : '') + how + ' → ' + (d ? md(d) : '없음'), ruleId: manualId(t.ruleId) })
+    return
+  }
+  if (t.due === d) return
+  const n: Todo = { ...t, due: d, autoDue: false, basis: (t.basis ? t.basis + ' · ' : '') + how + ' → ' + (d ? md(d) : '날짜 없음'), ruleId: manualId(t.ruleId) }
+  if (n.start && d && n.start > d) n.start = d
+  if (t.parentId) n.ownDate = true
+  await putTodo(n)
+  await syncChildren(n)
+}
+
+/** 지연된 할 일을 다음 영업일로 한 번 미룬다 */
+export async function rollOver(t: Todo) {
+  const nd = addWorkdays(todayStr(), 1, S().holidays)
+  const n: Todo = {
+    ...t, rolled: (t.rolled || 0) + 1, origDue: t.origDue || t.due, due: nd, start: nd, ruleId: manualId(t.ruleId),
+    basis: (t.basis ? t.basis + ' · ' : '') + '이월 ' + ((t.rolled || 0) + 1) + '회: ' + (t.due ? md(t.due) : '') + ' → ' + md(nd),
+  }
+  await putTodo(n)
+  await syncChildren(n)
+}
+
+export async function toSomeday(t: Todo) {
+  await putTodo({ ...t, due: '', start: '', someday: true, ruleId: manualId(t.ruleId), basis: (t.basis ? t.basis + ' · ' : '') + 'Someday로 이동' })
+}
+
+/** 끌어서 정한 순서를 저장 */
+export async function setRanks(ids: string[]) {
+  for (let i = 0; i < ids.length; i++) {
+    const t = S().todos.get(ids[i])
+    if (t && t.rank !== i) await putTodo({ ...t, rank: i })
+  }
+}
+
+/** 직접 정한 순서를 지우고 마감순으로 */
+export async function resetRanks(items: Todo[]) {
+  for (const t of items) {
+    if (t.rank != null) {
+      const n = { ...t }
+      delete n.rank
+      await putTodo(n)
+    }
+  }
+}
+
+export async function toggleDone(t: Todo) {
+  await putTodo({ ...t, done: !t.done, doneAt: !t.done ? new Date().toISOString() : null })
+}
+
+/* ---------- 불러오기 ---------- */
+
+/** 저장소의 데이터를 상태로. 설정은 원본처럼 규칙을 정규화하고 비어 있는 항목은 기본값을 쓴다 */
+export function applySnapshot(snap: Snapshot) {
+  const def = defaultConfig()
+  const c = snap.config
+  appStore.setState({
+    events: new Map(snap.events.map((e) => [e.id, e])),
+    todos: new Map(snap.todos.map((t) => [t.id, t])),
+    fuls: new Map(snap.fuls.map((f) => [f.id, f])),
+    rules: (c?.rules ?? def.rules).map(normRule),
+    projects: c?.projects?.length ? c.projects.map((p) => ({ ...p, sites: [...(p.sites || [])] })) : def.projects,
+    companions: (c?.companions ?? def.companions).map((x) => ({ ...x, items: [...(x.items || [])] })),
+    holidays: c?.holidays ? { ...c.holidays } : def.holidays,
+    notes: c?.notes ?? null,
+    mig: c?.mig ? [...c.mig] : [],
+    loading: false,
+  })
+}
+
+/** 한 번만 실행하는 데이터 보정 */
+async function migrate() {
+  const s = S()
+  if (!s.mig.includes('scan1')) {
+    /* 방문 다음 영업일 서명문서 스캔 규칙을 저장된 규칙에 추가 (나중에 지우면 다시 넣지 않는다) */
+    const rules = s.rules.some((r) => r.id === 'r-scan') ? s.rules : [normRule(SCAN_RULE), ...s.rules]
+    appStore.setState({ rules, mig: [...s.mig, 'scan1'] })
+    await putConfig()
+  }
+}
+
+export async function loadAll() {
+  applySnapshot(await repo.load())
+  await migrate()
+  await syncAll(false)
+}
+
+/** 가져오기: 전체 데이터를 바꾸고 자동 할 일을 맞춘다 */
+export async function replaceAll(snap: Snapshot) {
+  await repo.replaceAll(snap)
+  synced.clear()
+  applySnapshot(snap)
+  await migrate()
+  await syncAll(false)
+}

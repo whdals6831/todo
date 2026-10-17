@@ -1,0 +1,22 @@
+.tag {
+  display: inline-block;
+  background: var(--color-soft);
+  border-radius: var(--radius-pill);
+  padding: 1px var(--space-2);
+  font-size: var(--text-2xs);
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+/* 확인이 필요한 항목: 테두리만 */
+.warn {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-fg);
+  color: var(--color-fg);
+  font-weight: var(--weight-medium);
+}
+
+.danger {
+  background: var(--color-danger-tint);
+  color: var(--color-danger);
+}

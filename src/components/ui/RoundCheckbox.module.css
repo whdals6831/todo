@@ -1,0 +1,34 @@
+.box {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: var(--space-0-5);
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--color-faint);
+  border-radius: var(--radius-full);
+  background: var(--color-bg);
+  transition:
+    border-color var(--duration-fast),
+    background var(--duration-fast);
+}
+.box:hover {
+  border-color: var(--color-fg);
+}
+.box[aria-checked="true"] {
+  background: var(--color-fg);
+  border-color: var(--color-fg);
+}
+.box[aria-checked="true"]::after {
+  content: "";
+  width: 8px;
+  height: 4px;
+  border-left: 1.5px solid var(--color-on-fg);
+  border-bottom: 1.5px solid var(--color-on-fg);
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+.danger {
+  border-color: var(--color-danger);
+}

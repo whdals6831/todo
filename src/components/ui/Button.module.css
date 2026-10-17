@@ -1,0 +1,98 @@
+/* 알약 모양 버튼 */
+.btn {
+  border: 0;
+  background: var(--color-soft);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-tight);
+  white-space: nowrap;
+  transition: background var(--duration-fast);
+}
+.btn:hover {
+  background: var(--color-line);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.solid,
+.btn[aria-pressed="true"] {
+  background: var(--color-fg);
+  color: var(--color-on-fg);
+}
+.solid:hover {
+  background: var(--color-fg);
+  opacity: 0.85;
+}
+
+.ghost {
+  background: transparent;
+  color: var(--color-muted);
+}
+.ghost:hover {
+  background: var(--color-soft);
+  color: var(--color-fg);
+}
+
+.sm {
+  padding: var(--space-1-5) var(--space-3);
+  font-size: var(--text-xs);
+}
+
+/* 아이콘 버튼 */
+.icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  line-height: var(--leading-none);
+  border-radius: var(--radius-full);
+  transition: background var(--duration-fast);
+}
+
+/* ‹ › 이동 */
+.nav {
+  width: 30px;
+  height: 30px;
+  font-size: var(--text-xl);
+  background: transparent;
+  color: var(--color-muted);
+}
+.nav:hover {
+  background: var(--color-soft);
+  color: var(--color-fg);
+}
+
+/* 모달 닫기 × */
+.close {
+  width: 32px;
+  height: 32px;
+  font-size: var(--text-xl);
+  background: var(--color-soft);
+  color: var(--color-fg);
+}
+.close:hover {
+  background: var(--color-line);
+}
+
+/* 줄 끝의 작은 ×·↑·↓ */
+.mini {
+  width: 28px;
+  height: 28px;
+  font-size: var(--text-md);
+  background: transparent;
+  color: var(--color-muted);
+}
+.mini:hover {
+  background: var(--color-soft);
+  color: var(--color-fg);
+}
+.mini:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+}

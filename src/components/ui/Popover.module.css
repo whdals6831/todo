@@ -1,0 +1,17 @@
+.pop {
+  position: absolute;
+  z-index: var(--z-popover);
+  background: var(--color-bg);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  padding: var(--space-3-5);
+}
+
+/* 화면 고정 위치 (캘린더 칸 메뉴) */
+.fixed {
+  position: fixed;
+  z-index: var(--z-menu);
+  border: 0;
+  padding: var(--space-2) var(--space-2-5);
+}

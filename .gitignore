@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# 원본 아티팩트와 실제 업무 데이터 (기관명·PI 실명 포함, 커밋 금지)
+protocol.html
+protocol-data.json
+seed/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -41,3 +41,13 @@
 .error {
   color: var(--color-danger);
 }
+.title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+}
+.lead {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}

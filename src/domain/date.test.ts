@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { DEFAULT_HOLIDAYS as H } from './constants.ts'
-import { addWorkdays, diffDays, holidaysBetween, isWork, md, nextWork, nextWorkOrSame, prevWork, shift } from './date.ts'
+import {
+  addWorkdays, diffDays, holidaysBetween, isWork, localDay, localHM, md, mkDoneAt, nextWork, nextWorkOrSame, prevWork, setTimeZone, shift,
+} from './date.ts'
 
 describe('날짜 계산', () => {
   it('하루씩 움직이고 월·연도를 넘긴다', () => {
@@ -34,5 +36,26 @@ describe('날짜 계산', () => {
   it('사이의 평일 공휴일만 이름과 함께 돌려준다', () => {
     expect(holidaysBetween('2026-10-02', '2026-10-13', H)).toEqual(['10/5(월) 개천절 대체', '10/9(금) 한글날'])
     expect(holidaysBetween('2026-10-13', '2026-10-02', H)).toHaveLength(2)
+  })
+})
+
+/* 테스트는 TZ=Asia/Seoul 로 돈다 (vite.config.ts). 서버처럼 시간대를 직접 정해도 결과가 같아야 한다 */
+describe('시간대', () => {
+  afterEach(() => setTimeZone(''))
+  const instants = ['2026-10-18T14:59:00Z', '2026-10-18T15:00:00Z', '2026-12-31T23:30:00Z', '2026-03-01T00:00:00Z']
+
+  it('Asia/Seoul 로 정하면 기기 시간대(한국)와 같다', () => {
+    const local = instants.map((i) => [localDay(i), localHM(i)])
+    setTimeZone('Asia/Seoul')
+    expect(instants.map((i) => [localDay(i), localHM(i)])).toEqual(local)
+    expect(mkDoneAt('2026-10-19', '08:30')).toBe('2026-10-18T23:30:00.000Z')
+    expect(mkDoneAt('2026-10-19', '', '2026-10-01T00:05:00Z')).toBe('2026-10-19T00:05:00.000Z')
+  })
+
+  it('UTC 로 정하면 UTC 날짜·시각으로 센다', () => {
+    setTimeZone('UTC')
+    expect(localDay('2026-10-18T15:00:00Z')).toBe('2026-10-18')
+    expect(localHM('2026-10-18T15:00:00Z')).toBe('15:00')
+    expect(mkDoneAt('2026-10-19', '08:30')).toBe('2026-10-19T08:30:00.000Z')
   })
 })

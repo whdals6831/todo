@@ -16,6 +16,7 @@ import { supabase } from '@/store/supabase/client.ts'
 import { useApp } from '@/store/ui.ts'
 import { signOut, useAuth } from '../auth/auth.ts'
 import type { NormRule, Rule } from '@/types/domain.ts'
+import { ClaudeSection } from './ClaudeSection.tsx'
 import s from './Settings.module.css'
 
 /** 과제·규칙 설정 */
@@ -28,6 +29,7 @@ export function SettingsView() {
       <RulesSection />
       <HolidaysSection />
       <TransferSection />
+      {supabase && <ClaudeSection client={supabase} />}
       {supabase && <AccountSection />}
     </section>
   )

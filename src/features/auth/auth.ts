@@ -28,7 +28,8 @@ export function watchAuth() {
 export async function sendLoginMail(email: string) {
   const { error } = await supabase!.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: false, emailRedirectTo: window.location.origin },
+    /* 메일 링크를 누르면 지금 보던 화면(Claude 연결 동의 화면 등)으로 돌아온다 */
+    options: { shouldCreateUser: false, emailRedirectTo: window.location.href.split('#')[0] },
   })
   if (error) throw error
 }

@@ -161,7 +161,8 @@ site_url = "http://localhost:5180"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["http://localhost:5180", "http://127.0.0.1:5180"]
+# /** 는 Claude 연결 동의 화면(/oauth/consent)에서 로그인 메일 링크를 눌렀을 때 그 화면으로 돌아오게 한다
+additional_redirect_urls = ["http://localhost:5180", "http://127.0.0.1:5180", "http://localhost:5180/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -368,11 +369,13 @@ enabled = false
 # OAuth server configuration
 [auth.oauth_server]
 # Enable OAuth server functionality
-enabled = false
+# claude.ai 커넥터가 이 프로젝트 계정으로 로그인한다 (supabase/functions/mcp)
+enabled = true
 # Path for OAuth consent flow UI
 authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
-allow_dynamic_registration = false
+# claude.ai 가 스스로 클라이언트를 등록한다. 아무나 등록할 수는 있지만 동의 화면에서 내가 허용해야 접근된다
+allow_dynamic_registration = true
 
 [edge_runtime]
 enabled = true
@@ -387,6 +390,10 @@ deno_version = 2
 
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
+
+# claude.ai 커넥터(MCP 서버). 토큰 확인은 함수가 한다 — 게이트웨이가 막으면 401 로 인증 서버를 알려 줄 수 없다
+[functions.mcp]
+verify_jwt = false
 
 [analytics]
 enabled = true

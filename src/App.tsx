@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { AuthGate } from '@/features/auth/AuthGate.tsx'
 import { watchAuth } from '@/features/auth/auth.ts'
+import { CONSENT_PATH, ConsentGate } from '@/features/auth/ConsentView.tsx'
 import { AppShell } from '@/features/layout/AppShell.tsx'
 import { watchCelebration } from '@/features/layout/celebration.ts'
 import { watchConnectivity } from '@/features/layout/connectivity.ts'
@@ -16,7 +17,10 @@ export default function App() {
     const stops = [watchCelebration(), startClock(), bindShortcuts(), watchConnectivity(), watchAuth()]
     return () => stops.forEach((f) => f())
   }, [])
-  return supabase ? <AuthGate client={supabase} /> : <LocalApp />
+  if (!supabase) return <LocalApp />
+  /* claude.ai 커넥터 연결 동의 화면 */
+  if (window.location.pathname === CONSENT_PATH) return <ConsentGate client={supabase} />
+  return <AuthGate client={supabase} />
 }
 
 function LocalApp() {

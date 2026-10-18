@@ -35,20 +35,6 @@ npm run build
 모든 표는 RLS 로 로그인한 본인 행만 읽고 쓴다. 쓰기는 모아서 보내고, 실패하면 연결될 때 다시 보낸다.
 다른 기기·탭의 변경은 Realtime 으로 받는다.
 
-## Claude 채팅
-
-브라우저는 Anthropic SDK 의 주소만 Supabase Edge Function(`supabase/functions/claude`)으로 바꿔 쓴다.
-함수가 로그인을 확인하고 API 키·모델(`claude-opus-5-5`)·최대 토큰·effort 를 서버에서 정해 Claude 에 보낸다.
-API 키는 브라우저에 가지 않는다. 일정·할 일을 바꾸는 도구는 브라우저에서 실행한다.
-
-```bash
-# API 키는 대화 기록에 남지 않도록 자기 터미널에서 넣는다
-npx supabase secrets set ANTHROPIC_API_KEY=<키>
-npx supabase functions deploy claude
-```
-
-앱 주소가 `http://localhost:5180` 이 아니면 `ALLOWED_ORIGINS` 비밀 값에 쉼표로 넣는다.
-
 ## 구조
 
 - `src/domain` — React 와 무관한 업무 로직 (날짜 파싱, 기한 규칙, 정렬). 원본과 결과가 같은지 비교·테스트했다

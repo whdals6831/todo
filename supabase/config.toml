@@ -415,8 +415,3 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
-
-# Claude 채팅 프록시. 로그인 토큰은 함수 안에서 auth.getUser 로 확인한다
-# (게이트웨이 검사는 새 형식의 키와 맞지 않을 수 있어 끈다)
-[functions.claude]
-verify_jwt = false

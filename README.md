@@ -28,7 +28,7 @@ npm run build
    - Sign In / Providers → Email 켜기, **Allow new users to sign up 끄기** (본인 계정만 쓴다)
    - Users → Add user → Create new user 로 내 이메일 계정을 만든다 (Auto Confirm)
    - URL Configuration → Site URL 과 Redirect URLs 에 앱 주소(`http://localhost:5173` 등)를 넣는다
-   - (선택) Emails → Magic Link 템플릿에 `{{ .Token }}` 을 넣으면 메일의 6자리 코드로도 로그인할 수 있다
+   - (선택) Emails → Magic Link 템플릿에 `{{ .Token }}` 을 넣으면 메일의 인증 코드로도 로그인할 수 있다
 4. `.env.example` 을 `.env.local` 로 복사하고 Project URL 과 Publishable key 를 넣는다.
 5. `npm run dev` → 이메일로 로그인 → 과제·규칙 설정에서 JSON 을 가져온다.
 

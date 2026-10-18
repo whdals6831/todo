@@ -33,7 +33,7 @@ export async function sendLoginMail(email: string) {
   if (error) throw error
 }
 
-/** 메일의 6자리 코드로 로그인 */
+/** 메일의 인증 코드로 로그인 */
 export async function verifyLoginCode(email: string, token: string) {
   const { error } = await supabase!.auth.verifyOtp({ email, token, type: 'email' })
   if (error) throw error

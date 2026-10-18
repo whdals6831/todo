@@ -13,7 +13,7 @@ const message = (e: unknown) => {
   return m
 }
 
-/** 이메일 로그인: 메일로 받은 링크를 누르거나 6자리 코드를 입력한다 */
+/** 이메일 로그인: 메일로 받은 링크를 누르거나 인증 코드를 입력한다 */
 export function LoginView() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
@@ -62,9 +62,9 @@ export function LoginView() {
         </form>
         {sent && (
           <>
-            <p className={s.msg}>{email} 로 로그인 메일을 보냈습니다. 메일의 링크를 이 브라우저에서 누르거나, 메일에 적힌 6자리 코드를 입력하세요.</p>
+            <p className={s.msg}>{email} 로 로그인 메일을 보냈습니다. 메일의 링크를 이 브라우저에서 누르거나, 메일에 적힌 인증 코드를 입력하세요.</p>
             <form className={s.row} onSubmit={verify}>
-              <Input inputMode="numeric" autoComplete="one-time-code" placeholder="6자리 코드" aria-label="로그인 코드" value={code} onChange={(e) => setCode(e.target.value)} />
+              <Input inputMode="numeric" autoComplete="one-time-code" placeholder="인증 코드" aria-label="로그인 코드" value={code} onChange={(e) => setCode(e.target.value)} />
               <Button type="submit" variant="solid" disabled={busy}>
                 확인
               </Button>

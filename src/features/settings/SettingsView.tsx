@@ -66,7 +66,7 @@ function ProjectsSection() {
         <Sub>{msg}</Sub>
       </SectionHeader>
       <Help>
-        새 과제를 배정받으면 여기에 추가하세요. 담당 기관은 한 줄에 하나씩 "09. ○○병원(PI 홍길동)" 형식으로 적으면 외근 등록·FUL 메모의 기관 목록에 그대로 나옵니다. 기관 번호나 PI가 바뀌면 여기서 고치고 과제 저장을 누르세요. 과제 이름을 바꾸면 그 과제의 외근·할 일·규칙에도 같이 반영됩니다.
+        약칭을 비우면 과제 이름을 그대로 씁니다. 담당 기관은 외근 등록·FUL 메모의 기관 목록에 나옵니다. 자동 인식 단어가 할 일 제목에 들어 있으면 그 과제로 분류합니다. 과제 이름을 바꾸면 그 과제의 외근·할 일·규칙도 같이 바뀝니다.
       </Help>
       <div className={s.scroll}>
         <table className={cx(s.table, s.top)} style={{ minWidth: 860 }}>
@@ -157,7 +157,7 @@ function CompanionsSection() {
         <Sub>{msg}</Sub>
       </SectionHeader>
       <Help>
-        할 일 제목에 키워드가 들어가면 아래 할 일이 같은 마감일로 함께 생깁니다. 처음 할 일의 마감일을 옮기면 같이 생긴 할 일도 따라 움직여요. 같이 생긴 할 일의 날짜를 직접 바꾸면 그때부터는 따로 움직입니다.
+        할 일 제목에 키워드가 들어가면 오른쪽 할 일들이 같은 마감일로 함께 생깁니다. 과제를 "전체"로 두면 모든 과제에 적용됩니다.
       </Help>
       <div className={s.scroll}>
         <table className={s.table} style={{ minWidth: 720 }}>
@@ -265,11 +265,16 @@ function RulesSection() {
     <div className={s.section}>
       <SectionHeader title="기한 규칙" />
       <Help>
-        외근을 등록하면 아래 규칙대로 할 일이 만들어집니다. WD는 방문 다음 영업일을 WD1로 셉니다(주말·공휴일 제외). CD는 달력 기준이며, 그날이 휴일이면 직전 영업일로 당깁니다. "보내는 일"에 체크하면 실제 마감을 기한 전 영업일로 잡습니다. 같은 항목이면 과제를 지정한 규칙이 "전체" 규칙보다 우선합니다. PMP를 반영할 때는 과제별 규칙을 추가하는 방식이라 다른 과제에는 영향이 없습니다.
+        외근을 등록하면 아래 규칙대로 할 일이 생깁니다. 같은 항목에 규칙이 여럿이면 과제·방문 종류를 지정한 규칙이 "전체" 규칙보다 우선합니다.
       </Help>
-      <Help>
-        착수일은 마감과 별도로 "언제 시작할지"입니다. 방문 내용을 쓰는 일(리포트, Follow-up Letter)은 방문 다음 영업일에 시작합니다. 방문 직후 하루 안에 기억이 빠르게 흐려지기 때문입니다(에빙하우스 망각곡선). 나머지는 마감 2영업일 전에 시작해서, 일에 드는 시간을 짧게 잡는 경향(계획 오류)에 대비합니다. 착수일이 다른 외근 날과 겹치면 하루 옮깁니다. 저장하면 기존 외근의 미완료 자동 할 일에도 바로 반영됩니다. 완료했거나 날짜를 직접 옮긴 할 일은 그대로 둡니다.
-      </Help>
+      <ul className={s.helpList}>
+        <li><strong>항목</strong>"기타"는 다른 규칙을 덮어쓰지 않고 따로 생깁니다. "이 과제·방문은 자동 할 일 없음"을 고르면 그 외근에는 할 일이 생기지 않습니다.</li>
+        <li><strong>할 일 이름</strong>{'{site}'}는 기관, {'{type}'}은 방문 종류, {'{proj}'}는 과제 약칭으로 바뀝니다.</li>
+        <li><strong>단위</strong>WD는 영업일(방문 다음 영업일이 WD1), CD는 달력 날짜(그날이 휴일이면 직전 영업일), 외근 등록일 기준은 외근을 등록한 날부터 N영업일 뒤입니다.</li>
+        <li><strong>보내는 일</strong>체크하면 마감을 한 영업일 앞당깁니다.</li>
+        <li><strong>확인 필요</strong>PMP 원문으로 확인하지 못한 기한이면 체크하세요. 할 일에 "규칙 확인 필요"가 붙습니다.</li>
+        <li><strong>근거</strong>PMP 조항처럼 기한을 정한 출처를 적으면 할 일의 기한 근거에 같이 나옵니다.</li>
+      </ul>
       <div className={s.scroll}>
         <table className={s.table} style={{ minWidth: 1240 }}>
           <thead>
@@ -344,7 +349,6 @@ function RulesSection() {
           </tbody>
         </table>
       </div>
-      <Help>할 일 이름에 {'{site}'} 기관, {'{type}'} 방문 종류, {'{proj}'} 과제 약칭을 넣을 수 있습니다.</Help>
     </div>
   )
 }
@@ -374,7 +378,7 @@ function HolidaysSection() {
         </Button>
         <Sub>{msg}</Sub>
       </SectionHeader>
-      <Help>한 줄에 하나씩 "YYYY-MM-DD 이름" 형식입니다. 회사 휴무일(예: 국군의날)을 쉬는 날로 셀 거라면 여기에 추가하세요.</Help>
+      <Help>한 줄에 하나씩 "YYYY-MM-DD 이름" 형식으로 적습니다. 여기 적힌 날은 영업일에서 빠지니, 회사 휴무일(예: 국군의날)도 쉬는 날로 셀 거면 추가하세요.</Help>
       <Textarea className={s.holidays} value={text} onChange={(e) => setText(e.target.value)} aria-label="공휴일 목록" />
     </div>
   )
@@ -408,10 +412,7 @@ function TransferSection() {
   return (
     <div className={s.section}>
       <SectionHeader title="데이터 가져오기·내보내기" />
-      <Help>
-        내보낸 JSON 파일(protocol-data.json 형식)을 가져오면 지금 데이터를 모두 바꿉니다.{' '}
-        {supabase ? '서버에 저장된 내 데이터 전체가 바뀌니' : '지금은 이 브라우저에만 저장되니'}, 가져오기 전에 필요하면 먼저 내보내 두세요.
-      </Help>
+      <Help>가져오면 지금 데이터가 모두 파일 내용으로 바뀝니다. 필요하면 먼저 내보내 두세요.</Help>
       <div className={s.transfer}>
         {pending ? (
           <ConfirmLine

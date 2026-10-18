@@ -43,9 +43,7 @@ export function ClaudeSection({ client }: { client: SupabaseClient }) {
   return (
     <div className={s.section}>
       <SectionHeader title="Claude 연결" />
-      <Help>
-        claude.ai → 설정 → 커넥터 → 사용자 지정 커넥터 추가에 아래 주소를 넣고, 열리는 이 앱 화면에서 허용하세요. claude.ai(웹·데스크톱·모바일)에서 일정·할 일을 묻고 추가할 수 있습니다. Claude 구독으로 쓰고 API 키는 필요 없습니다. 연결할 때는 이 앱(개발 서버)이 켜져 있어야 합니다.
-      </Help>
+      <Help>claude.ai → 설정 → 커넥터 → 사용자 지정 커넥터 추가에 아래 주소를 넣고, 열리는 이 앱 화면에서 허용하세요.</Help>
       <div className={s.transfer}>
         <code className={s.url}>{MCP_URL}</code>
         <Button size="sm" onClick={copy}>

@@ -106,7 +106,6 @@
   color: var(--color-muted);
 }
 .help {
-  max-width: 72ch;
   margin: var(--space-1-5) 0 var(--space-4);
   font-size: var(--text-sm);
   line-height: var(--leading-normal);

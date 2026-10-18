@@ -220,6 +220,7 @@ function DayPanel() {
 
   return (
     <div className={s.day}>
+      <div className={s.dayTop}>
       <div className={s.dayHead}>
         <h3>
           {parse(d).getUTCDate()}일<span> {DOW[dow(d)]}요일</span>
@@ -233,6 +234,7 @@ function DayPanel() {
         </Button>
       </div>
       <QuickAdd placeholder="이날 마감인 할 일 바로 추가" label="할 일 제목" defaultDue={d} autoDue={false} style={{ marginTop: 'var(--space-1)' }} />
+      </div>
       {merged.length > 1 && <Sub className={s.dayHelp} style={{ display: 'block' }}>⋮⋮ 손잡이를 위아래로 끌면 우선순위가, 캘린더 칸에 놓으면 날짜가 바뀝니다.</Sub>}
       {!evs.length && !merged.length && <EmptyState>이날 외근과 할 일이 없습니다.</EmptyState>}
       {evs.map((e) => (

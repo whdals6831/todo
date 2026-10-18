@@ -3,6 +3,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   gap: var(--space-12);
+  align-items: start;
 }
 @media (max-width: 1100px) {
   .layout {
@@ -351,6 +352,29 @@
 }
 .dayHead h3 .holName {
   color: var(--color-danger);
+}
+/* 넓은 화면: 캘린더는 그대로 두고, 고른 날 패널만 창 높이 안에서 따로 스크롤 */
+@media (min-width: 1101px) {
+  .day {
+    position: sticky;
+    top: 0;
+    max-height: calc(100dvh - var(--space-14));
+    margin-top: 0;
+    padding: var(--space-5) var(--space-2) var(--space-6) 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  /* 날짜 제목 · 버튼 · 바로 추가 입력창은 위에 붙어 있다 */
+  .dayTop {
+    position: sticky;
+    top: calc(-1 * var(--space-5));
+    z-index: 2;
+    margin-top: calc(-1 * var(--space-5));
+    padding-top: var(--space-5);
+    padding-bottom: var(--space-2);
+    background: var(--color-bg);
+  }
 }
 @media (max-width: 1100px) {
   .day {

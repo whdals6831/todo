@@ -157,12 +157,14 @@ enabled = false
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://localhost:5180"
+# 배포 주소(Cloudflare Workers). Claude 연결 동의 화면도 이 주소 + /oauth/consent 에 열린다
+site_url = "https://todo.whdals6831.workers.dev"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 # /** 는 Claude 연결 동의 화면(/oauth/consent)에서 로그인 메일 링크를 눌렀을 때 그 화면으로 돌아오게 한다
-additional_redirect_urls = ["http://localhost:5180", "http://127.0.0.1:5180", "http://localhost:5180/**"]
+# localhost 는 개발 서버(npm run dev)용
+additional_redirect_urls = ["https://todo.whdals6831.workers.dev", "https://todo.whdals6831.workers.dev/**", "http://localhost:5180", "http://127.0.0.1:5180", "http://localhost:5180/**", "http://127.0.0.1:5180/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

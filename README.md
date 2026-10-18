@@ -35,6 +35,15 @@ npm run build
 모든 표는 RLS 로 로그인한 본인 행만 읽고 쓴다. 쓰기는 모아서 보내고, 실패하면 연결될 때 다시 보낸다.
 다른 기기·탭의 변경은 Realtime 으로 받는다.
 
+## 배포 (Cloudflare Workers)
+
+https://todo.whdals6831.workers.dev — GitHub `main` 에 push 하면 Cloudflare 가 빌드해서 자동으로 배포한다.
+
+- Worker 설정 → Build → 빌드 명령 `npm run build`
+- Build variables and secrets 에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` 를 넣는다.
+  빌드할 때 코드에 들어가는 값이라 런타임 Variables & Secrets 에 넣으면 적용되지 않는다. 바꾼 뒤에는 다시 빌드해야 한다
+- `supabase/config.toml` 의 `site_url`·`additional_redirect_urls` 에 배포 주소가 있어야 로그인 메일 링크가 돌아온다
+
 ## Claude 연결 (claude.ai 커넥터)
 
 Claude 구독(claude.ai)으로 쓴다. API 키는 필요 없다.
@@ -47,7 +56,7 @@ claude.ai 는 Supabase Auth 의 OAuth 2.1 서버로 로그인하고, 이 앱의 
    npx supabase functions deploy mcp --use-api
    ```
    프로젝트가 비대칭 JWT 서명 키(ES256·RS256)를 써야 한다 (Authentication → JWT Keys).
-2. `npm run dev` 로 앱을 켜 둔다 (동의 화면이 Site URL + `/oauth/consent` 에 열린다).
+2. 동의 화면은 Site URL + `/oauth/consent`(배포 주소)에 열린다. 개발 서버를 켜 둘 필요는 없다.
 3. claude.ai → 설정 → 커넥터 → 사용자 지정 커넥터 추가 → 주소에 `https://<project-ref>.supabase.co/functions/v1/mcp` → 연결 → 앱 화면에서 허용.
 4. 끊으려면 claude.ai 에서 커넥터를 연결 해제하거나, 앱의 과제·규칙 설정 → Claude 연결에서 연결 끊기.
 

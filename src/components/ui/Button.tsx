@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react'
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from 'react'
 import { cx } from '@/lib/cx.ts'
 import s from './Button.module.css'
 
@@ -18,6 +18,16 @@ export function Button({ variant = 'default', size = 'md', pressed, className, t
       {...rest}
     />
   )
+}
+
+interface LinkButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
+  variant?: 'default' | 'solid' | 'ghost'
+  size?: 'md' | 'sm'
+}
+
+/** 버튼처럼 보이는 링크 (다른 페이지로 갈 때) */
+export function LinkButton({ variant = 'default', size = 'md', className, ...rest }: LinkButtonProps) {
+  return <a className={cx(s.btn, s.link, variant !== 'default' && s[variant], size === 'sm' && s.sm, className)} {...rest} />
 }
 
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

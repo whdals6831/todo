@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { md } from '@/domain/date.ts'
 import { todayCount } from '@/domain/daySets.ts'
-import { Button } from '@/components/ui/Button.tsx'
+import { Button, LinkButton } from '@/components/ui/Button.tsx'
+import { supabase } from '@/store/supabase/client.ts'
 import { setUi, setView, ui, useApp, useUi, type View } from '@/store/ui.ts'
 import { openEvent } from '../event/openEvent.ts'
 import { openTodoForView } from './shortcuts.ts'
@@ -51,6 +52,12 @@ export function Sidebar() {
         <Button title="단축키 N" onClick={openTodoForView}>
           + 할 일 <kbd>N</kbd>
         </Button>
+        {/* Claude 는 claude.ai 커넥터로 이 앱의 Supabase 데이터를 쓰므로 로그인해 쓸 때만 */}
+        {supabase && (
+          <LinkButton href="https://claude.ai/new" target="_blank" rel="noopener noreferrer" title="claude.ai 를 새 탭으로 엽니다 (To Do 커넥터를 켜고 채팅)">
+            Claude 열기 ↗
+          </LinkButton>
+        )}
       </div>
       <button type="button" className={s.settings} aria-pressed={view === 'rules'} onClick={() => setView('rules')}>
         과제·규칙 설정

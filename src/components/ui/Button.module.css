@@ -17,6 +17,11 @@
   opacity: 0.5;
   cursor: default;
 }
+.link {
+  color: inherit;
+  text-align: center;
+  text-decoration: none;
+}
 
 .solid,
 .btn[aria-pressed="true"] {

@@ -30,7 +30,8 @@
   --shadow-panel: -16px 0 48px rgb(0 0 0 / 0.08);
 
   /* typography */
-  --font-serif: "ZEN SERIF", "Nanum Myeongjo", "AppleMyungjo", "Batang", serif;
+  /* 영문·숫자는 Seshat, 한글은 Hahmlet (fonts.css · index.html) */
+  --font-serif: "Seshat", "Hahmlet", "Nanum Myeongjo", "AppleMyungjo", "Batang", serif;
 
   --text-3xs: 10px; /* 좁은 화면의 캘린더 칩 전용 */
   --text-2xs: 11px;

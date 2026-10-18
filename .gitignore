@@ -27,6 +27,3 @@ seed/
 *.njsproj
 *.sln
 *.sw?
-
-# 라이선스상 재배포 금지 폰트 (원본 woff를 로컬에만 둔다)
-public/fonts/

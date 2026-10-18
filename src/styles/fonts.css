@@ -1,12 +1,14 @@
 /*
- * ZEN SERIF (OA Entertainment · Leedotype) — 무료 사용 가능하나 수정·재배포 금지.
- * 그래서 파일을 변환하지 않고 원본 woff 그대로 public/fonts 에 두며, 저장소에는 커밋하지 않는다.
- * 파일이 없으면 --font-serif 의 대체 서체로 표시된다.
+ * 영문·숫자: Seshat (Sora Sagano / DOT COLON, CC0 퍼블릭 도메인 — https://dotcolon.net/font/seshat)
+ *   원본 OTF 를 woff2 로만 변환했다. 한글이 없어서 한글은 다음 글꼴로 넘어간다.
+ *   소문자 높이가 작은 글꼴이라 대문자 높이를 이전 글꼴(ZEN SERIF, 0.756em)에 맞춰 키운다.
+ * 한글: 함렛 Hahmlet (OFL) — index.html 에서 Google Fonts 로 불러온다.
  */
 @font-face {
-  font-family: "ZEN SERIF";
-  src: url("/fonts/zen-serif.woff") format("woff");
+  font-family: "Seshat";
+  src: url("../assets/fonts/seshat.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
+  size-adjust: 114%;
 }

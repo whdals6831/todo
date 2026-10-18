@@ -7,9 +7,9 @@ import {
   FOLLOWUPS, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type NewTodo,
 } from '../domain/specials.ts'
 import { slotByTime } from '../domain/priority.ts'
-import type { CalEvent, DateStr, Ful, Notes, Rule, Todo } from '../types/domain.ts'
+import type { CalEvent, Config, DateStr, Ful, Notes, Rule, Todo } from '../types/domain.ts'
 import { createMemoryRepository } from './localRepository.ts'
-import { newId, type Repository, type Snapshot } from './repository.ts'
+import { newId, type DocTable, type RemoteChange, type Repository, type Snapshot } from './repository.ts'
 import {
   appStore, configOf, defaultConfig, getState as S, removeEvent, removeFul, removeTodo, setEvent, setFul, setTodo,
 } from './store.ts'
@@ -20,9 +20,19 @@ import {
  */
 
 let repo: Repository = createMemoryRepository()
+let unsubscribe: (() => void) | null = null
+
+/** 저장소를 바꾼다 (로그인·로그아웃). 이전 저장소의 구독은 끊는다 */
 export const setRepository = (r: Repository) => {
+  unsubscribe?.()
+  unsubscribe = null
+  repo.dispose?.()
   repo = r
+  r.onStatus?.((sync) => appStore.setState({ sync }))
 }
+
+/** 쌓인 쓰기를 지금 보낸다 (로그아웃·다시 연결될 때) */
+export const flushWrites = () => repo.flush?.() ?? Promise.resolve()
 
 async function write(p: Promise<void>) {
   try {
@@ -462,21 +472,60 @@ export async function updateFul(f: Ful, patch: Partial<Ful>) {
 
 /* ---------- 불러오기 ---------- */
 
-/** 저장소의 데이터를 상태로. 설정은 원본처럼 규칙을 정규화하고 비어 있는 항목은 기본값을 쓴다 */
-export function applySnapshot(snap: Snapshot) {
+/** 설정을 상태로. 원본처럼 규칙을 정규화하고 비어 있는 항목은 기본값을 쓴다 */
+function configState(c: Config | null) {
   const def = defaultConfig()
-  const c = snap.config
-  appStore.setState({
-    events: new Map(snap.events.map((e) => [e.id, e])),
-    todos: new Map(snap.todos.map((t) => [t.id, t])),
-    fuls: new Map(snap.fuls.map((f) => [f.id, f])),
+  return {
     rules: (c?.rules ?? def.rules).map(normRule),
     projects: c?.projects?.length ? c.projects.map((p) => ({ ...p, sites: [...(p.sites || [])] })) : def.projects,
     companions: (c?.companions ?? def.companions).map((x) => ({ ...x, items: [...(x.items || [])] })),
     holidays: c?.holidays ? { ...c.holidays } : def.holidays,
     notes: c?.notes ?? null,
     mig: c?.mig ? [...c.mig] : [],
+  }
+}
+
+/** 저장소의 데이터를 상태로 */
+export function applySnapshot(snap: Snapshot) {
+  appStore.setState({
+    events: new Map(snap.events.map((e) => [e.id, e])),
+    todos: new Map(snap.todos.map((t) => [t.id, t])),
+    fuls: new Map(snap.fuls.map((f) => [f.id, f])),
+    ...configState(snap.config),
     loading: false,
+  })
+}
+
+/** 다른 기기·탭에서 온 변경을 상태에 반영한다 (저장소에는 다시 쓰지 않는다) */
+export function applyRemote(c: RemoteChange) {
+  if (c.table === 'settings') appStore.setState(configState(c.config))
+  else if (c.type === 'delete') (c.table === 'events' ? removeEvent : c.table === 'todos' ? removeTodo : removeFul)(c.id)
+  else if (c.table === 'events') setEvent(c.doc)
+  else if (c.table === 'todos') setTodo(c.doc)
+  else setFul(c.doc)
+}
+
+/** 연결이 끊긴 사이 놓친 변경을 맞춘다. 아직 보내지 못한 내 변경(있음·지움)은 그대로 둔다 */
+export async function resync() {
+  let snap: Snapshot
+  try {
+    snap = await repo.load()
+  } catch {
+    return
+  }
+  const pending = (t: DocTable | 'settings', id: string) => repo.isPending?.(t, id) ?? false
+  const merge = <T extends { id: string }>(table: DocTable, local: Map<string, T>, remote: T[]) => {
+    const m = new Map<string, T>()
+    for (const d of remote) if (!pending(table, d.id)) m.set(d.id, d)
+    for (const [id, d] of local) if (pending(table, id)) m.set(id, d)
+    return m
+  }
+  const s = S()
+  appStore.setState({
+    events: merge('events', s.events, snap.events),
+    todos: merge('todos', s.todos, snap.todos),
+    fuls: merge('fuls', s.fuls, snap.fuls),
+    ...(pending('settings', '') ? {} : configState(snap.config)),
   })
 }
 
@@ -492,12 +541,25 @@ async function migrate() {
 }
 
 export async function loadAll() {
-  applySnapshot(await repo.load())
+  unsubscribe?.()
+  try {
+    applySnapshot(await repo.load())
+  } catch (e) {
+    appStore.setState({ loading: false, notice: '불러오지 못했습니다: ' + (e instanceof Error ? e.message : String(e)) })
+    return
+  }
+  unsubscribe = repo.subscribe?.({ change: applyRemote, reconnected: () => void resync() }) ?? null
   await migrate()
   await syncAll(false)
 }
 
-/** 가져오기: 전체 데이터를 바꾸고 자동 할 일을 맞춘다 */
+/** 구독을 끊는다 (로그아웃) */
+export function stopSync() {
+  unsubscribe?.()
+  unsubscribe = null
+}
+
+/** 가져오기: 전체 데이터를 바꾸고 자동 할 일을 맞춘다. 저장소가 거부하면 Error 를 던진다 */
 export async function replaceAll(snap: Snapshot) {
   await repo.replaceAll(snap)
   synced.clear()

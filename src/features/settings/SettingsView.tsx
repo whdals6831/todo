@@ -8,11 +8,13 @@ import { ConfirmLine, Help, SectionHeader, Sub, ViewHeader } from '@/components/
 import { cx } from '@/lib/cx.ts'
 import { newId } from '@/store/repository.ts'
 import {
-  replaceAll, saveCompanions, saveHolidays, saveProjects, saveRules, type ProjectDraft,
+  flushWrites, replaceAll, saveCompanions, saveHolidays, saveProjects, saveRules, type ProjectDraft,
 } from '@/store/actions.ts'
 import { getState } from '@/store/store.ts'
 import { parseExport, toExport } from '@/store/transfer.ts'
+import { supabase } from '@/store/supabase/client.ts'
 import { useApp } from '@/store/ui.ts'
+import { signOut, useAuth } from '../auth/auth.ts'
 import type { NormRule, Rule } from '@/types/domain.ts'
 import s from './Settings.module.css'
 
@@ -26,6 +28,7 @@ export function SettingsView() {
       <RulesSection />
       <HolidaysSection />
       <TransferSection />
+      {supabase && <AccountSection />}
     </section>
   )
 }
@@ -404,7 +407,8 @@ function TransferSection() {
     <div className={s.section}>
       <SectionHeader title="데이터 가져오기·내보내기" />
       <Help>
-        내보낸 JSON 파일(protocol-data.json 형식)을 가져오면 지금 데이터를 모두 바꿉니다. 지금은 이 브라우저에만 저장되니, 가져오기 전에 필요하면 먼저 내보내 두세요.
+        내보낸 JSON 파일(protocol-data.json 형식)을 가져오면 지금 데이터를 모두 바꿉니다.{' '}
+        {supabase ? '서버에 저장된 내 데이터 전체가 바뀌니' : '지금은 이 브라우저에만 저장되니'}, 가져오기 전에 필요하면 먼저 내보내 두세요.
       </Help>
       <div className={s.transfer}>
         {pending ? (
@@ -414,8 +418,13 @@ function TransferSection() {
             onConfirm={async () => {
               const p = pending
               setPending(null)
-              await replaceAll(p.snap)
-              setMsg('가져왔습니다. 자동 할 일도 규칙에 맞춰 확인했습니다.')
+              setMsg('가져오는 중…')
+              try {
+                await replaceAll(p.snap)
+                setMsg('가져왔습니다. 자동 할 일도 규칙에 맞춰 확인했습니다.')
+              } catch (e) {
+                setMsg('가져오지 못했습니다: ' + (e instanceof Error ? e.message : String(e)))
+              }
             }}
             onCancel={() => setPending(null)}
           />
@@ -437,6 +446,33 @@ function TransferSection() {
             if (f) pick(f)
           }}
         />
+      </div>
+    </div>
+  )
+}
+
+/* ---------- 계정 (Supabase 에 저장할 때만) ---------- */
+
+function AccountSection() {
+  const email = useAuth((a) => a.email)
+  const pending = useApp((st) => st.sync.pending)
+  const [busy, setBusy] = useState(false)
+  return (
+    <div className={s.section}>
+      <SectionHeader title="계정" />
+      <div className={s.transfer}>
+        <Sub>{email} 로 로그인 · Supabase 에 저장{pending ? ' · 보낼 변경 ' + pending + '건' : ''}</Sub>
+        <Button
+          size="sm"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true)
+            await flushWrites()
+            await signOut()
+          }}
+        >
+          로그아웃
+        </Button>
       </div>
     </div>
   )

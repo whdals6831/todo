@@ -41,8 +41,15 @@ function Notice() {
   const loading = useApp((st) => st.loading)
   const notice = useApp((st) => st.notice)
   const empty = useApp((st) => !st.events.size && !st.todos.size && st.projects.length <= 1)
+  const sync = useApp((st) => st.sync)
   const view = useUi((u) => u.view)
   if (loading) return <div className={s.notice}>불러오는 중…</div>
+  if (sync.error && sync.pending)
+    return (
+      <div className={s.notice} role="alert">
+        저장하지 못한 변경 {sync.pending}건 — 연결되면 자동으로 다시 보냅니다. ({sync.error})
+      </div>
+    )
   if (notice)
     return (
       <div className={s.notice} role="alert">

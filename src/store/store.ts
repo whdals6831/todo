@@ -1,14 +1,17 @@
 import { createStore } from 'zustand/vanilla'
 import { DEFAULT_COMPANIONS, DEFAULT_HOLIDAYS, DEFAULT_PROJECTS, DEFAULT_RULES } from '../domain/constants.ts'
 import type { CalEvent, Config, Data, Ful, Notes, Todo } from '../types/domain.ts'
+import type { SyncStatus } from './repository.ts'
 
 export interface AppState extends Data {
   notes: Notes | null
   mig: string[]
   /** 저장소에서 처음 읽어 오기 전 */
   loading: boolean
-  /** 화면 위쪽 안내 문구 (저장 실패 등) */
+  /** 화면 위쪽 안내 문구 (불러오기 실패 등) */
   notice: string
+  /** 서버에 아직 쓰지 못한 변경과 마지막 오류 */
+  sync: SyncStatus
 }
 
 export const defaultConfig = (): Config => ({
@@ -27,6 +30,7 @@ const initial = (): AppState => ({
   fuls: new Map(),
   loading: true,
   notice: '',
+  sync: { pending: 0, error: '' },
 })
 
 /** 앱 데이터. React 밖(동기화 로직·테스트)에서도 getState/setState 로 쓴다 */

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import bunny from '@/assets/bunny.png'
 import { appStore } from '@/store/store.ts'
 import { setUi, setView, useApp, useUi } from '@/store/ui.ts'
@@ -15,8 +15,12 @@ import { TodayView } from '../today/TodayView.tsx'
 import { Sidebar } from './Sidebar.tsx'
 import s from './AppShell.module.css'
 
+/* 채팅(Anthropic SDK 포함)은 처음 열 때 불러온다 */
+const ChatPanel = lazy(() => import('../chat/ChatPanel.tsx').then((m) => ({ default: m.ChatPanel })))
+
 export function AppShell() {
   const view = useUi((u) => u.view)
+  const chatOpen = useUi((u) => u.chatOpen)
   return (
     <div className={s.shell}>
       <Sidebar />
@@ -32,6 +36,11 @@ export function AppShell() {
       </main>
       <Overlays />
       <Celebration />
+      {chatOpen && (
+        <Suspense fallback={null}>
+          <ChatPanel />
+        </Suspense>
+      )}
     </div>
   )
 }

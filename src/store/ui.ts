@@ -41,6 +41,8 @@ interface UiState {
   now: number
   /** 오늘 할 일을 다 끝낸 순간의 축하 표시 */
   celebrate: number
+  /** Claude 채팅 패널 */
+  chatOpen: boolean
 }
 
 const now = () => {
@@ -64,6 +66,7 @@ export const useUi = create<UiState>()(() => ({
   foldOpen: new Set(),
   ...now(),
   celebrate: 0,
+  chatOpen: false,
 }))
 
 export const ui = useUi.getState

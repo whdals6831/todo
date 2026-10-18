@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { md } from '@/domain/date.ts'
 import { todayCount } from '@/domain/daySets.ts'
 import { Button } from '@/components/ui/Button.tsx'
+import { supabase } from '@/store/supabase/client.ts'
 import { setUi, setView, ui, useApp, useUi, type View } from '@/store/ui.ts'
 import { openEvent } from '../event/openEvent.ts'
 import { openTodoForView } from './shortcuts.ts'
@@ -18,6 +19,7 @@ const MENU: [View, string, 'all' | 'today' | 'ful' | null][] = [
 export function Sidebar() {
   const view = useUi((u) => u.view)
   const today = useUi((u) => u.today)
+  const chatOpen = useUi((u) => u.chatOpen)
   const todos = useApp((st) => st.todos)
   const fuls = useApp((st) => st.fuls)
   const counts = {
@@ -51,6 +53,12 @@ export function Sidebar() {
         <Button title="단축키 N" onClick={openTodoForView}>
           + 할 일 <kbd>N</kbd>
         </Button>
+        {/* 채팅은 Supabase 의 Claude 프록시를 거치므로 로그인해 쓸 때만 */}
+        {supabase && (
+          <Button pressed={chatOpen} onClick={() => setUi({ chatOpen: !chatOpen })}>
+            Claude 채팅
+          </Button>
+        )}
       </div>
       <button type="button" className={s.settings} aria-pressed={view === 'rules'} onClick={() => setView('rules')}>
         과제·규칙 설정

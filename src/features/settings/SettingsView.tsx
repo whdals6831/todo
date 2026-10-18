@@ -507,7 +507,7 @@ function PasswordForm({ email }: { email: string }) {
     <form className={cx(s.transfer, s.password)} onSubmit={submit}>
       {/* 비밀번호 관리자가 어느 계정의 비밀번호인지 알게 한다 */}
       <input type="email" autoComplete="username" value={email} readOnly hidden />
-      <Input size="sm" type="password" autoComplete="new-password" placeholder="새 비밀번호 (12자 이상)" aria-label="새 비밀번호" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <Input size="sm" type="password" autoComplete="new-password" placeholder="새 비밀번호 (8자 이상)" aria-label="새 비밀번호" value={password} onChange={(e) => setPassword(e.target.value)} />
       <Input size="sm" type="password" autoComplete="new-password" placeholder="새 비밀번호 확인" aria-label="새 비밀번호 확인" value={again} onChange={(e) => setAgain(e.target.value)} />
       <Button size="sm" type="submit" disabled={busy || !password}>
         비밀번호 바꾸기

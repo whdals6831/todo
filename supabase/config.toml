@@ -162,7 +162,7 @@ site_url = "https://todo.whdals6831.workers.dev"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-# /** 는 Claude 연결 동의 화면(/oauth/consent)에서 로그인 메일 링크를 눌렀을 때 그 화면으로 돌아오게 한다
+# /** 는 메일 링크(이메일 변경 확인 등)를 눌렀을 때 보던 화면으로 돌아오게 한다
 # localhost 는 개발 서버(npm run dev)용
 additional_redirect_urls = ["https://todo.whdals6831.workers.dev", "https://todo.whdals6831.workers.dev/**", "http://localhost:5180", "http://127.0.0.1:5180", "http://localhost:5180/**", "http://127.0.0.1:5180/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
@@ -184,7 +184,7 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+minimum_password_length = 12
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""

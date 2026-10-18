@@ -26,11 +26,10 @@ npm run build
    ```
 3. 대시보드 Authentication 설정
    - Sign In / Providers → Email 켜기, **Allow new users to sign up 끄기** (본인 계정만 쓴다)
-   - Users → Add user → Create new user 로 내 이메일 계정을 만든다 (Auto Confirm)
+   - Users → Add user → Create new user 로 내 이메일·비밀번호 계정을 만든다 (Auto Confirm). 비밀번호는 앱의 과제·규칙 → 계정에서 바꾼다
    - URL Configuration → Site URL 과 Redirect URLs 에 앱 주소(`http://localhost:5180` 등)를 넣는다 (`npx supabase config push` 로도 된다)
-   - (선택) Emails → Magic Link 템플릿에 `{{ .Token }}` 을 넣으면 메일의 인증 코드로도 로그인할 수 있다
 4. `.env.example` 을 `.env.local` 로 복사하고 Project URL 과 Publishable key 를 넣는다.
-5. `npm run dev` → 이메일로 로그인 → 과제·규칙 설정에서 JSON 을 가져온다.
+5. `npm run dev` → 이메일·비밀번호로 로그인 → 과제·규칙 설정에서 JSON 을 가져온다.
 
 모든 표는 RLS 로 로그인한 본인 행만 읽고 쓴다. 쓰기는 모아서 보내고, 실패하면 연결될 때 다시 보낸다.
 다른 기기·탭의 변경은 Realtime 으로 받는다.
@@ -42,7 +41,7 @@ https://todo.whdals6831.workers.dev — GitHub `main` 에 push 하면 Cloudflare
 - Worker 설정 → Build → 빌드 명령 `npm run build`
 - Build variables and secrets 에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` 를 넣는다.
   빌드할 때 코드에 들어가는 값이라 런타임 Variables & Secrets 에 넣으면 적용되지 않는다. 바꾼 뒤에는 다시 빌드해야 한다
-- `supabase/config.toml` 의 `site_url`·`additional_redirect_urls` 에 배포 주소가 있어야 로그인 메일 링크가 돌아온다
+- `supabase/config.toml` 의 `site_url` 이 배포 주소여야 Claude 연결 동의 화면이 열린다
 
 ## Claude 연결 (claude.ai 커넥터)
 

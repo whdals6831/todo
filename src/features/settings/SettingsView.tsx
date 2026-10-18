@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { BUILTIN_ALIASES, KEYS, TYPES, TYPE_LABEL } from '@/domain/constants.ts'
 import { projShort } from '@/domain/project.ts'
 import { normRule } from '@/domain/rules.ts'
@@ -14,7 +14,7 @@ import { getState } from '@/store/store.ts'
 import { parseExport, toExport } from '@/store/transfer.ts'
 import { supabase } from '@/store/supabase/client.ts'
 import { useApp } from '@/store/ui.ts'
-import { signOut, useAuth } from '../auth/auth.ts'
+import { changePassword, signOut, useAuth } from '../auth/auth.ts'
 import type { NormRule, Rule } from '@/types/domain.ts'
 import { ClaudeSection } from './ClaudeSection.tsx'
 import s from './Settings.module.css'
@@ -476,6 +476,43 @@ function AccountSection() {
           로그아웃
         </Button>
       </div>
+      <PasswordForm email={email} />
     </div>
+  )
+}
+
+function PasswordForm({ email }: { email: string }) {
+  const [password, setPassword] = useState('')
+  const [again, setAgain] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (password !== again) return setMsg('두 비밀번호가 다릅니다.')
+    setBusy(true)
+    try {
+      await changePassword(password)
+      setPassword('')
+      setAgain('')
+      setMsg('비밀번호를 바꿨습니다.')
+    } catch (err) {
+      setMsg('바꾸지 못했습니다: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className={cx(s.transfer, s.password)} onSubmit={submit}>
+      {/* 비밀번호 관리자가 어느 계정의 비밀번호인지 알게 한다 */}
+      <input type="email" autoComplete="username" value={email} readOnly hidden />
+      <Input size="sm" type="password" autoComplete="new-password" placeholder="새 비밀번호 (12자 이상)" aria-label="새 비밀번호" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <Input size="sm" type="password" autoComplete="new-password" placeholder="새 비밀번호 확인" aria-label="새 비밀번호 확인" value={again} onChange={(e) => setAgain(e.target.value)} />
+      <Button size="sm" type="submit" disabled={busy || !password}>
+        비밀번호 바꾸기
+      </Button>
+      {msg && <Sub>{msg}</Sub>}
+    </form>
   )
 }

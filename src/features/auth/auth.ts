@@ -24,19 +24,15 @@ export function watchAuth() {
   return () => data.subscription.unsubscribe()
 }
 
-/** 로그인 링크·코드를 메일로 보낸다. 가입은 막혀 있어 등록된 계정만 받는다 */
-export async function sendLoginMail(email: string) {
-  const { error } = await supabase!.auth.signInWithOtp({
-    email,
-    /* 메일 링크를 누르면 지금 보던 화면(Claude 연결 동의 화면 등)으로 돌아온다 */
-    options: { shouldCreateUser: false, emailRedirectTo: window.location.href.split('#')[0] },
-  })
+/** 이메일·비밀번호로 로그인. 가입은 막혀 있어 등록된 계정만 들어온다 */
+export async function signIn(email: string, password: string) {
+  const { error } = await supabase!.auth.signInWithPassword({ email, password })
   if (error) throw error
 }
 
-/** 메일의 인증 코드로 로그인 */
-export async function verifyLoginCode(email: string, token: string) {
-  const { error } = await supabase!.auth.verifyOtp({ email, token, type: 'email' })
+/** 로그인한 계정의 비밀번호를 바꾼다 (최소 길이는 config.toml 의 minimum_password_length) */
+export async function changePassword(password: string) {
+  const { error } = await supabase!.auth.updateUser({ password })
   if (error) throw error
 }
 

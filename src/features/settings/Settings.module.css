@@ -84,6 +84,10 @@
   gap: var(--space-2);
 }
 
+.password {
+  margin-top: var(--space-3);
+}
+
 .url {
   font-size: var(--text-xs);
   overflow-wrap: anywhere;

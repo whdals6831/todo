@@ -55,8 +55,25 @@ export const SCAN_RULE: Rule = {
   basis: '본인 기준: 방문 때 받아 온 서명문서는 다음 영업일(WD1)에 스캔·eTMF 업로드', start: 'due', startN: 0,
 }
 
+/** 방문 전 서명문서 준비·인쇄 규칙 */
+export const PREP_RULES: Rule[] = [
+  {
+    id: 'r-psv-sign-prep', key: '', type: 'PSV', project: '*', title: '{proj} {site} PSV 서명문서 준비',
+    dir: 'before', n: 2, unit: 'WD', send: false, verify: false, basis: '본인 기준: PSV 방문 WD2 전까지 서명문서 준비', start: 'lead', startN: 1,
+  },
+  {
+    id: 'r-siv-script-print', key: '', type: 'SIV', project: '*', title: '{proj} {site} SIV PPT 발표 스크립트 포함 1부 인쇄',
+    dir: 'before', n: 1, unit: 'WD', send: false, verify: false, basis: '본인 기준: SIV 전날(방문 WD1 전) 준비', start: 'due', startN: 0,
+  },
+  {
+    id: 'r-b-psv-pamphlet', key: '', type: 'PSV', project: 'AZ - Breztri', title: '{proj} {site} PSV 보험급여 안내 팜플렛 인쇄 (15분)',
+    dir: 'before', n: 1, unit: 'WD', send: false, verify: false, basis: '본인 기준: PSV 전날(방문 WD1 전) 준비', start: 'due', startN: 0,
+  },
+]
+
 export const DEFAULT_RULES: Rule[] = [
   { ...SCAN_RULE },
+  ...PREP_RULES.map((r) => ({ ...r })),
   { id: 'r-cl', key: 'CL', type: '*', project: '*', title: '{site} {type} Confirmation Letter 발송', dir: 'before', n: 3, unit: 'WD', send: true, verify: true, basis: 'PMP 확인 필요 (임시값)', start: 'lead', startN: 2 },
   { id: 'r-rpt', key: 'OWN', type: '*', project: '*', title: '{site} {type}R 작성', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, basis: '방문 리포트 본인 작성 기한 WD5', start: 'fresh', startN: 0 },
   { id: 'r-pm', key: 'REPORT', type: '*', project: '*', title: 'PM - {proj} {site} {type} (WD10)', dir: 'after', n: 10, unit: 'WD', send: false, verify: false, basis: 'PM 리포트 검토 기한 WD10', start: 'lead', startN: 2 },

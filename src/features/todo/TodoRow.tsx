@@ -2,13 +2,14 @@ import { useState, type ReactNode } from 'react'
 import { localDay, md } from '@/domain/date.ts'
 import { dLabel, isUrgent } from '@/domain/priority.ts'
 import { projShort } from '@/domain/project.ts'
+import { signDocsFor } from '@/domain/signDocs.ts'
 import { Button } from '@/components/ui/Button.tsx'
 import { Highlight } from '@/components/ui/Highlight.tsx'
 import { ConfirmLine } from '@/components/ui/Layout.tsx'
 import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
-import { dismissTodo, rollOver, toSomeday, toggleDone } from '@/store/actions.ts'
+import { dismissTodo, rollOver, toSomeday, toggleDone, toggleSignDoc } from '@/store/actions.ts'
 import { openModal, openPopover, useApp } from '@/store/ui.ts'
 import type { Todo } from '@/types/domain.ts'
 import { startDrag, wasJustDropped } from '../drag/drag.ts'
@@ -28,8 +29,13 @@ const openEdit = (t: Todo) => openModal({ kind: 'todoEdit', id: t.id })
 
 export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const projects = useApp((s) => s.projects)
+  const notes = useApp((s) => s.notes)
+  const events = useApp((s) => s.events)
+  const [docsOpen, setDocsOpen] = useState(false)
   const urgent = isUrgent(t)
   const dd = localDay(t.doneAt)
+  const docs = signDocsFor(t, notes, events)
+  const checks = t.checks || []
 
   const due = t.done ? (
     <button
@@ -101,7 +107,35 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
             <span className={s.rolled}>{'이월 ' + t.rolled + '회' + (t.origDue ? ' · 원래 마감 ' + md(t.origDue) : '')}</span>
           )}
           {t.note && <span>{t.note}</span>}
+          {docs.length > 0 && (
+            <button
+              type="button"
+              className={s.docsBtn}
+              aria-expanded={docsOpen}
+              onClick={(e) => {
+                e.stopPropagation()
+                setDocsOpen((o) => !o)
+              }}
+            >
+              {'서명문서 ' + docs.filter((d) => checks.includes(d.t)).length + '/' + docs.length + (docsOpen ? ' ▴' : ' ▾')}
+            </button>
+          )}
         </div>
+        {docsOpen && docs.length > 0 && (
+          /* 체크해도 편집 창이 열리지 않게 */
+          <ol className={s.docs} onClick={(e) => e.stopPropagation()}>
+            {docs.map((d, i) => {
+              const on = checks.includes(d.t)
+              return (
+                <li key={i} className={cx(on && s.docOn)}>
+                  <RoundCheckbox checked={on} onToggle={() => toggleSignDoc(t.id, d.t)} label={d.t + ' 체크'} />
+                  <span className={s.docT}>{d.t}</span>
+                  {d.w && <span className={s.docW}>{d.w}</span>}
+                </li>
+              )
+            })}
+          </ol>
+        )}
         {extra}
       </div>
       {due}

@@ -65,6 +65,45 @@
   color: var(--color-danger);
 }
 
+/* 서명문서 체크리스트 (업무 노트의 서명 문서) */
+.docsBtn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: var(--weight-medium);
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--color-faint);
+  cursor: pointer;
+}
+.docs {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  cursor: default;
+}
+.docs li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-0-5) var(--space-2);
+  padding: var(--space-1-5) 0;
+  border-top: 1px dashed var(--color-line);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+.docW {
+  grid-column: 2;
+  font-size: var(--text-2xs);
+  color: var(--color-muted);
+}
+.docOn .docT {
+  color: var(--color-faint);
+  text-decoration: line-through;
+}
+
 /* 오른쪽 날짜: 누르면 바꾸기 */
 .due {
   margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1-5)) 0 0;

@@ -63,6 +63,8 @@ export interface Todo {
   /** 착수일 근거 문장 */
   startBasis?: string
   note?: string
+  /** 서명문서 체크리스트에서 체크한 문서 이름 */
+  checks?: string[]
   /** PMP 원문으로 확인되지 않은 임시 규칙에서 나온 할 일 */
   verify?: boolean
   /** 자동 할 일을 만든 일정 */

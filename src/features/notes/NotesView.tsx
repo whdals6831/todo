@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { create } from 'zustand'
+import { sortDocs } from '@/domain/signDocs.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { Input } from '@/components/ui/Field.tsx'
 import { EmptyState, Label, ViewHeader } from '@/components/ui/Layout.tsx'
@@ -18,17 +19,6 @@ const byVisit = (a: NoteSection, b: NoteSection) => {
   const j = NOTE_ORDER.indexOf(b.v)
   return (i < 0 ? 99 : i) - (j < 0 ? 99 : j)
 }
-
-/** 서명 문서 순서: PSV 미참석 연구진(해당 인력) → PI만 → 그 외. 같은 묶음 안은 원래 순서 */
-function docGroup(it: NoteItem) {
-  const t = String(it.t || '')
-  const w = String(it.w || '').trim()
-  if (/미참석|해당\s*(연구진|인력)|PSV 때 못 받았|추가 인력/.test(t + ' ' + w)) return 0
-  if (/^PI(만)?(\s*[·(]|$)/.test(w)) return 1
-  return 2
-}
-const sortDocs = (arr: NoteItem[]) =>
-  arr.map((it, i) => [it, i] as const).sort((a, b) => docGroup(a[0]) - docGroup(b[0]) || a[1] - b[1]).map((x) => x[0])
 
 /** 고른 과제·펼친 방문 (다른 화면에 다녀와도 기억) */
 const useNoteUi = create<{ proj: string; open: Set<string> }>()(() => ({ proj: '', open: new Set() }))

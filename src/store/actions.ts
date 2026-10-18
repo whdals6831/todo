@@ -1,4 +1,4 @@
-import { SCAN_RULE, kindOf } from '../domain/constants.ts'
+import { PREP_RULES, SCAN_RULE, kindOf } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort } from '../domain/project.ts'
@@ -200,7 +200,7 @@ export async function syncEvent(ev: CalEvent, force = false) {
       await putTodo({
         id, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis,
         ruleId: p.ruleId, verify: p.verify, eventId: ev.id, project: ev.project || '', done: false,
-        rank: old?.rank, note: old?.note, created: old?.created || new Date().toISOString(),
+        rank: old?.rank, note: old?.note, checks: old?.checks, created: old?.created || new Date().toISOString(),
       })
     }
     synced.set(ev.id, key)
@@ -382,6 +382,14 @@ export async function toggleDone(t: Todo) {
   await putTodo({ ...t, done: !t.done, doneAt: !t.done ? new Date().toISOString() : null })
 }
 
+/** 서명문서 체크리스트에서 문서 하나를 체크하거나 푼다 */
+export async function toggleSignDoc(id: string, doc: string) {
+  const t = S().todos.get(id)
+  if (!t) return
+  const cur = t.checks || []
+  await putTodo({ ...t, checks: cur.includes(doc) ? cur.filter((x) => x !== doc) : [...cur, doc] })
+}
+
 /* ---------- 설정 ---------- */
 
 export interface ProjectDraft {
@@ -531,11 +539,19 @@ export async function resync() {
 
 /** 한 번만 실행하는 데이터 보정 */
 async function migrate() {
-  const s = S()
-  if (!s.mig.includes('scan1')) {
+  if (!S().mig.includes('scan1')) {
     /* 방문 다음 영업일 서명문서 스캔 규칙을 저장된 규칙에 추가 (나중에 지우면 다시 넣지 않는다) */
+    const s = S()
     const rules = s.rules.some((r) => r.id === 'r-scan') ? s.rules : [normRule(SCAN_RULE), ...s.rules]
     appStore.setState({ rules, mig: [...s.mig, 'scan1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('prep1')) {
+    /* 서명문서 준비·인쇄 규칙 추가. 마감이 지난 외근에는 syncEvent 가 새로 만들지 않는다 */
+    const s = S()
+    const have = new Set(s.rules.map((r) => r.id))
+    const rules = [...s.rules, ...PREP_RULES.filter((r) => !have.has(r.id)).map(normRule)]
+    appStore.setState({ rules, mig: [...s.mig, 'prep1'] })
     await putConfig()
   }
 }

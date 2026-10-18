@@ -6,9 +6,10 @@ import type { CalEvent, Config, Ful, Notes, Todo } from '../../types/domain.ts'
  *  - 날짜: 앱의 "" 는 null 로 저장. 읽을 때 앱이 늘 문자열로 다루는 칸(마감·착수·종료일)만 "" 로 돌린다
  *  - 시각(timestamptz): DB 는 "+00:00" 으로 돌려주므로 앱이 쓰는 toISOString 형식("…Z")으로 맞춘다
  *  - 없는 값(undefined)은 null 로 보낸다. upsert 는 보낸 컬럼만 바꾸므로 지운 필드도 반드시 null 로 보내야 한다
+ *  - opt 는 나중에 추가한 컬럼이라 없는 값을 보내지 않는다 (그 컬럼을 아직 안 만든 DB 에도 다른 칸은 저장되게)
  */
 
-type Kind = 'text' | 'date' | 'datestr' | 'ts' | 'value'
+type Kind = 'text' | 'date' | 'datestr' | 'ts' | 'value' | 'opt'
 /** [앱 필드, DB 컬럼, 종류]. datestr = 비면 "" 로 읽는 날짜 */
 type Col = readonly [string, string, Kind]
 
@@ -27,7 +28,7 @@ export const TODO_COLS: readonly Col[] = [
   ['note', 'note', 'text'], ['verify', 'verify', 'value'], ['eventId', 'event_id', 'text'], ['ruleId', 'rule_id', 'text'],
   ['parentId', 'parent_id', 'text'], ['ownDate', 'own_date', 'value'], ['followOf', 'follow_of', 'text'], ['fulId', 'ful_id', 'text'],
   ['prepKey', 'prep_key', 'text'], ['prepSite', 'prep_site', 'text'], ['approvedSite', 'approved_site', 'text'],
-  ['created', 'created', 'ts'], ['source', 'source', 'text'],
+  ['created', 'created', 'ts'], ['source', 'source', 'text'], ['checks', 'checks', 'opt'],
 ]
 
 export const FUL_COLS: readonly Col[] = [
@@ -49,6 +50,7 @@ function toRow(doc: object, cols: readonly Col[]): Row {
   const row: Row = {}
   for (const [key, col, kind] of cols) {
     const v = o[key]
+    if (v === undefined && kind === 'opt') continue
     if (v === undefined || ((kind === 'date' || kind === 'datestr' || kind === 'ts') && v === '')) row[col] = null
     else row[col] = v
   }

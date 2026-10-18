@@ -395,7 +395,7 @@ function TransferSection() {
     const blob = new Blob([JSON.stringify(toExport(getState()), null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = 'protocol-' + new Date().toISOString().slice(0, 10) + '.json'
+    a.download = 'todo-' + new Date().toISOString().slice(0, 10) + '.json'
     a.click()
     URL.revokeObjectURL(a.href)
   }
@@ -404,7 +404,7 @@ function TransferSection() {
     <div className={s.section}>
       <SectionHeader title="데이터 가져오기·내보내기" />
       <Help>
-        Protocol 에서 내보낸 JSON(protocol-data.json 형식)을 가져오면 지금 데이터를 모두 바꿉니다. 지금은 이 브라우저에만 저장되니, 가져오기 전에 필요하면 먼저 내보내 두세요.
+        내보낸 JSON 파일(protocol-data.json 형식)을 가져오면 지금 데이터를 모두 바꿉니다. 지금은 이 브라우저에만 저장되니, 가져오기 전에 필요하면 먼저 내보내 두세요.
       </Help>
       <div className={s.transfer}>
         {pending ? (

@@ -32,7 +32,7 @@ export function Sidebar() {
     <nav className={s.side} aria-label="메뉴">
       <div className={s.brand}>
         <h1>
-          Protocol<span className={s.tagline}>CRA desk</span>
+          To Do<span className={s.tagline}>CRA desk</span>
         </h1>
         <span className={s.today}>{todayLabel}</span>
       </div>

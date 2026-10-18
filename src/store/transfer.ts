@@ -3,7 +3,7 @@ import type { Snapshot } from './repository.ts'
 import { configOf, type AppState } from './store.ts'
 
 /*
- * 가져오기·내보내기 파일 형식. 원본 아티팩트 DB 를 내보낸 protocol-data.json 과 같다:
+ * 가져오기·내보내기 파일 형식. 원본 Protocol 아티팩트 DB 를 내보낸 protocol-data.json 과 같다:
  * { collections: { events: {id: 문서}, todos, fuls, config: { main: 설정 } } }
  */
 
@@ -38,7 +38,7 @@ function docs<T extends { id: string }>(v: unknown, name: string): T[] {
 
 /** 내보낸 파일을 읽어 저장소 데이터로. 형식이 다르면 이유를 담은 Error */
 export function parseExport(json: unknown): Snapshot {
-  if (!isObj(json) || !isObj(json.collections)) throw new Error('collections 가 없는 파일입니다. Protocol 에서 내보낸 JSON 인지 확인해 주세요.')
+  if (!isObj(json) || !isObj(json.collections)) throw new Error('collections 가 없는 파일입니다. 이 앱에서 내보낸 JSON 인지 확인해 주세요.')
   const c = json.collections
   const events = docs<CalEvent>(c.events, 'events')
   const todos = docs<Todo>(c.todos, 'todos')
@@ -75,7 +75,7 @@ export function toExport(s: AppState): ExportFile {
   const { notes, ...cfg } = configOf(s)
   return {
     exportedAt: new Date().toISOString(),
-    source: 'Protocol',
+    source: 'To Do',
     collections: {
       events: byId(s.events.values()),
       todos: byId(s.todos.values()),

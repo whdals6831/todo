@@ -2,7 +2,7 @@ import { PREP_RULES, SCAN_RULE, kindOf } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort } from '../domain/project.ts'
-import { genKey, normRule, planTodos, rulesFor } from '../domain/rules.ts'
+import { genKey, manualTwin, normRule, planTodos, rulesFor } from '../domain/rules.ts'
 import {
   FOLLOWUPS, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type NewTodo,
 } from '../domain/specials.ts'
@@ -196,6 +196,13 @@ export async function syncEvent(ev: CalEvent, force = false) {
       if (mine.some((t) => (t.done && t.ruleId === p.ruleId) || t.ruleId === p.ruleId + '-manual')) continue
       const id = detId(p.ruleId)
       const old = S().todos.get(id)
+      /* 같은 일을 직접 만들어 두었으면 새로 만들지 않고, 그 할 일을 이 외근·규칙의 직접 고친 할 일로 잇는다 */
+      const twin = manualTwin(ev, p.title, S().todos.values(), S().projects)
+      if (twin) {
+        await putTodo({ ...twin, eventId: ev.id, ruleId: p.ruleId + '-manual' })
+        if (old && !old.done) await deleteTodo(id)
+        continue
+      }
       if (regen && !old && p.due && p.due < today) continue
       await putTodo({
         id, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis,

@@ -1,9 +1,9 @@
-import type { CalEvent, Data, DateStr, NormRule, Rule } from '../types/domain.ts'
+import type { CalEvent, Data, DateStr, NormRule, Project, Rule, Todo } from '../types/domain.ts'
 import { DEFAULT_KEYMAP, DEFAULT_STARTMAP, START_WHY, URGENT_PROJECTS, coversDay, kindOf } from './constants.ts'
 import {
   addWorkdays, holidaysBetween, isWork, md, nextWork, nextWorkOrSame, prevWork, shift, todayStr,
 } from './date.ts'
-import { projShort, siteShort } from './project.ts'
+import { projShort, sameSite, siteCore, siteShort, stripProj } from './project.ts'
 
 type RuleCtx = Pick<Data, 'rules' | 'holidays'>
 type PlanCtx = Pick<Data, 'rules' | 'holidays' | 'events' | 'projects'>
@@ -146,6 +146,35 @@ export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
   })
 }
 
+const norm = (s: string) => s.toLowerCase().replace(/[\s_-]/g, '')
+
+/** 제목에서 과제·기관·방문 종류·소요 시간을 뺀 나머지 (같은 일인지 비교용). 이 외근의 기관이 없거나 다른 방문 종류면 null */
+function taskCore(title: string, ev: CalEvent, projects: Project[]): string | null {
+  const site = siteCore(ev.site)
+  let hasSite = false
+  const rest: string[] = []
+  for (const w of stripProj(projects, title.replace(/\(\s*\d+\s*분\s*\)/g, ' '), ev.project || '').split(/\s+/).filter(Boolean)) {
+    if (/^(psv|siv|mv|cov|add-?on)$/i.test(w)) {
+      if (norm(w) !== norm(ev.type || '')) return null
+    } else if (siteCore(w).length >= 2 && sameSite(siteCore(w), site)) hasSite = true
+    else rest.push(w)
+  }
+  return hasSite ? rest.join('').toLowerCase() : null
+}
+
+/** 규칙으로 만들 할 일과 같은 일을 직접 만들어 둔 할 일 (같은 과제·기관, 마감이 방문 전후 30일 안) */
+export function manualTwin(ev: CalEvent, title: string, todos: Iterable<Todo>, projects: Project[]): Todo | undefined {
+  const want = taskCore(title, ev, projects)
+  if (!want) return undefined
+  for (const t of todos) {
+    if (t.eventId || t.parentId || t.followOf || t.fulId || t.prepKey || t.project !== ev.project) continue
+    if (!t.due || t.due < shift(ev.date, -30) || t.due > shift(ev.date, 30)) continue
+    const got = taskCore(t.title, ev, projects)
+    if (got != null && (got === want || (want.length >= 4 && got.includes(want)))) return t
+  }
+  return undefined
+}
+
 /** 키를 정렬한 JSON — 저장소가 키 순서를 바꿔도(Firestore·Postgres jsonb) 같은 문자열이 나온다 */
 export function stableStringify(v: unknown): string {
   if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']'
@@ -159,4 +188,4 @@ export function stableStringify(v: unknown): string {
 
 /** 자동 할 일을 만든 입력의 서명. 바뀌었을 때만 다시 만든다 */
 export const genKey = (ev: CalEvent, { rules }: RuleCtx) =>
-  ['v3', ev.date, ev.type, ev.project, ev.site, stableStringify(rulesFor(ev, rules))].join('|')
+  ['v4', ev.date, ev.type, ev.project, ev.site, stableStringify(rulesFor(ev, rules))].join('|')

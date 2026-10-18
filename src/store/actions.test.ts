@@ -37,7 +37,7 @@ describe('외근 → 자동 할 일', () => {
     ])
     await syncEvent(getState().events.get('ev1')!, true)
     expect(todos()).toHaveLength(2)
-    expect(getState().events.get('ev1')!.genKey).toMatch(/^v3\|2026-10-21\|MV/)
+    expect(getState().events.get('ev1')!.genKey).toMatch(/^v4\|2026-10-21\|MV/)
   })
 
   it('직접 지운 자동 할 일은 skip 에 남아 다시 생기지 않는다', async () => {
@@ -58,6 +58,15 @@ describe('외근 → 자동 할 일', () => {
     expect(moved.basis).toContain('드래그로 변경 → 10/30(금)')
     await syncEvent({ ...getState().events.get('ev1')!, date: '2026-10-22' }, true)
     expect(getState().todos.get('a_ev1_r-ful')!.due).toBe('2026-10-30')
+  })
+
+  it('같은 일을 직접 만들어 두었으면 자동 할 일 대신 그 할 일을 외근에 잇는다', async () => {
+    await putEvent(visit)
+    await syncEvent(visit)
+    const id = await addTodo({ title: 'Pj 가나대 MV FUL', project: 'P', due: '2026-10-24', done: false })
+    await syncEvent(getState().events.get('ev1')!, true)
+    expect(todos().map((t) => t.id).sort()).toEqual(['a_ev1_r-cl', id].sort())
+    expect(getState().todos.get(id)).toMatchObject({ eventId: 'ev1', ruleId: 'r-ful-manual', due: '2026-10-24' })
   })
 })
 

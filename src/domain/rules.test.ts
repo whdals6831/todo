@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CalEvent, Rule } from '../types/domain.ts'
 import { DEFAULT_HOLIDAYS as holidays, ENF } from './constants.ts'
-import { computeDue, computeStart, genKey, planTodos, rulesFor, stableStringify } from './rules.ts'
+import { computeDue, computeStart, genKey, manualTwin, planTodos, rulesFor, stableStringify } from './rules.ts'
 
 const projects = [
   { name: 'AZ - Imjudo', short: 'Imjudo', sites: ['09. 가나대병원(PI 홍길동)'] },
@@ -97,5 +97,24 @@ describe('planTodos · genKey', () => {
     const b = Object.fromEntries(Object.entries(a).reverse()) as unknown as Rule
     expect(genKey(visit(), { rules: [a], holidays })).toBe(genKey(visit(), { rules: [b], holidays }))
     expect(stableStringify({ b: 1, a: [{ d: 2, c: undefined }] })).toBe('{"a":[{"d":2}],"b":1}')
+  })
+})
+
+describe('manualTwin', () => {
+  const ev = visit({ type: 'PSV', date: '2026-10-23', site: '09. 가나대학교병원(PI 홍길동)' })
+  const todo = (title: string, o = {}) => ({ id: 'm', title, project: 'AZ - Imjudo', due: '2026-10-20', ...o })
+
+  it('과제 이름·소요 시간 표기가 달라도 같은 기관·방문의 같은 일이면 찾는다', () => {
+    expect(manualTwin(ev, 'Imjudo 가나대학교병원 PSV 서명문서 준비', [todo('이뮤도 가나대 PSV 서명문서 준비')], projects)?.id).toBe('m')
+    expect(manualTwin(ev, 'Imjudo 가나대학교병원 PSV 팜플렛 인쇄 (15분)', [todo('이뮤도 가나대학교병원 PSV 팜플렛 인쇄')], projects)?.id).toBe('m')
+  })
+
+  it('다른 일·다른 방문 종류·다른 기관·먼 날짜·외근에서 만든 할 일은 찾지 않는다', () => {
+    const title = 'Imjudo 가나대학교병원 PSV 서명문서 준비'
+    expect(manualTwin(ev, title, [todo('이뮤도 가나대 PSV 팜플렛 인쇄')], projects)).toBeUndefined()
+    expect(manualTwin(ev, title, [todo('이뮤도 가나대 SIV 서명문서 준비')], projects)).toBeUndefined()
+    expect(manualTwin(ev, title, [todo('이뮤도 다라대 PSV 서명문서 준비')], projects)).toBeUndefined()
+    expect(manualTwin(ev, title, [todo('이뮤도 가나대 PSV 서명문서 준비', { due: '2026-08-01' })], projects)).toBeUndefined()
+    expect(manualTwin(ev, title, [todo('이뮤도 가나대 PSV 서명문서 준비', { eventId: 'ev0' })], projects)).toBeUndefined()
   })
 })

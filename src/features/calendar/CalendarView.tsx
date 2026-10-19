@@ -3,7 +3,7 @@ import { DOW, diffDays, dow, fmt, md, parse, shift, todayStr } from '@/domain/da
 import { kindLabel, kindOf } from '@/domain/constants.ts'
 import { calendarDeadlines, dayComplete, dayTodos, eventsOn } from '@/domain/daySets.ts'
 import { pmpOn, type PmpDue } from '@/domain/pmp.ts'
-import { byPriority, isUrgent } from '@/domain/priority.ts'
+import { byPriority, dLabel, isUrgent } from '@/domain/priority.ts'
 import { chipSite, projShort, siteShort } from '@/domain/project.ts'
 import { deadlineChipText } from '@/domain/specials.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
@@ -217,6 +217,7 @@ const monthDay = (d: DateStr) => parse(d).getUTCMonth() + 1 + '월 ' + parse(d).
 /** 그날이 PMP 마감인 것: 일정 줄과 같은 모양 (시간 자리에 마감, 태그에 과제). 이어진 할 일을 끝냈으면 끝낸 날을 붙인다 */
 function PmpRow({ due: x }: { due: PmpDue }) {
   const projects = useApp((st) => st.projects)
+  const dl = dLabel(x.date)
   const late = x.doneDay && x.doneDay > x.date ? diffDays(x.date, x.doneDay) : 0
   const state = x.doneDay
     ? monthDay(x.doneDay) + ' 완료' + (late ? ' · ' + late + '일 지나서' : '')
@@ -233,6 +234,7 @@ function PmpRow({ due: x }: { due: PmpDue }) {
         </div>
         {state && <Sub>{state}</Sub>}
       </div>
+      {!x.doneDay && <span className={cx(s.pmpLeft, (dl.late || dl.soon) && s.pmpUrgent)}>{dl.t}</span>}
     </div>
   )
 }

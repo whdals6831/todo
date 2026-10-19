@@ -402,6 +402,17 @@ span.pmpLabel {
 .pmpDone span.pmpLabel {
   color: var(--color-faint);
 }
+/* 마감까지 남은 날 (D-3 · 오늘 · 2일 지남) */
+.pmpLeft {
+  padding-top: 1px;
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.pmpUrgent {
+  font-weight: var(--weight-semibold);
+  color: var(--color-danger);
+}
 /* 끝낸 마감: 할 일처럼 줄을 긋는다 */
 .pmpDone .pmpName {
   font-weight: var(--weight-regular);

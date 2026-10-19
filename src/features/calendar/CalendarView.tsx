@@ -4,17 +4,19 @@ import { kindLabel, kindOf } from '@/domain/constants.ts'
 import { calendarDeadlines, dayComplete, dayTodos, eventsOn } from '@/domain/daySets.ts'
 import { pmpOn, type PmpDue } from '@/domain/pmp.ts'
 import { byPriority, isUrgent } from '@/domain/priority.ts'
-import { chipSite, projShort } from '@/domain/project.ts'
+import { chipSite, projShort, siteShort } from '@/domain/project.ts'
 import { deadlineChipText } from '@/domain/specials.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Label, Sub } from '@/components/ui/Layout.tsx'
 import { Popover } from '@/components/ui/Popover.tsx'
 import { SegmentedControl } from '@/components/ui/SegmentedControl.tsx'
+import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
 import { closePopover, goToday, openModal, openPopover, setUi, ui, useApp, useUi } from '@/store/ui.ts'
 import type { CalEvent, DateStr, Todo } from '@/types/domain.ts'
 import { wasJustDropped, startDrag } from '../drag/drag.ts'
 import { EventRow } from '../event/EventRow.tsx'
+import es from '../event/EventRow.module.css'
 import { openEvent } from '../event/openEvent.ts'
 import { QuickAdd } from '../todo/QuickAdd.tsx'
 import { RankInfo, ReorderList } from '../todo/TodoList.tsx'
@@ -212,26 +214,26 @@ export function CellMenu({ date, anchor }: { date: DateStr; anchor: DOMRect }) {
 /** "10월 16일" */
 const monthDay = (d: DateStr) => parse(d).getUTCMonth() + 1 + '월 ' + parse(d).getUTCDate() + '일'
 
-/** 그날이 PMP 마감인 것: 작게 한 줄씩. 이어진 할 일을 끝냈으면 끝낸 날을 붙인다 */
-function PmpLines({ items }: { items: PmpDue[] }) {
+/** 그날이 PMP 마감인 것: 일정 줄과 같은 모양 (시간 자리에 마감, 태그에 과제). 이어진 할 일을 끝냈으면 끝낸 날을 붙인다 */
+function PmpRow({ due: x }: { due: PmpDue }) {
+  const projects = useApp((st) => st.projects)
+  const late = x.doneDay && x.doneDay > x.date ? diffDays(x.date, x.doneDay) : 0
+  const state = x.doneDay
+    ? monthDay(x.doneDay) + ' 완료' + (late ? ' · ' + late + '일 지나서' : '')
+    : x.linked && x.date < todayStr()
+      ? '미완료'
+      : ''
   return (
-    <ul className={s.pmp} aria-label="이날 PMP 마감">
-      {items.map((x) => {
-        const late = x.doneDay && x.doneDay > x.date ? diffDays(x.date, x.doneDay) : 0
-        const state = x.doneDay
-          ? monthDay(x.doneDay) + ' 완료' + (late ? ' · ' + late + '일 지나서' : '')
-          : x.linked && x.date < todayStr()
-            ? '미완료'
-            : ''
-        return (
-          <li key={x.key} className={cx(x.doneDay && s.pmpDone)}>
-            <b>마감</b>
-            <span>{chipSite(x.ev.site) + ' ' + x.ev.type + ' · ' + x.item}</span>
-            {state && <span className={s.pmpState}>{state}</span>}
-          </li>
-        )
-      })}
-    </ul>
+    <div className={cx(es.row, x.doneDay && s.pmpDone)}>
+      <span className={cx(es.time, s.pmpLabel)}>마감</span>
+      <div className={es.body}>
+        <div className={es.name}>
+          <Tag>{projShort(projects, x.ev.project)}</Tag>
+          {siteShort(x.ev.site) + ' ' + x.ev.type + ' · ' + x.item}
+        </div>
+        {state && <Sub>{state}</Sub>}
+      </div>
+    </div>
   )
 }
 
@@ -269,7 +271,9 @@ function DayPanel() {
       {evs.map((e) => (
         <EventRow key={e.id} event={e} />
       ))}
-      {pmp.length > 0 && <PmpLines items={pmp} />}
+      {pmp.map((x) => (
+        <PmpRow key={x.key} due={x} />
+      ))}
       {merged.length > 0 && (
         <>
           <div className={s.listHead}>

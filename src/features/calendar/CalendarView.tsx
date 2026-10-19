@@ -1,7 +1,7 @@
 import bunny from '@/assets/bunny.png'
-import { DOW, dow, fmt, md, parse, shift } from '@/domain/date.ts'
+import { DOW, diffDays, dow, fmt, localDay, md, parse, shift, todayStr } from '@/domain/date.ts'
 import { kindLabel, kindOf } from '@/domain/constants.ts'
-import { calendarDeadlines, dayComplete, dayTodos, eventsOn } from '@/domain/daySets.ts'
+import { calendarDeadlines, dayComplete, dayTodos, deadlinesOn, doneElsewhere, eventsOn } from '@/domain/daySets.ts'
 import { byPriority, isUrgent } from '@/domain/priority.ts'
 import { chipSite, projShort } from '@/domain/project.ts'
 import { deadlineChipText } from '@/domain/specials.ts'
@@ -9,11 +9,13 @@ import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Label, Sub } from '@/components/ui/Layout.tsx'
 import { Popover } from '@/components/ui/Popover.tsx'
 import { SegmentedControl } from '@/components/ui/SegmentedControl.tsx'
+import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
 import { closePopover, goToday, openModal, openPopover, setUi, ui, useApp, useUi } from '@/store/ui.ts'
 import type { CalEvent, DateStr, Todo } from '@/types/domain.ts'
 import { wasJustDropped, startDrag } from '../drag/drag.ts'
 import { EventRow } from '../event/EventRow.tsx'
+import es from '../event/EventRow.module.css'
 import { openEvent } from '../event/openEvent.ts'
 import { QuickAdd } from '../todo/QuickAdd.tsx'
 import { RankInfo, ReorderList } from '../todo/TodoList.tsx'
@@ -208,6 +210,36 @@ export function CellMenu({ date, anchor }: { date: DateStr; anchor: DOMRect }) {
   )
 }
 
+/** "10월 16일" */
+const monthDay = (d: DateStr) => parse(d).getUTCMonth() + 1 + '월 ' + parse(d).getUTCDate() + '일'
+
+/** 그날 마감인 할 일을 일정처럼 한 줄로. 끝냈으면 언제 끝냈는지 아래에 작게 */
+function DeadlineRow({ todo: t }: { todo: Todo }) {
+  const projects = useApp((st) => st.projects)
+  const doneDay = t.done ? localDay(t.doneAt) : ''
+  const late = doneDay && t.due && doneDay > t.due ? diffDays(t.due, doneDay) : 0
+  const state = t.done
+    ? (doneDay ? monthDay(doneDay) + ' 완료' : '완료') + (late ? ' · 마감 ' + late + '일 지나서' : '')
+    : t.due && t.due < todayStr()
+      ? '미완료'
+      : ''
+  return (
+    <div className={es.row}>
+      <span className={es.time}>{t.time || '--:--'}</span>
+      <div className={es.body}>
+        <div className={es.name}>
+          <Tag>마감</Tag>
+          {t.title}
+        </div>
+        <Sub>{[t.project ? projShort(projects, t.project) : '', state].filter(Boolean).join(' · ')}</Sub>
+      </div>
+      <Button size="sm" onClick={() => openModal({ kind: 'todoEdit', id: t.id })}>
+        편집
+      </Button>
+    </div>
+  )
+}
+
 /** 고른 날의 일정과 할 일 (오늘 할 일 화면과 같은 목록) */
 function DayPanel() {
   const d = useUi((u) => u.sel)
@@ -216,7 +248,10 @@ function DayPanel() {
   const todos = useApp((st) => st.todos)
   const hol = useApp((st) => st.holidays[d])
   const evs = eventsOn(d, events)
-  const merged = dayTodos(d, todos).sort(byPriority)
+  const dls = deadlinesOn(d, todos)
+  const merged = dayTodos(d, todos)
+    .filter((t) => !doneElsewhere(t, d))
+    .sort(byPriority)
 
   return (
     <div className={s.day}>
@@ -236,9 +271,12 @@ function DayPanel() {
       <QuickAdd placeholder="이날 마감인 할 일 바로 추가" label="할 일 제목" defaultDue={d} autoDue={false} style={{ marginTop: 'var(--space-1)' }} />
       </div>
       {merged.length > 1 && <Sub className={s.dayHelp} style={{ display: 'block' }}>⋮⋮ 손잡이를 위아래로 끌면 우선순위가, 캘린더 칸에 놓으면 날짜가 바뀝니다.</Sub>}
-      {!evs.length && !merged.length && <EmptyState>이날 외근과 할 일이 없습니다.</EmptyState>}
+      {!evs.length && !dls.length && !merged.length && <EmptyState>이날 외근과 할 일이 없습니다.</EmptyState>}
       {evs.map((e) => (
         <EventRow key={e.id} event={e} />
+      ))}
+      {dls.map((t) => (
+        <DeadlineRow key={t.id} todo={t} />
       ))}
       {merged.length > 0 && (
         <>

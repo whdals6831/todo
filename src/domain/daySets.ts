@@ -14,6 +14,13 @@ export const eventsOn = (d: DateStr, events: Data['events']): CalEvent[] =>
 export const calendarDeadlines = (d: DateStr, todos: Data['todos']) =>
   [...todos.values()].filter((t) => t.due === d && t.eventId && t.ruleId).sort(byPriority)
 
+/** 그날 마감인 할 일 (끝냈어도 남긴다). 날짜 패널 위쪽 "마감" 줄 */
+export const deadlinesOn = (d: DateStr, todos: Data['todos']) =>
+  [...todos.values()].filter((t) => t.due === d && !t.someday).sort(byPriority)
+
+/** 마감일보다 다른 날에 끝낸 할 일: 마감일 패널에서는 "마감" 줄에만 보인다 */
+export const doneElsewhere = (t: Todo, d: DateStr) => !!t.done && t.due === d && localDay(t.doneAt) !== d
+
 /** 오늘 할 일 화면의 묶음: 지연 · 오늘 마감 · 착수한 일 · TBD · 오늘 완료 */
 export function todaySet(t: DateStr, todos: Data['todos']) {
   const all = [...todos.values()]

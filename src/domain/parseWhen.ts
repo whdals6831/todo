@@ -15,8 +15,9 @@ const REL: Record<string, number> = { 오늘: 0, 내일: 1, 낼: 1, 모레: 2 }
 /**
  * 할 일 제목에 적은 날짜·시간을 읽는다.
  * "~10/15", "10월 15일", "내일", "금요일", "다음주 월", "14시", "오후 3시", "16:30", "TBD", "오전 중"
+ * day: 날짜 없이 "오전"만 쓰면 이 날의 오전 (캘린더에서 고른 날에 추가할 때는 그날)
  */
-export function parseWhen(text: string, today: DateStr): When {
+export function parseWhen(text: string, today: DateStr, day: DateStr = today): When {
   let t = ' ' + String(text || '') + ' '
   let due = ''
   let time = ''
@@ -126,7 +127,7 @@ export function parseWhen(text: string, today: DateStr): When {
     .replace(/[~～\-–,]\s*$/, '')
     .trim()
   if (am) {
-    if (!due) due = today
+    if (!due) due = day
     if (!time) time = '11:30'
   }
   if (tbd) due = ''

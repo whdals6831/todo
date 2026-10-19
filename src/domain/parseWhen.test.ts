@@ -42,6 +42,7 @@ describe('parseWhen', () => {
   it('"오전 중"은 그날 11:30', () => {
     expect(p('바인더 요청 오전 중')).toMatchObject({ title: '바인더 요청', due: TODAY, time: '11:30' })
     expect(p('내일 오전까지 보고')).toMatchObject({ title: '보고', due: '2026-10-15', time: '11:30' })
+    expect(parseWhen('브레즈트리 오전까지 OMF 입력 완료', TODAY, '2026-10-23')).toMatchObject({ title: '브레즈트리 OMF 입력 완료', due: '2026-10-23', time: '11:30' })
   })
 
   it('TBD·미정은 날짜를 비운다', () => {

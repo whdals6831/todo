@@ -83,7 +83,7 @@ export function QuickAdd({ placeholder, label, defaultDue, parseBase, autoDue = 
     const raw = h.value.trim()
     if (!raw) return
     h.setValue('')
-    const w = parseWhen(raw, parseBase ?? todayStr())
+    const w = parseWhen(raw, parseBase ?? todayStr(), defaultDue)
     const title = w.title || raw
     await addTodo({
       title,

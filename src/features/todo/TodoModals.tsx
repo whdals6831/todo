@@ -52,7 +52,7 @@ export function TodoAddModal({ due: due0 }: { due?: DateStr }) {
 
   const onTitle = (v: string) => {
     title.setValue(v)
-    const w = parseWhen(v, todayStr())
+    const w = parseWhen(v, todayStr(), due0 || ui().sel)
     if (!touched.due) setTbd(!!w.tbd)
     if (w.due && !touched.due) setDue(w.due)
     if (w.time && !touched.time) setTime(w.time)
@@ -66,7 +66,7 @@ export function TodoAddModal({ due: due0 }: { due?: DateStr }) {
       return
     }
     closeModal()
-    const w = parseWhen(raw, todayStr())
+    const w = parseWhen(raw, todayStr(), due0 || ui().sel)
     const dv = tbd ? '' : due
     const st = start && dv && start > dv ? dv : start
     await addTodo({

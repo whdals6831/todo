@@ -276,10 +276,11 @@ function RulesSection() {
         <li><strong>근거</strong>PMP 조항처럼 기한을 정한 출처를 적으면 할 일의 기한 근거에 같이 나옵니다.</li>
       </ul>
       <div className={s.scroll}>
-        <table className={s.table} style={{ minWidth: 1240 }}>
+        {/* 규칙 하나를 두 줄로: 위는 무엇을, 아래는 언제·어떻게 (넓은 표가 화면 밖으로 잘리지 않게) */}
+        <table className={s.table} style={{ minWidth: 720 }}>
           <thead>
             <tr>
-              {['과제', '방문 종류', '항목', '할 일 이름', '기준', 'N', '단위', '착수', '보내는 일', '확인 필요', '근거', ''].map((h, i) => (
+              {['과제', '방문 종류', '항목', '할 일 이름', ''].map((h, i) => (
                 <th key={i}>{h}</th>
               ))}
             </tr>
@@ -290,7 +291,7 @@ function RulesSection() {
               let lastType: string | null = null
               return [
                 <tr key={'g' + g} className={s.groupRow}>
-                  <td colSpan={12}>
+                  <td colSpan={5}>
                     <span className={s.groupIn}>
                       <span>{g === '*' ? '전체 과제 공통' : projShort(projects, g)}</span>
                       <Button size="sm" onClick={() => addIn(g)}>
@@ -305,41 +306,59 @@ function RulesSection() {
                 </tr>,
                 !rows.length && (
                   <tr key={'e' + g} className={s.subRow}>
-                    <td colSpan={12}>이 과제만의 규칙은 아직 없습니다 (전체 과제 공통 규칙이 적용됩니다)</td>
+                    <td colSpan={5}>이 과제만의 규칙은 아직 없습니다 (전체 과제 공통 규칙이 적용됩니다)</td>
                   </tr>
                 ),
                 ...rows.flatMap((r) => {
                   const head =
                     r.type !== lastType ? (
                       <tr key={'t' + g + r.type + r.id} className={s.subRow}>
-                        <td colSpan={12}>{r.type === '*' ? '모든 방문' : TYPE_LABEL[r.type] || r.type}</td>
+                        <td colSpan={5}>{r.type === '*' ? '모든 방문' : TYPE_LABEL[r.type] || r.type}</td>
                       </tr>
                     ) : null
                   lastType = r.type
                   const keyOptions = KEYS.some((k) => k[0] === (r.key || '')) ? KEYS : [...KEYS, [r.key, r.key] as [string, string]]
                   return [
                     head,
-                    <tr key={r.id} data-rid={r.id}>
-                      <td><Select size="sm" options={projOptions} value={r.project} onChange={(v) => upd(r.id, { project: v }, true)} /></td>
-                      <td><Select size="sm" options={typeOptions} value={r.type} onChange={(v) => upd(r.id, { type: v }, true)} /></td>
-                      <td><Select size="sm" options={keyOptions} value={r.key || ''} onChange={(v) => upd(r.id, { key: v })} /></td>
-                      <td style={{ minWidth: 240 }}><Input size="sm" value={r.title} onChange={(e) => upd(r.id, { title: e.target.value })} /></td>
-                      <td><Select size="sm" options={DIR_OPTIONS} value={r.dir} onChange={(v) => upd(r.id, { dir: v as Rule['dir'] })} /></td>
-                      <td><Input size="sm" type="number" min={0} value={r.n} onChange={(e) => upd(r.id, { n: Math.max(0, parseInt(e.target.value || '0', 10)) })} /></td>
-                      <td><Select size="sm" options={UNIT_OPTIONS} value={r.unit} onChange={(v) => upd(r.id, { unit: v as Rule['unit'] })} /></td>
-                      <td className={s.nowrap}>
-                        <Select size="sm" options={START_OPTIONS} value={r.start} onChange={(v) => upd(r.id, { start: v as NormRule['start'] })} />{' '}
-                        {r.start === 'lead' && (
-                          <Input size="sm" type="number" min={0} style={{ width: 52 }} value={r.startN} onChange={(e) => upd(r.id, { startN: Math.max(0, parseInt(e.target.value || '0', 10)) })} />
-                        )}
-                      </td>
-                      <td><input type="checkbox" checked={!!r.send} onChange={(e) => upd(r.id, { send: e.target.checked })} aria-label="보내는 일" /></td>
-                      <td><input type="checkbox" checked={!!r.verify} onChange={(e) => upd(r.id, { verify: e.target.checked })} aria-label="확인 필요" /></td>
-                      <td style={{ minWidth: 200 }}><Input size="sm" value={r.basis || ''} onChange={(e) => upd(r.id, { basis: e.target.value })} /></td>
+                    <tr key={r.id} data-rid={r.id} className={s.ruleTop}>
+                      <td><Select size="sm" options={projOptions} value={r.project} onChange={(v) => upd(r.id, { project: v }, true)} aria-label="과제" /></td>
+                      <td><Select size="sm" options={typeOptions} value={r.type} onChange={(v) => upd(r.id, { type: v }, true)} aria-label="방문 종류" /></td>
+                      <td><Select size="sm" options={keyOptions} value={r.key || ''} onChange={(v) => upd(r.id, { key: v })} aria-label="항목" /></td>
+                      <td style={{ width: '100%' }}><Input size="sm" value={r.title} onChange={(e) => upd(r.id, { title: e.target.value })} aria-label="할 일 이름" /></td>
                       <td>
                         <Button size="sm" variant="ghost" onClick={() => setDraft((d) => d.filter((x) => x.id !== r.id))}>
                           삭제
                         </Button>
+                      </td>
+                    </tr>,
+                    <tr key={r.id + '-when'}>
+                      <td colSpan={5}>
+                        <div className={s.ruleWhen}>
+                          <span className={s.ruleField}>
+                            마감
+                            <Select size="sm" options={DIR_OPTIONS} value={r.dir} onChange={(v) => upd(r.id, { dir: v as Rule['dir'] })} aria-label="기준" />
+                            <Input size="sm" type="number" min={0} value={r.n} onChange={(e) => upd(r.id, { n: Math.max(0, parseInt(e.target.value || '0', 10)) })} aria-label="N" />
+                            <Select size="sm" options={UNIT_OPTIONS} value={r.unit} onChange={(v) => upd(r.id, { unit: v as Rule['unit'] })} aria-label="단위" />
+                          </span>
+                          <span className={s.ruleField}>
+                            착수
+                            <Select size="sm" options={START_OPTIONS} value={r.start} onChange={(v) => upd(r.id, { start: v as NormRule['start'] })} aria-label="착수" />
+                            {/* 다른 착수 방식이어도 자리는 남겨 아래위 줄이 어긋나지 않게 */}
+                            <Input size="sm" type="number" min={0} style={{ width: 52, visibility: r.start === 'lead' ? undefined : 'hidden' }} value={r.startN} onChange={(e) => upd(r.id, { startN: Math.max(0, parseInt(e.target.value || '0', 10)) })} aria-label="착수 N영업일 전" />
+                          </span>
+                          <label className={s.ruleField}>
+                            <input type="checkbox" checked={!!r.send} onChange={(e) => upd(r.id, { send: e.target.checked })} />
+                            보내는 일
+                          </label>
+                          <label className={s.ruleField}>
+                            <input type="checkbox" checked={!!r.verify} onChange={(e) => upd(r.id, { verify: e.target.checked })} />
+                            확인 필요
+                          </label>
+                          <span className={cx(s.ruleField, s.ruleBasis)}>
+                            근거
+                            <Input size="sm" value={r.basis || ''} onChange={(e) => upd(r.id, { basis: e.target.value })} placeholder="선택" aria-label="근거" title={r.basis || undefined} />
+                          </span>
+                        </div>
                       </td>
                     </tr>,
                   ]

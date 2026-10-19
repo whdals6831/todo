@@ -82,8 +82,34 @@
   font-weight: var(--weight-semibold);
   color: var(--color-muted);
 }
-.nowrap {
+/* 규칙 하나 = 두 줄. 윗줄(무엇을)과 아랫줄(언제·어떻게) 사이에는 선을 긋지 않는다 */
+.ruleTop td {
+  padding-bottom: var(--space-1);
+  border-bottom: 0;
+}
+.ruleWhen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5) var(--space-4);
+  padding-bottom: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+.ruleField {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
   white-space: nowrap;
+}
+.ruleField input[type="checkbox"] {
+  margin: 0;
+}
+.ruleBasis {
+  flex: 1 1 160px;
+}
+.ruleBasis input {
+  flex: 1;
 }
 
 .holidays {

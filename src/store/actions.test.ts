@@ -19,7 +19,7 @@ beforeEach(async () => {
   await replaceAll({
     events: [], todos: [], fuls: [],
     config: {
-      rules: RULES, holidays: DEFAULT_HOLIDAYS, mig: ['scan1'], notes: null,
+      rules: RULES, holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'ful5'], notes: null,
       projects: [{ name: 'P', short: 'Pj', sites: [] }],
       companions: [{ project: 'P', keyword: 'OMF', items: ['로그 업데이트', '마일스톤 작성'] }],
     },
@@ -91,5 +91,18 @@ describe('할 일 추가', () => {
     expect(getState().todos.get('f_' + id + '_sae-irb')).toMatchObject({ title: '가나대 SAE IRB 제출 여부 확인', due: '2026-10-14' })
     await putTodo({ ...getState().todos.get(id)!, done: false, doneAt: null })
     expect(getState().todos.has('f_' + id + '_sae-irb')).toBe(false)
+  })
+})
+
+describe('저장된 규칙 옮기기', () => {
+  it('FUL 은 방문 후 WD5 마감·착수는 마감 2영업일 전으로 바꾸고, 열린 FUL 할 일도 옮긴다', async () => {
+    const config = (mig: string[]) => ({ rules: [{ ...RULES[0], send: true }], holidays: DEFAULT_HOLIDAYS, mig, notes: null, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] })
+    await replaceAll({ events: [], todos: [], fuls: [], config: config(['scan1', 'prep1', 'ful5']) })
+    await putEvent(visit)
+    await syncEvent(visit)
+    expect(getState().todos.get('a_ev1_r-ful')!.due).toBe('2026-10-23')
+    await replaceAll({ events: [...getState().events.values()], todos: todos(), fuls: [], config: config(['scan1', 'prep1']) })
+    expect(getState().rules[0]).toMatchObject({ n: 5, unit: 'WD', send: false, start: 'lead', startN: 2 })
+    expect(getState().todos.get('a_ev1_r-ful')).toMatchObject({ due: '2026-10-28', start: '2026-10-26' })
   })
 })

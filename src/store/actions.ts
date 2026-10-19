@@ -570,6 +570,13 @@ async function migrate() {
     appStore.setState({ rules, mig: [...s.mig, 'prep1'] })
     await putConfig()
   }
+  if (!S().mig.includes('ful5')) {
+    /* Follow-up Letter: 방문 후 WD5 마감(보내는 일로 당기지 않음), 착수는 마감 2영업일 전. 미완료 자동 할 일은 이어지는 syncAll 이 맞춘다 */
+    const s = S()
+    const ful = { dir: 'after', n: 5, unit: 'WD', send: false, start: 'lead', startN: 2, basis: '방문 후 WD5 송부 (PMP: WD5 이내)' } as const
+    appStore.setState({ rules: s.rules.map((r) => (r.id === 'r-ful' ? { ...r, ...ful } : r)), mig: [...s.mig, 'ful5'] })
+    await putConfig()
+  }
 }
 
 export async function loadAll() {

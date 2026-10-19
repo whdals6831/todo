@@ -117,7 +117,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
                 setDocsOpen((o) => !o)
               }}
             >
-              {'서명문서 ' + docs.filter((d) => checks.includes(d.t)).length + '/' + docs.length + (docsOpen ? ' ▴' : ' ▾')}
+              {(docsOpen ? '▴ ' : '▾ ') + '서명문서 ' + docs.filter((d) => checks.includes(d.t)).length + '/' + docs.length}
             </button>
           )}
         </div>

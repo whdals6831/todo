@@ -392,3 +392,31 @@
   gap: var(--space-2);
   margin-top: var(--space-4);
 }
+
+/* 그날 PMP 마감: 작게 한 줄씩 */
+.pmp {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.pmp li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-1-5);
+  padding: var(--space-1) 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+}
+.pmp b {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-danger);
+}
+.pmpState {
+  color: var(--color-muted);
+}
+.pmpDone b,
+.pmpDone > span:first-of-type {
+  color: var(--color-faint);
+}

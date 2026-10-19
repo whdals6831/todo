@@ -229,7 +229,7 @@ function PmpRow({ due: x }: { due: PmpDue }) {
       <div className={es.body}>
         <div className={es.name}>
           <Tag>{projShort(projects, x.ev.project)}</Tag>
-          {siteShort(x.ev.site) + ' ' + x.ev.type + ' · ' + x.item}
+          <span className={s.pmpName}>{siteShort(x.ev.site) + ' ' + x.ev.type + ' · ' + x.item}</span>
         </div>
         {state && <Sub>{state}</Sub>}
       </div>

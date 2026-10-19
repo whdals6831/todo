@@ -402,3 +402,8 @@ span.pmpLabel {
 .pmpDone span.pmpLabel {
   color: var(--color-faint);
 }
+/* 끝낸 마감: 할 일처럼 줄을 긋는다 */
+.pmpDone .pmpName {
+  font-weight: var(--weight-regular);
+  text-decoration: line-through;
+}

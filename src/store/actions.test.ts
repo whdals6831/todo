@@ -37,7 +37,7 @@ describe('외근 → 자동 할 일', () => {
     ])
     await syncEvent(getState().events.get('ev1')!, true)
     expect(todos()).toHaveLength(2)
-    expect(getState().events.get('ev1')!.genKey).toMatch(/^v4\|2026-10-21\|MV/)
+    expect(getState().events.get('ev1')!.genKey).toMatch(/^v5\|2026-10-21\|MV/)
   })
 
   it('직접 지운 자동 할 일은 skip 에 남아 다시 생기지 않는다', async () => {
@@ -60,13 +60,16 @@ describe('외근 → 자동 할 일', () => {
     expect(getState().todos.get('a_ev1_r-ful')!.due).toBe('2026-10-30')
   })
 
-  it('같은 일을 직접 만들어 두었으면 자동 할 일 대신 그 할 일을 외근에 잇는다', async () => {
+  it('같은 일을 직접 만들어 두었으면 하나로 합친다: 열린 할 일은 규칙 날짜로, 끝낸 할 일은 그대로', async () => {
+    const open = await addTodo({ title: 'Pj 가나대 MV FUL', project: 'P', due: '2026-10-24', note: '메모', done: false })
+    const done = await addTodo({ title: 'Pj 가나대 MV CL', project: 'P', due: '2026-10-14', done: true })
     await putEvent(visit)
     await syncEvent(visit)
-    const id = await addTodo({ title: 'Pj 가나대 MV FUL', project: 'P', due: '2026-10-24', done: false })
-    await syncEvent(getState().events.get('ev1')!, true)
-    expect(todos().map((t) => t.id).sort()).toEqual(['a_ev1_r-cl', id].sort())
-    expect(getState().todos.get(id)).toMatchObject({ eventId: 'ev1', ruleId: 'r-ful-manual', due: '2026-10-24' })
+    expect(todos().map((t) => t.id).sort()).toEqual(['a_ev1_r-ful', done].sort())
+    expect(getState().todos.get('a_ev1_r-ful')).toMatchObject({ title: '가나대병원 MV FUL', due: '2026-10-26', ruleId: 'r-ful' })
+    expect(getState().todos.get('a_ev1_r-ful')!.note).toBeUndefined()
+    expect(getState().todos.get(done)).toMatchObject({ eventId: 'ev1', ruleId: 'r-cl-manual', due: '2026-10-14' })
+    expect(open).not.toBe('a_ev1_r-ful')
   })
 })
 

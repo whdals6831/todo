@@ -188,4 +188,4 @@ export function stableStringify(v: unknown): string {
 
 /** 자동 할 일을 만든 입력의 서명. 바뀌었을 때만 다시 만든다 */
 export const genKey = (ev: CalEvent, { rules }: RuleCtx) =>
-  ['v4', ev.date, ev.type, ev.project, ev.site, stableStringify(rulesFor(ev, rules))].join('|')
+  ['v5', ev.date, ev.type, ev.project, ev.site, stableStringify(rulesFor(ev, rules))].join('|')

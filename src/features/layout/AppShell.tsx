@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import bunny from '@/assets/bunny.png'
+import { useNewVersion } from '@/lib/newVersion.ts'
+import { flushWrites } from '@/store/actions.ts'
 import { appStore } from '@/store/store.ts'
 import { setUi, setView, useApp, useUi } from '@/store/ui.ts'
 import { CalendarView, CellMenu } from '../calendar/CalendarView.tsx'
@@ -36,18 +38,34 @@ export function AppShell() {
   )
 }
 
-/** 위쪽 안내: 불러오는 중 · 저장 실패 · 데이터가 비어 있음 */
+/** 위쪽 안내: 불러오는 중 · 저장 실패 · 새 버전 · 데이터가 비어 있음 */
 function Notice() {
   const loading = useApp((st) => st.loading)
   const notice = useApp((st) => st.notice)
   const empty = useApp((st) => !st.events.size && !st.todos.size && st.projects.length <= 1)
   const sync = useApp((st) => st.sync)
   const view = useUi((u) => u.view)
+  const fresh = useNewVersion()
   if (loading) return <div className={s.notice}>불러오는 중…</div>
   if (sync.error && sync.pending)
     return (
       <div className={s.notice} role="alert">
         저장하지 못한 변경 {sync.pending}건 — 연결되면 자동으로 다시 보냅니다. ({sync.error})
+      </div>
+    )
+  if (fresh)
+    return (
+      <div className={s.notice} role="status">
+        새 버전이 나왔어요. 새로고침하면 적용돼요.
+        <button
+          type="button"
+          onClick={async () => {
+            await flushWrites()
+            location.reload()
+          }}
+        >
+          새로고침
+        </button>
       </div>
     )
   if (notice)

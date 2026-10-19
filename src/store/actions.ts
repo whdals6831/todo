@@ -193,22 +193,31 @@ export async function syncEvent(ev: CalEvent, force = false) {
     const regen = !!ev.genKey
     const today = todayStr()
     for (const p of plan) {
-      if (mine.some((t) => (t.done && t.ruleId === p.ruleId) || t.ruleId === p.ruleId + '-manual')) continue
       const id = detId(p.ruleId)
+      /* 이 외근에 이어 둔, 직접 만든 할 일 (자동 할 일과 id 가 다르다) */
+      const linked = mine.find((t) => t.id !== id && t.ruleId === p.ruleId + '-manual')
+      if (mine.some((t) => t !== linked && ((t.done && t.ruleId === p.ruleId) || t.ruleId === p.ruleId + '-manual'))) continue
       const old = S().todos.get(id)
-      /* 같은 일을 직접 만들어 두었으면 새로 만들지 않고, 그 할 일을 이 외근·규칙의 직접 고친 할 일로 잇는다 */
-      const twin = manualTwin(ev, p.title, S().todos.values(), S().projects)
-      if (twin) {
-        await putTodo({ ...twin, eventId: ev.id, ruleId: p.ruleId + '-manual' })
+      const twin = linked ?? manualTwin(ev, p.title, S().todos.values(), S().projects)
+      if (twin?.done) {
+        /* 같은 일을 직접 만들어 이미 끝냈으면 외근에 잇기만 하고 새로 만들지 않는다 */
+        if (!linked) await putTodo({ ...twin, eventId: ev.id, ruleId: p.ruleId + '-manual' })
         if (old && !old.done) await deleteTodo(id)
         continue
       }
-      if (regen && !old && p.due && p.due < today) continue
+      if (!twin && regen && !old && p.due && p.due < today) continue
+      /* 같은 일을 직접 만들어 둔 열린 할 일은 이 규칙의 할 일로 바꾼다.
+         날짜는 규칙대로 바뀌므로 예전 날짜를 설명하던 메모는 버리고, 순서·체크는 그대로 */
+      const base = twin ?? old
       await putTodo({
         id, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis,
         ruleId: p.ruleId, verify: p.verify, eventId: ev.id, project: ev.project || '', done: false,
-        rank: old?.rank, note: old?.note, checks: old?.checks, created: old?.created || new Date().toISOString(),
+        rank: base?.rank, note: old?.note, checks: base?.checks, created: base?.created || new Date().toISOString(),
       })
+      if (twin) {
+        for (const c of [...S().todos.values()].filter((x) => x.parentId === twin.id)) await putTodo({ ...c, parentId: id })
+        await deleteTodo(twin.id)
+      }
     }
     synced.set(ev.id, key)
     await putEvent({ ...(S().events.get(ev.id) ?? ev), genKey: key })

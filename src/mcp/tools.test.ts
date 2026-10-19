@@ -45,7 +45,7 @@ describe('커넥터 도구', () => {
   it('외근을 추가하면 기한 규칙대로 할 일이 저장된다', async () => {
     const { db, call } = fakeDb()
     const out = await call('add_visit', { date: '2026-10-21', type: 'MV', project: 'P', site: '09. 가나대병원(PI 홍길동)' })
-    expect(db.events.get(out.id)?.genKey).toMatch(/^v4\|2026-10-21\|MV/)
+    expect(db.events.get(out.id)?.genKey).toMatch(/^v5\|2026-10-21\|MV/)
     expect([...db.todos.values()].map((t) => [t.id, t.due]).sort()).toEqual([
       ['a_' + out.id + '_r-cl', '2026-10-15'],
       ['a_' + out.id + '_r-ful', '2026-10-26'],

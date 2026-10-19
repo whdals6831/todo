@@ -1,4 +1,4 @@
-import { PREP_RULES, SCAN_RULE, kindOf } from '../domain/constants.ts'
+import { ISF_RULE, PREP_RULES, SCAN_RULE, kindOf } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort } from '../domain/project.ts'
@@ -575,6 +575,13 @@ async function migrate() {
     const s = S()
     const ful = { dir: 'after', n: 5, unit: 'WD', send: false, start: 'lead', startN: 2, basis: '방문 후 WD5 송부 (PMP: WD5 이내)' } as const
     appStore.setState({ rules: s.rules.map((r) => (r.id === 'r-ful' ? { ...r, ...ful } : r)), mig: [...s.mig, 'ful5'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('isf1')) {
+    /* Imjudo MV 후 ISF checklist 규칙 추가. 마감이 지난 외근에는 syncEvent 가 새로 만들지 않는다 */
+    const s = S()
+    const rules = s.rules.some((r) => r.id === ISF_RULE.id) ? s.rules : [...s.rules, normRule(ISF_RULE)]
+    appStore.setState({ rules, mig: [...s.mig, 'isf1'] })
     await putConfig()
   }
 }

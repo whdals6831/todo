@@ -105,4 +105,11 @@ describe('저장된 규칙 옮기기', () => {
     expect(getState().rules[0]).toMatchObject({ n: 5, unit: 'WD', send: false, start: 'lead', startN: 2 })
     expect(getState().todos.get('a_ev1_r-ful')).toMatchObject({ due: '2026-10-28', start: '2026-10-26' })
   })
+
+  it('Imjudo MV 에는 방문 후 WD2 마감 ISF checklist 할 일이 생긴다 (착수는 방문 다음 영업일)', async () => {
+    const ev = { ...visit, project: 'AZ - Imjudo' }
+    await putEvent(ev)
+    await syncEvent(ev)
+    expect(getState().todos.get('a_ev1_r-i-isf')).toMatchObject({ title: '가나대병원 MV ISF checklist 업데이트·CRA 서명', due: '2026-10-23', start: '2026-10-22' })
+  })
 })

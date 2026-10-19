@@ -71,8 +71,16 @@ export const PREP_RULES: Rule[] = [
   },
 ]
 
+/** Imjudo MV 다녀와서 ISF checklist 확인일 업데이트·CRA 서명 */
+export const ISF_RULE: Rule = {
+  id: 'r-i-isf', key: '', type: 'MV', project: 'AZ - Imjudo', title: '{site} {type} ISF checklist 업데이트·CRA 서명',
+  dir: 'after', n: 2, unit: 'WD', send: false, verify: false,
+  basis: 'Imjudo: ISF checklist 는 MV 시 확인 후 해당일 업데이트 및 CRA 서명 (본인 기준 WD2)', start: 'fresh', startN: 0,
+}
+
 export const DEFAULT_RULES: Rule[] = [
   { ...SCAN_RULE },
+  { ...ISF_RULE },
   ...PREP_RULES.map((r) => ({ ...r })),
   { id: 'r-cl', key: 'CL', type: '*', project: '*', title: '{site} {type} Confirmation Letter 발송', dir: 'before', n: 3, unit: 'WD', send: true, verify: true, basis: 'PMP 확인 필요 (임시값)', start: 'lead', startN: 2 },
   { id: 'r-rpt', key: 'OWN', type: '*', project: '*', title: '{site} {type}R 작성', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, basis: '방문 리포트 본인 작성 기한 WD5', start: 'fresh', startN: 0 },

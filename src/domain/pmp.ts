@@ -1,6 +1,7 @@
 import type { CalEvent, Data, DateStr, Holidays, RuleDir, Todo } from '../types/domain.ts'
 import { kindOf } from './constants.ts'
 import { addWorkdays, isWork, localDay, prevWork, shift } from './date.ts'
+import { siteShort, stripProj } from './project.ts'
 
 /** PMP 표의 기한 하나. 할 일의 마감(본인 기준일 수 있다)과 따로, PMP 원문 기한을 외근 날짜에서 센다 */
 interface PmpItem {
@@ -56,8 +57,10 @@ export const PMP_DEADLINES: Record<string, PmpItem[]> = {
 
 export interface PmpDue {
   key: string
-  ev: CalEvent
+  project: string
   item: string
+  /** 마감 줄에 보이는 이름 */
+  label: string
   date: DateStr
   /** 이어진 할 일을 모두 끝낸 날 (마지막 날). 아직이면 "" */
   doneDay: DateStr
@@ -82,11 +85,25 @@ export function pmpFor(ev: CalEvent, { todos, holidays }: Pick<Data, 'todos' | '
     const doneDay = linked.length && linked.every((t) => t.done) ? linked.map((t) => localDay(t.doneAt)).sort().at(-1) || '' : ''
     const prev = x.from ? out.find((o) => o.item === x.from) : undefined
     const base = prev ? prev.doneDay || prev.date : ev.date
-    out.push({ key: ev.id + '|' + i, ev, item: x.item, date: countFrom(base, x, holidays), doneDay, linked: linked.length > 0 })
+    out.push({
+      key: ev.id + '|' + i, project: ev.project || '', item: x.item, label: siteShort(ev.site) + ' ' + ev.type + ' · ' + x.item,
+      date: countFrom(base, x, holidays), doneDay, linked: linked.length > 0,
+    })
   })
   return out
 }
 
-/** 그날이 PMP 마감인 것들 */
-export const pmpOn = (d: DateStr, data: Pick<Data, 'events' | 'todos' | 'holidays'>): PmpDue[] =>
-  [...data.events.values()].flatMap((ev) => pmpFor(ev, data)).filter((x) => x.date === d)
+/** 제목에 이 말이 든 할 일은 그 마감일에 마감 줄로도 보인다 */
+const TODO_DEADLINE = /OMF/i
+
+const todoDeadline = (t: Todo, projects: Data['projects']): PmpDue => ({
+  key: t.id, project: t.project || '', item: t.title,
+  label: stripProj(projects, t.title, t.project || '').replace(/\s+/g, ' ').trim() + (t.time ? ' · ' + t.time + '까지' : ''),
+  date: t.due || '', doneDay: t.done ? localDay(t.doneAt) : '', linked: true,
+})
+
+/** 그날이 마감인 것들: PMP 마감, 그리고 OMF 처럼 마감 줄로 보는 할 일 */
+export const pmpOn = (d: DateStr, data: Pick<Data, 'events' | 'todos' | 'holidays' | 'projects'>): PmpDue[] => [
+  ...[...data.events.values()].flatMap((ev) => pmpFor(ev, data)).filter((x) => x.date === d),
+  ...[...data.todos.values()].filter((t) => t.due === d && !t.someday && TODO_DEADLINE.test(t.title)).map((t) => todoDeadline(t, data.projects)),
+]

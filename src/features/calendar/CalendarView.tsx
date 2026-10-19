@@ -4,7 +4,7 @@ import { kindLabel, kindOf } from '@/domain/constants.ts'
 import { calendarDeadlines, dayComplete, dayTodos, eventsOn } from '@/domain/daySets.ts'
 import { pmpOn, type PmpDue } from '@/domain/pmp.ts'
 import { byPriority, dLabel, isUrgent } from '@/domain/priority.ts'
-import { chipSite, projShort, siteShort } from '@/domain/project.ts'
+import { chipSite, projShort } from '@/domain/project.ts'
 import { deadlineChipText } from '@/domain/specials.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Label, Sub } from '@/components/ui/Layout.tsx'
@@ -229,8 +229,8 @@ function PmpRow({ due: x }: { due: PmpDue }) {
       <span className={cx(es.time, s.pmpLabel)}>마감</span>
       <div className={es.body}>
         <div className={es.name}>
-          <Tag>{projShort(projects, x.ev.project)}</Tag>
-          <span className={s.pmpName}>{siteShort(x.ev.site) + ' ' + x.ev.type + ' · ' + x.item}</span>
+          {x.project && <Tag>{projShort(projects, x.project)}</Tag>}
+          <span className={s.pmpName}>{x.label}</span>
         </div>
         {state && <Sub>{state}</Sub>}
       </div>
@@ -248,7 +248,8 @@ function DayPanel() {
   const hol = useApp((st) => st.holidays[d])
   const holidays = useApp((st) => st.holidays)
   const evs = eventsOn(d, events)
-  const pmp = pmpOn(d, { events, todos, holidays })
+  const projects = useApp((st) => st.projects)
+  const pmp = pmpOn(d, { events, todos, holidays, projects })
   const merged = dayTodos(d, todos).sort(byPriority)
 
   return (

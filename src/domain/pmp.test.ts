@@ -6,7 +6,8 @@ import { pmpFor, pmpOn } from './pmp.ts'
 /** 2026-10-08 목요일 외근 (다음 날 한글날) */
 const visit = (o: Partial<CalEvent> = {}): CalEvent => ({ id: 'ev1', kind: 'visit', date: '2026-10-08', type: 'MV', project: 'AZ - Breztri', site: '가나대병원', ...o })
 const todo = (id: string, title: string, o: Partial<Todo> = {}): Todo => ({ id, title, eventId: 'ev1', done: false, ...o })
-const data = (ev: CalEvent, list: Todo[] = []) => ({ events: new Map([[ev.id, ev]]), todos: new Map(list.map((t) => [t.id, t])), holidays })
+const projects = [{ name: 'AZ - Breztri', short: 'Breztri', sites: [], aliases: ['브레즈트리'] }]
+const data = (ev: CalEvent, list: Todo[] = []) => ({ events: new Map([[ev.id, ev]]), todos: new Map(list.map((t) => [t.id, t])), holidays, projects })
 const dates = (ev: CalEvent, list: Todo[] = []) => Object.fromEntries(pmpFor(ev, data(ev, list)).map((x) => [x.item, x.date]))
 
 describe('PMP 마감', () => {
@@ -46,5 +47,17 @@ describe('PMP 마감', () => {
       ['Visit Report 작성', '', false],
     ])
     expect(pmpOn('2026-11-06', data(ev, list))[0]).toMatchObject({ item: 'eTMF 문서 보관', doneDay: '', linked: true })
+  })
+})
+
+describe('마감 줄로 보는 할 일', () => {
+  it('제목에 OMF 가 든 할 일은 그 마감일에 마감 줄로도 보인다 (과제 이름은 빼고, 시간은 붙인다)', () => {
+    const list = [
+      todo('omf', '브레즈트리 OMF 입력 완료', { eventId: undefined, project: 'AZ - Breztri', due: '2026-10-23', time: '11:30' }),
+      todo('etc', '브레즈트리 보고서 정리', { eventId: undefined, project: 'AZ - Breztri', due: '2026-10-23' }),
+    ]
+    expect(pmpOn('2026-10-23', data(visit({ date: '2026-12-01' }), list)).map((x) => [x.project, x.label, x.linked])).toEqual([
+      ['AZ - Breztri', 'OMF 입력 완료 · 11:30까지', true],
+    ])
   })
 })

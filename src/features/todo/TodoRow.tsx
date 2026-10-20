@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { localDay, md } from '@/domain/date.ts'
 import { dLabel, isUrgent } from '@/domain/priority.ts'
 import { projShort } from '@/domain/project.ts'
-import { signDocsFor } from '@/domain/signDocs.ts'
+import { etmfDocsFor, signDocsFor } from '@/domain/signDocs.ts'
 import { Button } from '@/components/ui/Button.tsx'
 import { Highlight } from '@/components/ui/Highlight.tsx'
 import { ConfirmLine } from '@/components/ui/Layout.tsx'
@@ -31,11 +31,16 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const projects = useApp((s) => s.projects)
   const notes = useApp((s) => s.notes)
   const events = useApp((s) => s.events)
-  const [docsOpen, setDocsOpen] = useState(false)
+  const [open, setOpen] = useState('')
   const urgent = isUrgent(t)
   const dd = localDay(t.doneAt)
-  const docs = signDocsFor(t, notes, events)
   const checks = t.checks || []
+  /* 펼쳐 보는 체크리스트. 체크는 앞말(pre)을 붙인 이름으로 남겨, 목록끼리 같은 이름이 있어도 따로 체크된다 */
+  const lists = [
+    { key: 'docs', name: '서명문서', pre: '', items: signDocsFor(t, notes, events) },
+    { key: 'etmf', name: 'eTMF 문서', pre: 'eTMF:', items: etmfDocsFor(t, events) },
+  ].filter((l) => l.items.length)
+  const shown = lists.find((l) => l.key === open)
 
   const due = t.done ? (
     <button
@@ -107,28 +112,29 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
             <span className={s.rolled}>{'이월 ' + t.rolled + '회' + (t.origDue ? ' · 원래 마감 ' + md(t.origDue) : '')}</span>
           )}
           {t.note && <span>{t.note}</span>}
-          {docs.length > 0 && (
+          {lists.map((l) => (
             <button
+              key={l.key}
               type="button"
               className={s.docsBtn}
-              aria-expanded={docsOpen}
+              aria-expanded={open === l.key}
               onClick={(e) => {
                 e.stopPropagation()
-                setDocsOpen((o) => !o)
+                setOpen((o) => (o === l.key ? '' : l.key))
               }}
             >
-              {(docsOpen ? '▴ ' : '▾ ') + '서명문서 ' + docs.filter((d) => checks.includes(d.t)).length + '/' + docs.length}
+              {(open === l.key ? '▴ ' : '▾ ') + l.name + ' ' + l.items.filter((d) => checks.includes(l.pre + d.t)).length + '/' + l.items.length}
             </button>
-          )}
+          ))}
         </div>
-        {docsOpen && docs.length > 0 && (
+        {shown && (
           /* 체크해도 편집 창이 열리지 않게 */
           <ol className={s.docs} onClick={(e) => e.stopPropagation()}>
-            {docs.map((d, i) => {
-              const on = checks.includes(d.t)
+            {shown.items.map((d, i) => {
+              const on = checks.includes(shown.pre + d.t)
               return (
                 <li key={i} className={cx(on && s.docOn)}>
-                  <RoundCheckbox checked={on} onToggle={() => toggleSignDoc(t.id, d.t)} label={d.t + ' 체크'} />
+                  <RoundCheckbox checked={on} onToggle={() => toggleSignDoc(t.id, shown.pre + d.t)} label={d.t + ' 체크'} />
                   <span className={s.docT}>{d.t}</span>
                   {d.w && <span className={s.docW}>{d.w}</span>}
                 </li>

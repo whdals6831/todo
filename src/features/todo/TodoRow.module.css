@@ -65,7 +65,7 @@
   color: var(--color-danger);
 }
 
-/* 서명문서 체크리스트 (업무 노트의 서명 문서) */
+/* 체크리스트 (업무 노트의 서명 문서, eTMF 에 올릴 문서) */
 .docsBtn {
   padding: 0;
   border: 0;

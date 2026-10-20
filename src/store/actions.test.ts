@@ -106,6 +106,18 @@ describe('저장된 규칙 옮기기', () => {
     expect(getState().todos.get('a_ev1_r-ful')).toMatchObject({ due: '2026-10-28', start: '2026-10-26' })
   })
 
+  it('eTMF 업로드는 방문 후 WD10 마감·착수는 방문 다음 영업일로 바꾸고, 열린 eTMF 할 일도 옮긴다', async () => {
+    const etmf: Rule = { id: 'r-etmf-t', key: 'ETMF', type: '*', project: '*', title: '{site} {type} 서명문서 eTMF 업로드', dir: 'after', n: 30, unit: 'CD', send: false, verify: false, basis: 'PMP: 30일 내', start: 'lead', startN: 5 }
+    const config = (mig: string[]) => ({ rules: [etmf], holidays: DEFAULT_HOLIDAYS, mig, notes: null, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] })
+    await replaceAll({ events: [], todos: [], fuls: [], config: config(['scan1', 'prep1', 'ful5', 'isf1', 'etmf10']) })
+    await putEvent(visit)
+    await syncEvent(visit)
+    expect(getState().todos.get('a_ev1_r-etmf-t')!.due).toBe('2026-11-20')
+    await replaceAll({ events: [...getState().events.values()], todos: todos(), fuls: [], config: config(['scan1', 'prep1', 'ful5', 'isf1']) })
+    expect(getState().rules[0]).toMatchObject({ n: 10, unit: 'WD', start: 'fresh', basis: 'PMP: 30일 내 · 본인 기준: Approve 기간 고려해 방문 후 WD10' })
+    expect(getState().todos.get('a_ev1_r-etmf-t')).toMatchObject({ due: '2026-11-04', start: '2026-10-22' })
+  })
+
   it('Imjudo MV 에는 방문 후 WD2 마감 ISF checklist 할 일이 생긴다 (착수는 방문 다음 영업일)', async () => {
     const ev = { ...visit, project: 'AZ - Imjudo' }
     await putEvent(ev)

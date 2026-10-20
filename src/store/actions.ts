@@ -584,6 +584,15 @@ async function migrate() {
     appStore.setState({ rules, mig: [...s.mig, 'isf1'] })
     await putConfig()
   }
+  if (!S().mig.includes('etmf10')) {
+    /* eTMF 업로드: PMP 는 30일 내지만 Approve 기간을 두고 방문 후 WD10 마감, 착수는 방문 다음 영업일 */
+    const s = S()
+    const etmf = { dir: 'after', n: 10, unit: 'WD', start: 'fresh', startN: 0 } as const
+    const why = ' · 본인 기준: Approve 기간 고려해 방문 후 WD10'
+    const rules = s.rules.map((r) => (r.key === 'ETMF' ? { ...r, ...etmf, basis: (r.basis || '').replace(why, '') + why } : r))
+    appStore.setState({ rules, mig: [...s.mig, 'etmf10'] })
+    await putConfig()
+  }
 }
 
 export async function loadAll() {

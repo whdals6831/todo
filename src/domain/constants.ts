@@ -87,10 +87,10 @@ export const DEFAULT_RULES: Rule[] = [
   { id: 'r-pm', key: 'REPORT', type: '*', project: '*', title: 'PM - {proj} {site} {type} (WD10)', dir: 'after', n: 10, unit: 'WD', send: false, verify: false, basis: 'PM 리포트 검토 기한 WD10', start: 'lead', startN: 2 },
   { id: 'r-ful', key: 'FUL', type: '*', project: '*', title: '{site} {type} Follow-up Letter 발송', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, basis: '방문 후 WD5 송부 (PMP: WD5 이내)', start: 'lead', startN: 2 },
   { id: 'r-ssl', key: 'SSL', type: 'PSV', project: '*', title: '[대기] {site} 의뢰사 선정 승인 확인 → Site Selection CL 발송', dir: 'after', n: 5, unit: 'WD', send: false, verify: true, basis: 'PMP 확인 필요 (임시값), 승인 조건부', start: 'due', startN: 0 },
-  { id: 'r-etmf-b', key: 'ETMF', type: '*', project: 'AZ - Breztri', title: '{site} {type} 서명문서 eTMF 업로드', dir: 'after', n: 30, unit: 'CD', send: false, verify: false, basis: '서명문서 발생 시 캘린더 데이 30일 이내', start: 'lead', startN: 5 },
+  { id: 'r-etmf-b', key: 'ETMF', type: '*', project: 'AZ - Breztri', title: '{site} {type} 서명문서 eTMF 업로드', dir: 'after', n: 10, unit: 'WD', send: false, verify: false, basis: '서명문서 발생 시 캘린더 데이 30일 이내 · 본인 기준: Approve 기간 고려해 방문 후 WD10', start: 'fresh', startN: 0 },
   { id: 'r-siv-edc', key: 'EDC', type: 'SIV', project: '*', title: '{site} SIV EDC 계정 요청', dir: 'before', n: 5, unit: 'WD', send: false, verify: false, basis: 'CRA 업무 기준: SIV 전 EDC 계정 요청 (PMP 외, 방문 WD5 전)', start: 'lead', startN: 2 },
   { id: 'r-siv-lunch', key: 'LUNCH', type: 'SIV', project: '*', title: '{site} SIV 도시락 예약', dir: 'before', n: 3, unit: 'WD', send: false, verify: false, basis: 'CRA 업무 기준: SIV 도시락 예약 (PMP 외, 방문 WD3 전)', start: 'lead', startN: 2 },
-  { id: 'r-etmf-i', key: 'ETMF', type: '*', project: 'AZ - Imjudo', title: '{site} {type} 서명문서 eTMF 업로드', dir: 'after', n: 30, unit: 'CD', send: false, verify: false, basis: '서명문서 발생 시 캘린더 데이 30일 이내', start: 'lead', startN: 5 },
+  { id: 'r-etmf-i', key: 'ETMF', type: '*', project: 'AZ - Imjudo', title: '{site} {type} 서명문서 eTMF 업로드', dir: 'after', n: 10, unit: 'WD', send: false, verify: false, basis: '서명문서 발생 시 캘린더 데이 30일 이내 · 본인 기준: Approve 기간 고려해 방문 후 WD10', start: 'fresh', startN: 0 },
 ]
 
 export const START_WHY: Record<StartMode, string> = {

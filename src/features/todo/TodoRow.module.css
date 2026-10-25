@@ -9,12 +9,22 @@
 
 .body {
   min-width: 0;
+}
+/* 제목 글자만 눌러서 편집 */
+.titleText {
   cursor: pointer;
 }
-.body:hover .title {
+.titleText:hover {
   text-decoration: underline;
   text-underline-offset: 4px;
   text-decoration-color: var(--color-faint);
+}
+/* 과제 꼬리표: 누르면 이 줄이 골라졌다고 테두리로 보여 준다 (Shift+Enter 로 하위 항목) */
+.proj {
+  cursor: pointer;
+}
+.body:focus .proj {
+  box-shadow: 0 0 0 1.5px currentColor;
 }
 
 .title {

@@ -40,8 +40,14 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
     { key: 'docs', name: '서명문서', pre: '', items: signDocsFor(t, notes, events) },
     { key: 'etmf', name: 'eTMF 문서', pre: 'eTMF:', items: etmfDocsFor(t, events) },
     { key: 'subs', name: '하위 항목', pre: '', items: (t.subs || []).map((x) => ({ t: x, w: '' })) },
-  ].filter((l) => l.items.length)
+  ].filter((l) => l.items.length || (l.key === 'subs' && open === 'subs'))
   const shown = lists.find((l) => l.key === open)
+
+  /** 하위 항목을 펼치고 맨 아래 입력칸에 바로 쓰게 한다 */
+  const startSub = (body: HTMLElement) => {
+    setOpen('subs')
+    requestAnimationFrame(() => body.querySelector<HTMLInputElement>('[data-sub-add]')?.focus())
+  }
 
   const due = t.done ? (
     <button
@@ -80,18 +86,17 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   return (
     <div className={cx(s.row, t.done && s.done, urgent && s.urgent)} data-todo-id={t.id}>
       <RoundCheckbox checked={!!t.done} onToggle={() => toggleDone(t)} label="완료 표시" tone={urgent ? 'danger' : 'default'} />
+      {/* 제목 글자를 눌러야 편집. 나머지(과제 꼬리표 등)를 누르면 이 줄이 골라져 Shift+Enter 로 하위 항목을 단다 */}
       <div
         className={s.body}
-        role="button"
         tabIndex={0}
-        aria-label={t.title + ' 편집'}
-        onClick={(e) => {
-          if (wasJustDropped() || (e.target as Element).closest('[data-handle]')) return
-          openEdit(t)
-        }}
+        aria-label={t.title + ' · Enter 편집, Shift+Enter 하위 항목 추가'}
         onKeyDown={(e) => {
           if (e.target !== e.currentTarget) return
-          if (e.key === 'Enter' || e.key === ' ') {
+          if (e.key === 'Enter' && e.shiftKey) {
+            e.preventDefault()
+            startSub(e.currentTarget)
+          } else if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             openEdit(t)
           }
@@ -103,10 +108,21 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
               ⋮⋮
             </span>
           )}
-          <Highlight text={t.title} words={highlight} />
+          <span
+            className={s.titleText}
+            onClick={() => {
+              if (!wasJustDropped()) openEdit(t)
+            }}
+          >
+            <Highlight text={t.title} words={highlight} />
+          </span>
         </div>
         <div className={s.meta}>
-          {t.project && <Tag tone={urgent ? 'danger' : 'default'}>{projShort(projects, t.project)}</Tag>}
+          {t.project && (
+            <Tag tone={urgent ? 'danger' : 'default'} className={s.proj} title="누르고 Shift+Enter: 하위 항목 추가">
+              {projShort(projects, t.project)}
+            </Tag>
+          )}
           {t.verify && <Tag tone="warn">규칙 확인 필요</Tag>}
           {t.start && !t.done && t.start !== t.due && <span>▶ 착수 {md(t.start)}</span>}
           {!!t.rolled && !t.done && (
@@ -144,7 +160,12 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
             })}
             {shown.key === 'subs' && (
               <li>
-                <SubAdd id={t.id} />
+                <SubAdd
+                  id={t.id}
+                  onLeave={() => {
+                    if (!t.subs?.length) setOpen('')
+                  }}
+                />
               </li>
             )}
           </ol>
@@ -156,17 +177,22 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   )
 }
 
-/** 펼친 하위 항목 맨 아래에서 바로 한 줄 더 */
-function SubAdd({ id }: { id: string }) {
+/** 펼친 하위 항목 맨 아래에서 바로 한 줄 더. 아무것도 안 쓰고 벗어나면 onLeave */
+function SubAdd({ id, onLeave }: { id: string; onLeave: () => void }) {
   const [v, setV] = useState('')
   return (
     <input
       className={s.subAdd}
+      data-sub-add
       value={v}
       placeholder="+ 하위 항목 추가 (Enter)"
       aria-label="하위 항목 추가"
       onChange={(e) => setV(e.target.value)}
+      onBlur={() => {
+        if (!v.trim()) onLeave()
+      }}
       onKeyDown={(e) => {
+        if (e.key === 'Escape') e.currentTarget.blur()
         if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
         e.preventDefault()
         void addSub(id, v)

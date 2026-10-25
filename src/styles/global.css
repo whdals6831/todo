@@ -25,7 +25,6 @@ body {
 body {
   margin: 0;
   padding-inline: var(--gutter);
-  padding-block: 0 var(--space-14);
   font-family: var(--font-serif);
   font-size: var(--text-md);
   line-height: var(--leading-normal);

@@ -355,7 +355,8 @@
   .day {
     position: sticky;
     top: 0;
-    max-height: calc(100dvh - var(--space-14));
+    /* 본문 위아래 여백(.content)을 빼야 패널이 꽉 차도 페이지가 창보다 길어지지 않는다 */
+    max-height: calc(100dvh - var(--space-1-5) - var(--space-14));
     margin-top: 0;
     padding: var(--space-5) var(--space-2) var(--space-6) 0;
     overflow-y: auto;

@@ -8,6 +8,8 @@
 .content {
   min-width: 0;
   padding-top: var(--space-1-5);
+  /* 아래 여백은 본문에만: body 에 두면 화면 높이인 왼쪽 목차와 더해져 늘 스크롤이 생긴다 */
+  padding-bottom: var(--space-14);
 }
 @media (max-width: 760px) {
   .shell {

@@ -110,6 +110,11 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
           )}
           <span
             className={s.titleText}
+            /* 제목을 누를 땐 줄이 골라지지 않게 (과제 꼬리표 테두리가 잠깐 보였다 사라지지 않도록) */
+            onMouseDown={(e) => {
+              e.preventDefault()
+              if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+            }}
             onClick={() => {
               if (!wasJustDropped()) openEdit(t)
             }}

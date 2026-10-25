@@ -63,7 +63,9 @@ export interface Todo {
   /** 착수일 근거 문장 */
   startBasis?: string
   note?: string
-  /** 서명문서 체크리스트에서 체크한 문서 이름 */
+  /** 직접 단 하위 항목 (체크리스트) */
+  subs?: string[]
+  /** 체크리스트(서명문서·하위 항목)에서 체크한 이름 */
   checks?: string[]
   /** PMP 원문으로 확인되지 않은 임시 규칙에서 나온 할 일 */
   verify?: boolean

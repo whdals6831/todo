@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_HOLIDAYS } from '../domain/constants.ts'
 import type { CalEvent, Rule } from '../types/domain.ts'
-import { addTodo, dismissTodo, moveTodo, putEvent, putTodo, replaceAll, setRepository, syncEvent } from './actions.ts'
+import { addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, replaceAll, setRepository, syncEvent, toggleCheck, withSubs } from './actions.ts'
 import { createMemoryRepository } from './localRepository.ts'
 import { getState } from './store.ts'
 
@@ -91,6 +91,15 @@ describe('할 일 추가', () => {
     expect(getState().todos.get('f_' + id + '_sae-irb')).toMatchObject({ title: '가나대 SAE IRB 제출 여부 확인', due: '2026-10-14' })
     await putTodo({ ...getState().todos.get(id)!, done: false, doneAt: null })
     expect(getState().todos.has('f_' + id + '_sae-irb')).toBe(false)
+  })
+
+  it('하위 항목: 줄을 더하고 체크하고, 뺀 항목의 체크는 같이 지운다', async () => {
+    const id = await addTodo({ title: '분당 MV Preparation', due: '2026-10-19', subs: ['ISF 문서 인쇄'], done: false })
+    await addSub(id, ' 바인더 정리 ')
+    await addSub(id, 'ISF 문서 인쇄')
+    await toggleCheck(id, 'ISF 문서 인쇄')
+    expect(getState().todos.get(id)).toMatchObject({ subs: ['ISF 문서 인쇄', '바인더 정리'], checks: ['ISF 문서 인쇄'] })
+    expect(withSubs(getState().todos.get(id)!, ['바인더 정리'])).toMatchObject({ subs: ['바인더 정리'], checks: [] })
   })
 })
 

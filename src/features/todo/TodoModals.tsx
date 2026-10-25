@@ -2,11 +2,11 @@ import { useState, type KeyboardEvent } from 'react'
 import { md, nowIso, todayStr } from '@/domain/date.ts'
 import { parseWhen } from '@/domain/parseWhen.ts'
 import { detectProject } from '@/domain/project.ts'
-import { Button } from '@/components/ui/Button.tsx'
+import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { CheckField, Field, FormGrid, Input, Select } from '@/components/ui/Field.tsx'
 import { ConfirmLine } from '@/components/ui/Layout.tsx'
 import { Modal, ModalFoot } from '@/components/ui/Modal.tsx'
-import { addTodo, dismissTodo, manualId, putTodo, syncChildren } from '@/store/actions.ts'
+import { addTodo, dismissTodo, manualId, putTodo, syncChildren, withSubs } from '@/store/actions.ts'
 import { getState } from '@/store/store.ts'
 import { closeModal, ui, useApp } from '@/store/ui.ts'
 import type { DateStr, Todo } from '@/types/domain.ts'
@@ -38,6 +38,46 @@ function TbdDate({ due, setDue, tbd, setTbd }: { due: string; setDue: (v: string
   )
 }
 
+/** 하위 항목 목록과 쓰는 중인 한 줄. 저장할 때 쓰다 만 줄도 넣는다 */
+function useSubs(init: string[] = []) {
+  const [items, setItems] = useState(init)
+  const [draft, setDraft] = useState('')
+  const v = draft.trim()
+  const all = v && !items.includes(v) ? [...items, v] : items
+  const add = () => {
+    setItems(all)
+    setDraft('')
+  }
+  return { items, setItems, draft, setDraft, add, all }
+}
+
+/** 할 일 아래 펼쳐 보는 체크리스트에 들어갈 항목 */
+function SubsField({ subs }: { subs: ReturnType<typeof useSubs> }) {
+  return (
+    <div className={s.subs}>
+      하위 항목 (선택)
+      {subs.items.length > 0 && (
+        <ol className={s.subList}>
+          {subs.items.map((x) => (
+            <li key={x}>
+              {x}
+              <IconButton variant="mini" label={x + ' 빼기'} onClick={() => subs.setItems(subs.items.filter((y) => y !== x))}>
+                ×
+              </IconButton>
+            </li>
+          ))}
+        </ol>
+      )}
+      <div className={s.subAdd}>
+        <Input size="sm" value={subs.draft} onChange={(e) => subs.setDraft(e.target.value)} onKeyDown={onEnter(subs.add)} placeholder="예: ISF 문서 인쇄 → Enter" aria-label="하위 항목" />
+        <Button size="sm" onClick={subs.add}>
+          추가
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 /** 할 일 추가. 제목에 쓴 날짜·시간·TBD·과제를 아래 칸에 채워 준다 (직접 고친 칸은 그대로) */
 export function TodoAddModal({ due: due0 }: { due?: DateStr }) {
   const options = useProjectOptions()
@@ -48,6 +88,7 @@ export function TodoAddModal({ due: due0 }: { due?: DateStr }) {
   const [start, setStart] = useState('')
   const [project, setProject] = useState('')
   const [note, setNote] = useState('')
+  const subs = useSubs()
   const [touched, setTouched] = useState({ due: false, time: false, project: false })
 
   const onTitle = (v: string) => {
@@ -71,7 +112,7 @@ export function TodoAddModal({ due: due0 }: { due?: DateStr }) {
     const st = start && dv && start > dv ? dv : start
     await addTodo({
       title: w.title || raw, due: dv, autoDue: !tbd && !touched.due && !w.due, tbd, time: time || '', start: st || '',
-      project, note: note.trim(), done: false, created: nowIso(),
+      project, note: note.trim(), subs: subs.all.length ? subs.all : undefined, done: false, created: nowIso(),
     })
   }
 
@@ -107,6 +148,7 @@ export function TodoAddModal({ due: due0 }: { due?: DateStr }) {
         <Field label="메모" full>
           <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="선택" />
         </Field>
+        <SubsField subs={subs} />
       </FormGrid>
       <ModalFoot>
         <span />
@@ -130,6 +172,7 @@ export function TodoEditModal({ todo: t }: { todo: Todo }) {
   const [start, setStart] = useState(t.start || '')
   const [project, setProject] = useState(t.project || '')
   const [note, setNote] = useState(t.note || '')
+  const subs = useSubs(t.subs)
   const [done, setDone] = useState(!!t.done)
   const [confirming, setConfirming] = useState(false)
 
@@ -148,7 +191,7 @@ export function TodoEditModal({ todo: t }: { todo: Todo }) {
     const raw = title.trim()
     if (!raw) return
     const ti = parseWhen(raw, todayStr()).title || raw
-    const n: Todo = { ...t, title: ti, time: time || '', project, note: note.trim(), done, doneAt: done ? t.doneAt || nowIso() : null }
+    const n: Todo = { ...withSubs(t, subs.all), title: ti, time: time || '', project, note: note.trim(), done, doneAt: done ? t.doneAt || nowIso() : null }
     const dv = tbd ? '' : due
     n.tbd = tbd
     let st = start
@@ -185,9 +228,10 @@ export function TodoEditModal({ todo: t }: { todo: Todo }) {
         <Field label="과제">
           <Select options={options} value={project} onChange={setProject} />
         </Field>
-        <Field label="메모">
+        <Field label="메모" full>
           <Input value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={onEnter(save)} placeholder="선택" />
         </Field>
+        <SubsField subs={subs} />
         <CheckField checked={done} onChange={setDone} full>
           완료
         </CheckField>

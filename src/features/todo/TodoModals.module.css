@@ -15,6 +15,39 @@
   margin-top: calc(-1 * var(--space-2));
 }
 
+/* 하위 항목 (라벨 모양은 Field 와 같게) */
+.subs {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+.subList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.subList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+  border-bottom: 1px dashed var(--color-line);
+  font-size: var(--text-sm);
+  color: var(--color-fg);
+}
+.subAdd {
+  display: flex;
+  gap: var(--space-1-5);
+}
+.subAdd input {
+  flex: 1;
+}
+
 /* 마감·착수 근거 */
 .info {
   margin-top: var(--space-4);

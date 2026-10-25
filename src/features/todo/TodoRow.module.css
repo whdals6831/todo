@@ -65,7 +65,7 @@
   color: var(--color-danger);
 }
 
-/* 체크리스트 (업무 노트의 서명 문서, eTMF 에 올릴 문서) */
+/* 체크리스트 (업무 노트의 서명 문서, eTMF 에 올릴 문서, 직접 단 하위 항목) */
 .docsBtn {
   padding: 0;
   border: 0;
@@ -103,6 +103,21 @@
 .docOn .docT {
   color: var(--color-faint);
   text-decoration: line-through;
+}
+.subAdd {
+  grid-column: 2;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--color-fg);
+}
+.subAdd::placeholder {
+  color: var(--color-faint);
+}
+.subAdd:focus {
+  outline: none;
 }
 
 /* 오른쪽 날짜: 누르면 바꾸기 */

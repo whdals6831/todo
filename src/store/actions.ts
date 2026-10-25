@@ -212,7 +212,7 @@ export async function syncEvent(ev: CalEvent, force = false) {
       await putTodo({
         id, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis,
         ruleId: p.ruleId, verify: p.verify, eventId: ev.id, project: ev.project || '', done: false,
-        rank: base?.rank, note: old?.note, checks: base?.checks, created: base?.created || new Date().toISOString(),
+        rank: base?.rank, note: old?.note, subs: base?.subs, checks: base?.checks, created: base?.created || new Date().toISOString(),
       })
       if (twin) {
         for (const c of [...S().todos.values()].filter((x) => x.parentId === twin.id)) await putTodo({ ...c, parentId: id })
@@ -399,11 +399,25 @@ export async function toggleDone(t: Todo) {
 }
 
 /** 서명문서 체크리스트에서 문서 하나를 체크하거나 푼다 */
-export async function toggleSignDoc(id: string, doc: string) {
+/** 체크리스트(서명문서·하위 항목) 한 줄 체크·해제 */
+export async function toggleCheck(id: string, name: string) {
   const t = S().todos.get(id)
   if (!t) return
   const cur = t.checks || []
-  await putTodo({ ...t, checks: cur.includes(doc) ? cur.filter((x) => x !== doc) : [...cur, doc] })
+  await putTodo({ ...t, checks: cur.includes(name) ? cur.filter((x) => x !== name) : [...cur, name] })
+}
+
+/** 하위 항목을 고치면 지운 항목의 체크도 같이 지운다 */
+export const withSubs = (t: Todo, subs: string[]): Todo => {
+  const gone = (t.subs || []).filter((x) => !subs.includes(x))
+  return { ...t, subs, checks: (t.checks || []).filter((x) => !gone.includes(x)) }
+}
+
+export async function addSub(id: string, text: string) {
+  const t = S().todos.get(id)
+  const v = text.trim()
+  if (!t || !v || (t.subs || []).includes(v)) return
+  await putTodo(withSubs(t, [...(t.subs || []), v]))
 }
 
 /* ---------- 설정 ---------- */

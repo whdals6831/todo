@@ -9,7 +9,7 @@ import { ConfirmLine } from '@/components/ui/Layout.tsx'
 import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
-import { dismissTodo, rollOver, toSomeday, toggleDone, toggleSignDoc } from '@/store/actions.ts'
+import { addSub, dismissTodo, rollOver, toSomeday, toggleCheck, toggleDone } from '@/store/actions.ts'
 import { openModal, openPopover, useApp } from '@/store/ui.ts'
 import type { Todo } from '@/types/domain.ts'
 import { startDrag, wasJustDropped } from '../drag/drag.ts'
@@ -39,6 +39,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const lists = [
     { key: 'docs', name: '서명문서', pre: '', items: signDocsFor(t, notes, events) },
     { key: 'etmf', name: 'eTMF 문서', pre: 'eTMF:', items: etmfDocsFor(t, events) },
+    { key: 'subs', name: '하위 항목', pre: '', items: (t.subs || []).map((x) => ({ t: x, w: '' })) },
   ].filter((l) => l.items.length)
   const shown = lists.find((l) => l.key === open)
 
@@ -134,18 +135,44 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
               const on = checks.includes(shown.pre + d.t)
               return (
                 <li key={i} className={cx(on && s.docOn)}>
-                  <RoundCheckbox checked={on} onToggle={() => toggleSignDoc(t.id, shown.pre + d.t)} label={d.t + ' 체크'} />
+                  <RoundCheckbox checked={on} onToggle={() => toggleCheck(t.id, shown.pre + d.t)} label={d.t + ' 체크'} />
+
                   <span className={s.docT}>{d.t}</span>
                   {d.w && <span className={s.docW}>{d.w}</span>}
                 </li>
               )
             })}
+            {shown.key === 'subs' && (
+              <li>
+                <SubAdd id={t.id} />
+              </li>
+            )}
           </ol>
         )}
         {extra}
       </div>
       {due}
     </div>
+  )
+}
+
+/** 펼친 하위 항목 맨 아래에서 바로 한 줄 더 */
+function SubAdd({ id }: { id: string }) {
+  const [v, setV] = useState('')
+  return (
+    <input
+      className={s.subAdd}
+      value={v}
+      placeholder="+ 하위 항목 추가 (Enter)"
+      aria-label="하위 항목 추가"
+      onChange={(e) => setV(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+        e.preventDefault()
+        void addSub(id, v)
+        setV('')
+      }}
+    />
   )
 }
 

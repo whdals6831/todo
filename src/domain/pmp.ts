@@ -1,7 +1,7 @@
 import type { CalEvent, Data, DateStr, Holidays, RuleDir, Todo } from '../types/domain.ts'
 import { kindOf } from './constants.ts'
 import { addWorkdays, isWork, localDay, prevWork, shift } from './date.ts'
-import { siteShort, stripProj } from './project.ts'
+import { chipSite, siteShort, stripProj } from './project.ts'
 
 /** PMP 표의 기한 하나. 할 일의 마감(본인 기준일 수 있다)과 따로, PMP 원문 기한을 외근 날짜에서 센다 */
 interface PmpItem {
@@ -61,6 +61,10 @@ export interface PmpDue {
   item: string
   /** 마감 줄에 보이는 이름 */
   label: string
+  /** 캘린더 칸에 보이는 짧은 이름 */
+  chip: string
+  /** 마감 시간 (할 일에서 온 마감) */
+  time?: string
   date: DateStr
   /** 이어진 할 일을 모두 끝낸 날 (마지막 날). 아직이면 "" */
   doneDay: DateStr
@@ -73,6 +77,17 @@ function countFrom(base: DateStr, x: PmpItem, hol: Holidays): DateStr {
   const d = shift(base, x.dir === 'before' ? -x.n : x.n)
   return isWork(d, hol) ? d : prevWork(d, hol)
 }
+
+/** 캘린더 칸에 넣을 짧은 항목 이름: 괄호 설명은 빼고 긴 이름은 약어로 */
+const chipItem = (item: string) =>
+  item
+    .replace(/\s*\(.*\)$/, '')
+    .replace('Confirmation Letter', 'CL')
+    .replace('Follow-up Letter', 'FUL')
+    .replace(/^Visit Report/, 'Report')
+    .replace(/ 작성$/, '')
+    .replace('eTMF 문서 보관', 'eTMF 보관')
+    .replace('업로드·2-step 승인', '승인')
 
 /** 외근 하나의 PMP 마감들 */
 export function pmpFor(ev: CalEvent, { todos, holidays }: Pick<Data, 'todos' | 'holidays'>): PmpDue[] {
@@ -87,7 +102,7 @@ export function pmpFor(ev: CalEvent, { todos, holidays }: Pick<Data, 'todos' | '
     const base = prev ? prev.doneDay || prev.date : ev.date
     out.push({
       key: ev.id + '|' + i, project: ev.project || '', item: x.item, label: siteShort(ev.site) + ' ' + ev.type + ' · ' + x.item,
-      date: countFrom(base, x, holidays), doneDay, linked: linked.length > 0,
+      chip: chipSite(ev.site) + ' ' + ev.type + ' ' + chipItem(x.item), date: countFrom(base, x, holidays), doneDay, linked: linked.length > 0,
     })
   })
   return out
@@ -96,14 +111,21 @@ export function pmpFor(ev: CalEvent, { todos, holidays }: Pick<Data, 'todos' | '
 /** 제목에 이 말이 든 할 일은 그 마감일에 마감 줄로도 보인다 */
 const TODO_DEADLINE = /OMF/i
 
-const todoDeadline = (t: Todo, projects: Data['projects']): PmpDue => ({
-  key: t.id, project: t.project || '', item: t.title,
-  label: stripProj(projects, t.title, t.project || '').replace(/\s+/g, ' ').trim() + (t.time ? ' · ' + t.time + '까지' : ''),
-  date: t.due || '', doneDay: t.done ? localDay(t.doneAt) : '', linked: true,
-})
+const todoDeadline = (t: Todo, projects: Data['projects']): PmpDue => {
+  const name = stripProj(projects, t.title, t.project || '').replace(/\s+/g, ' ').trim()
+  return {
+    key: t.id, project: t.project || '', item: t.title, label: name + (t.time ? ' · ' + t.time + '까지' : ''), chip: name, time: t.time || undefined,
+    date: t.due || '', doneDay: t.done ? localDay(t.doneAt) : '', linked: true,
+  }
+}
 
-/** 그날이 마감인 것들: PMP 마감, 그리고 OMF 처럼 마감 줄로 보는 할 일 */
-export const pmpOn = (d: DateStr, data: Pick<Data, 'events' | 'todos' | 'holidays' | 'projects'>): PmpDue[] => [
-  ...[...data.events.values()].flatMap((ev) => pmpFor(ev, data)).filter((x) => x.date === d),
-  ...[...data.todos.values()].filter((t) => t.due === d && !t.someday && TODO_DEADLINE.test(t.title)).map((t) => todoDeadline(t, data.projects)),
+type PmpData = Pick<Data, 'events' | 'todos' | 'holidays' | 'projects'>
+
+/** 마감 줄 전체: PMP 마감, 그리고 OMF 처럼 마감 줄로 보는 할 일 */
+export const pmpAll = (data: PmpData): PmpDue[] => [
+  ...[...data.events.values()].flatMap((ev) => pmpFor(ev, data)),
+  ...[...data.todos.values()].filter((t) => t.due && !t.someday && TODO_DEADLINE.test(t.title)).map((t) => todoDeadline(t, data.projects)),
 ]
+
+/** 그날이 마감인 것들 */
+export const pmpOn = (d: DateStr, data: PmpData): PmpDue[] => pmpAll(data).filter((x) => x.date === d)

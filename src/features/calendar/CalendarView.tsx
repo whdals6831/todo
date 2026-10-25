@@ -1,11 +1,10 @@
 import bunny from '@/assets/bunny.png'
 import { DOW, diffDays, dow, fmt, md, parse, shift, todayStr } from '@/domain/date.ts'
 import { kindLabel, kindOf } from '@/domain/constants.ts'
-import { calendarDeadlines, dayComplete, dayTodos, eventsOn } from '@/domain/daySets.ts'
-import { pmpOn, type PmpDue } from '@/domain/pmp.ts'
-import { byPriority, dLabel, isUrgent } from '@/domain/priority.ts'
+import { dayComplete, dayTodos, eventsOn } from '@/domain/daySets.ts'
+import { pmpAll, pmpOn, type PmpDue } from '@/domain/pmp.ts'
+import { byPriority, dLabel } from '@/domain/priority.ts'
 import { chipSite, projShort } from '@/domain/project.ts'
-import { deadlineChipText } from '@/domain/specials.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Label, Sub } from '@/components/ui/Layout.tsx'
 import { Popover } from '@/components/ui/Popover.tsx'
@@ -13,8 +12,8 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
 import { closePopover, goToday, openModal, openPopover, setUi, ui, useApp, useUi } from '@/store/ui.ts'
-import type { CalEvent, DateStr, Todo } from '@/types/domain.ts'
-import { wasJustDropped, startDrag } from '../drag/drag.ts'
+import type { CalEvent, DateStr } from '@/types/domain.ts'
+import { wasJustDropped } from '../drag/drag.ts'
 import { EventRow } from '../event/EventRow.tsx'
 import es from '../event/EventRow.module.css'
 import { openEvent } from '../event/openEvent.ts'
@@ -91,6 +90,9 @@ function MonthGrid() {
     if (i === 35 && parse(d).getUTCMonth() !== m - 1) break
     days.push(d)
   }
+  /* 전체 보기: 일정과 마감 줄(PMP 마감·OMF)만. 할 일은 오른쪽 목록에서 */
+  const dues = new Map<DateStr, PmpDue[]>()
+  if (!visitOnly) for (const x of pmpAll({ events, todos, holidays, projects })) dues.set(x.date, [...(dues.get(x.date) || []), x])
 
   return (
     <div>
@@ -103,10 +105,10 @@ function MonthGrid() {
         {days.map((d) => {
           const inMonth = parse(d).getUTCMonth() === m - 1
           const evs = eventsOn(d, events)
-          const tds = visitOnly ? [] : calendarDeadlines(d, todos)
+          const dl = dues.get(d) || []
           const lines = [
             ...evs.map((e) => <EventChip key={e.id} event={e} day={d} projects={projects} />),
-            ...tds.map((t) => <DeadlineChip key={t.id} todo={t} day={d} />),
+            ...dl.map((x) => <DueChip key={x.key} due={x} day={d} />),
           ]
           const hol = holidays[d]
           return (
@@ -115,7 +117,7 @@ function MonthGrid() {
               type="button"
               data-drop-date={d}
               className={cx(s.cell, !inMonth && s.out, d === today && s.today, d === sel && s.sel, hol && s.hol, (hol || dow(d) === 0) && s.red)}
-              aria-label={md(d) + ' 일정 ' + evs.length + '건, 할 일 ' + tds.length + '건'}
+              aria-label={md(d) + ' 일정 ' + evs.length + '건' + (visitOnly ? '' : ', 마감 ' + dl.length + '건')}
               onClick={(e) => {
                 if (wasJustDropped()) return
                 selectDay(d)
@@ -163,22 +165,21 @@ function EventChip({ event: e, day: d, projects }: { event: CalEvent; day: DateS
   )
 }
 
-function DeadlineChip({ todo: t, day: d }: { todo: Todo; day: DateStr }) {
-  const events = useApp((st) => st.events)
+/** 마감 줄 (오른쪽 그날 목록의 "마감"과 같은 것). 누르면 그날을 고른다 */
+function DueChip({ due: x, day: d }: { due: PmpDue; day: DateStr }) {
+  const dl = dLabel(x.date)
   return (
     <span
-      className={cx(s.chip, s.dl, t.done && s.done, isUrgent(t) && s.urgent)}
-      title="클릭해서 편집 · 끌어서 날짜 옮기기"
-      onPointerDown={(e) => startDrag(e, t.id)}
+      className={cx(s.chip, s.dl, x.doneDay && s.done, !x.doneDay && (dl.late || dl.soon) && s.urgent)}
+      title={x.label + (x.doneDay ? ' · 완료' : '')}
       onClick={(e) => {
         e.stopPropagation()
         if (wasJustDropped()) return
         selectDay(d)
-        openModal({ kind: 'todoEdit', id: t.id })
       }}
     >
-      {t.time && <span className={s.tm}>{t.time} </span>}
-      {deadlineChipText(t, events)}
+      {x.time && <span className={s.tm}>{x.time} </span>}
+      {x.chip}
     </span>
   )
 }

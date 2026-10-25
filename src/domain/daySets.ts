@@ -10,10 +10,6 @@ const after = (a: DateStr | undefined, b: DateStr) => (a || '') > b
 export const eventsOn = (d: DateStr, events: Data['events']): CalEvent[] =>
   [...events.values()].filter((e) => coversDay(e, d)).sort(byKindTime)
 
-/** 캘린더 칸의 마감 점: 외근에서 생긴 PMP 마감만 (개인 할 일은 넣지 않는다) */
-export const calendarDeadlines = (d: DateStr, todos: Data['todos']) =>
-  [...todos.values()].filter((t) => t.due === d && t.eventId && t.ruleId).sort(byPriority)
-
 /** 오늘 할 일 화면의 묶음: 지연 · 오늘 마감 · 착수한 일 · TBD · 오늘 완료 */
 export function todaySet(t: DateStr, todos: Data['todos']) {
   const all = [...todos.values()]

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BRZ, DEFAULT_HOLIDAYS as holidays, ENF } from './constants.ts'
 import { detectProject, siteCore, siteShort } from './project.ts'
-import { deadlineChipText, specialFor } from './specials.ts'
+import { specialFor } from './specials.ts'
 
 const projects = [
   { name: BRZ, short: 'Breztri', sites: ['09. 가나대병원(PI 홍길동)'], aliases: ['브레즈트리'] },
@@ -57,13 +57,5 @@ describe('특수 키워드 흐름', () => {
     expect(sp?.items).toHaveLength(7)
     expect(sp?.items.filter((x) => x.tbd).map((x) => x.prepKey)).toEqual(['CL', 'EDC'])
     expect(sp?.items.find((x) => x.prepKey === 'BINDER')).toMatchObject({ due: '2026-10-13', time: '11:30' })
-  })
-})
-
-describe('캘린더 칩 이름', () => {
-  it('기관을 줄이고 긴 업무명을 약어로', () => {
-    const events = new Map([['e', { id: 'e', date: '2026-10-08', site: '09. 가나대병원(PI 홍길동)' }]])
-    expect(deadlineChipText({ id: 't', title: '가나대병원 MV Follow-up Letter 발송', eventId: 'e' }, events)).toBe('가나대 MV FUL')
-    expect(deadlineChipText({ id: 't', title: 'PM - Imjudo 가나대병원 MV (WD10)' }, events)).toBe('PM 가나대병원 MV (WD10)')
   })
 })

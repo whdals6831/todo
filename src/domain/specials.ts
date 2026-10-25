@@ -1,7 +1,7 @@
 import type { Data, Todo } from '../types/domain.ts'
 import { BRZ, ENF } from './constants.ts'
 import { addWorkdays, md, todayStr } from './date.ts'
-import { detectProject, sameSite, siteCore, siteShort, chipSite, stripProj } from './project.ts'
+import { detectProject, sameSite, siteCore, stripProj } from './project.ts'
 
 /*
  * 할 일 제목의 키워드로 동작하는 과제별 특수 흐름 (원본 그대로 과제 이름에 묶여 있다).
@@ -148,19 +148,3 @@ export const FOLLOWUPS = [
     basis: '본인 기준: SAE IRB 제출 요청 후 WD2 내 제출 확인',
   },
 ]
-
-/** 캘린더 칩에 넣을 PMP 마감의 짧은 이름: "전남대 FUL" */
-export function deadlineChipText(x: Todo, events: Data['events']) {
-  let t = x.title
-  const ev = x.eventId ? events.get(x.eventId) : null
-  if (ev && ev.site) {
-    const full = siteShort(ev.site)
-    if (t.startsWith(full)) t = chipSite(ev.site) + t.slice(full.length)
-  }
-  return t
-    .replace(/Confirmation Letter 발송/, 'CL')
-    .replace(/Follow-up Letter 발송/, 'FUL')
-    .replace(/서명문서 eTMF 업로드/, 'eTMF')
-    .replace(/ 작성$/, '')
-    .replace(/^PM - \S+ /, 'PM ')
-}

@@ -48,6 +48,14 @@ describe('PMP 마감', () => {
     ])
     expect(pmpOn('2026-11-06', data(ev, list))[0]).toMatchObject({ item: 'eTMF 문서 보관', doneDay: '', linked: true })
   })
+
+  it('캘린더 칸 이름은 기관을 줄이고 긴 항목은 약어로', () => {
+    const chips = (ev: CalEvent) => pmpFor(ev, data(ev)).map((x) => x.chip)
+    expect(chips(visit({ site: '09. 가나대병원(PI 홍길동)' }))).toEqual([
+      '가나대 MV CL', '가나대 MV FUL', '가나대 MV Report', '가나대 MV PM 승인', '가나대 MV Sponsor 송부', '가나대 MV eTMF 보관',
+    ])
+    expect(chips(visit({ project: 'Amgen - Tarlatamab' })).slice(-3)).toEqual(['가나대 MV Amgen 승인', '가나대 MV eTMF 보관', '가나대 MV Report eTMF 승인'])
+  })
 })
 
 describe('마감 줄로 보는 할 일', () => {
@@ -56,8 +64,8 @@ describe('마감 줄로 보는 할 일', () => {
       todo('omf', '브레즈트리 OMF 입력 완료', { eventId: undefined, project: 'AZ - Breztri', due: '2026-10-23', time: '11:30' }),
       todo('etc', '브레즈트리 보고서 정리', { eventId: undefined, project: 'AZ - Breztri', due: '2026-10-23' }),
     ]
-    expect(pmpOn('2026-10-23', data(visit({ date: '2026-12-01' }), list)).map((x) => [x.project, x.label, x.linked])).toEqual([
-      ['AZ - Breztri', 'OMF 입력 완료 · 11:30까지', true],
+    expect(pmpOn('2026-10-23', data(visit({ date: '2026-12-01' }), list)).map((x) => [x.project, x.label, x.chip, x.time, x.linked])).toEqual([
+      ['AZ - Breztri', 'OMF 입력 완료 · 11:30까지', 'OMF 입력 완료', '11:30', true],
     ])
   })
 })

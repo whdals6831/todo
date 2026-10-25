@@ -352,11 +352,22 @@
 }
 /* 넓은 화면: 캘린더는 그대로 두고, 고른 날 패널만 창 높이 안에서 따로 스크롤 */
 @media (min-width: 1101px) {
+  /* 본문 아래 여백(.content)을 상쇄: 캘린더가 창 안에 다 들어와도 그 빈 여백만큼 스크롤이 생기지 않게 */
+  .layout {
+    margin-bottom: calc(-1 * var(--space-14));
+  }
+  /* 범례가 창 바닥에 붙지 않게 달 머리 위만큼 띄우고, 그만큼 칸을 낮춰 5주짜리 달은 그대로 창 안에 들어오게 */
+  .legend {
+    padding-bottom: var(--space-5);
+  }
+  .cell {
+    min-height: 100px;
+  }
   .day {
     position: sticky;
     top: 0;
-    /* 본문 위아래 여백(.content)을 빼야 패널이 꽉 차도 페이지가 창보다 길어지지 않는다 */
-    max-height: calc(100dvh - var(--space-1-5) - var(--space-14));
+    /* 본문 위 여백(.content)을 빼야 패널이 꽉 차도 페이지가 창보다 길어지지 않는다 */
+    max-height: calc(100dvh - var(--space-1-5));
     margin-top: 0;
     padding: var(--space-5) var(--space-2) var(--space-6) 0;
     overflow-y: auto;

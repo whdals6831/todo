@@ -1,11 +1,11 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { md, nowIso, todayStr } from '@/domain/date.ts'
 import { parseWhen } from '@/domain/parseWhen.ts'
 import { detectProject } from '@/domain/project.ts'
 import { FOLLOWUPS, QUICK, specialFor } from '@/domain/specials.ts'
 import { Button } from '@/components/ui/Button.tsx'
 import { Input } from '@/components/ui/Field.tsx'
-import { addTodo } from '@/store/actions.ts'
+import { addSub, addTodo } from '@/store/actions.ts'
 import { getState } from '@/store/store.ts'
 import { useApp } from '@/store/ui.ts'
 import type { DateStr } from '@/types/domain.ts'
@@ -76,16 +76,23 @@ interface Props {
   style?: CSSProperties
 }
 
-/** 한 줄로 할 일 추가 (제목에 날짜·시간·TBD 를 쓸 수 있다) */
+/** 한 줄로 할 일 추가 (제목에 날짜·시간·TBD 를 쓸 수 있다). Shift+Enter 는 방금 추가한 할 일의 하위 항목으로 */
 export function QuickAdd({ placeholder, label, defaultDue, parseBase, autoDue = true, style }: Props) {
   const h = useHintInput()
-  const add = async () => {
+  const [lastId, setLastId] = useState('')
+  const parent = useApp((st) => st.todos.get(lastId))
+  const add = async (sub = false) => {
     const raw = h.value.trim()
     if (!raw) return
     h.setValue('')
+    /* 붙일 할 일이 없으면(아직 안 만들었거나 지웠으면) 그냥 할 일로 추가 */
+    if (sub && parent) {
+      await addSub(parent.id, raw)
+      return
+    }
     const w = parseWhen(raw, parseBase ?? todayStr(), defaultDue)
     const title = w.title || raw
-    await addTodo({
+    const id = await addTodo({
       title,
       due: w.tbd ? '' : w.due || defaultDue,
       ...(autoDue ? { autoDue: !w.tbd && !w.due } : {}),
@@ -95,6 +102,7 @@ export function QuickAdd({ placeholder, label, defaultDue, parseBase, autoDue = 
       done: false,
       created: nowIso(),
     })
+    setLastId(id)
   }
   return (
     <div style={style}>
@@ -106,12 +114,13 @@ export function QuickAdd({ placeholder, label, defaultDue, parseBase, autoDue = 
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
               e.preventDefault()
-              add()
+              add(e.shiftKey)
             }
           }}
         />
-        <Button onClick={add}>추가</Button>
+        <Button onClick={() => add()}>추가</Button>
       </div>
+      {parent && h.focused && <div className={s.subHint}>Shift+Enter → 「{parent.title}」 하위 항목으로 추가</div>}
       <KeywordHints value={h.value} focused={h.focused} onPick={h.pick} />
     </div>
   )

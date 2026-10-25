@@ -6,6 +6,13 @@
   flex: 1;
 }
 
+/* Shift+Enter 로 하위 항목이 붙을 할 일 */
+.subHint {
+  margin-top: var(--space-1-5);
+  font-size: var(--text-2xs);
+  color: var(--color-muted);
+}
+
 /* 입력창 아래: 키워드 예시 · 추가될 할 일 미리보기 */
 .hints {
   display: flex;

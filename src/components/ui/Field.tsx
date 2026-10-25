@@ -1,4 +1,4 @@
-import { forwardRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { forwardRef, type InputHTMLAttributes, type KeyboardEventHandler, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { cx } from '@/lib/cx.ts'
 import s from './Field.module.css'
 
@@ -55,6 +55,6 @@ export function CheckField({ checked, onChange, children, full }: { checked: boo
 }
 
 /** 두 칸 폼 */
-export function FormGrid({ children }: { children: ReactNode }) {
-  return <div className={s.form}>{children}</div>
+export function FormGrid({ children, onKeyDownCapture }: { children: ReactNode; onKeyDownCapture?: KeyboardEventHandler }) {
+  return <div className={s.form} onKeyDownCapture={onKeyDownCapture}>{children}</div>
 }

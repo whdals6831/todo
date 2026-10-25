@@ -51,11 +51,20 @@ function useSubs(init: string[] = []) {
   return { items, setItems, draft, setDraft, add, all }
 }
 
-/** 할 일 아래 펼쳐 보는 체크리스트에 들어갈 항목 */
-function SubsField({ subs }: { subs: ReturnType<typeof useSubs> }) {
+/** 창의 어느 칸에서든 Shift+Enter 면 하위 항목 칸으로 (제목칸 Enter 처럼 저장되지 않게) */
+const toSubs = (e: KeyboardEvent) => {
+  const el = e.currentTarget.querySelector<HTMLInputElement>('[data-sub-input]')
+  if (e.key !== 'Enter' || !e.shiftKey || e.nativeEvent.isComposing || !el || e.target === el) return
+  e.preventDefault()
+  e.stopPropagation()
+  el.focus()
+}
+
+/** 할 일 아래 펼쳐 보는 체크리스트에 들어갈 항목. 빈칸에서 Enter 면 창을 저장한다 */
+function SubsField({ subs, onDone }: { subs: ReturnType<typeof useSubs>; onDone: () => void }) {
   return (
     <div className={s.subs}>
-      하위 항목 (선택)
+      하위 항목 (선택) · 아무 칸에서나 Shift+Enter 로 바로 쓰기
       {subs.items.length > 0 && (
         <ol className={s.subList}>
           {subs.items.map((x) => (
@@ -69,7 +78,15 @@ function SubsField({ subs }: { subs: ReturnType<typeof useSubs> }) {
         </ol>
       )}
       <div className={s.subAdd}>
-        <Input size="sm" value={subs.draft} onChange={(e) => subs.setDraft(e.target.value)} onKeyDown={onEnter(subs.add)} placeholder="예: ISF 문서 인쇄 → Enter" aria-label="하위 항목" />
+        <Input
+          data-sub-input
+          size="sm"
+          value={subs.draft}
+          onChange={(e) => subs.setDraft(e.target.value)}
+          onKeyDown={onEnter(() => (subs.draft.trim() ? subs.add() : onDone()))}
+          placeholder="예: ISF 문서 인쇄 → Enter (빈칸에서 Enter 는 저장)"
+          aria-label="하위 항목"
+        />
         <Button size="sm" onClick={subs.add}>
           추가
         </Button>
@@ -118,7 +135,7 @@ export function TodoAddModal({ due: due0 }: { due?: DateStr }) {
 
   return (
     <Modal title="할 일 추가" onClose={closeModal}>
-      <FormGrid>
+      <FormGrid onKeyDownCapture={toSubs}>
         <Field label="제목 · 날짜·시간·TBD는 제목에 써도 돼요 (~10/15, 금요일 14시, TBD)" full>
           <Input
             {...title.inputProps}
@@ -148,7 +165,7 @@ export function TodoAddModal({ due: due0 }: { due?: DateStr }) {
         <Field label="메모" full>
           <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="선택" />
         </Field>
-        <SubsField subs={subs} />
+        <SubsField subs={subs} onDone={go} />
       </FormGrid>
       <ModalFoot>
         <span />
@@ -214,7 +231,7 @@ export function TodoEditModal({ todo: t }: { todo: Todo }) {
 
   return (
     <Modal title="할 일 편집" onClose={closeModal}>
-      <FormGrid>
+      <FormGrid onKeyDownCapture={toSubs}>
         <Field label="제목" full>
           <Input value={title} onChange={(e) => onTitle(e.target.value)} onKeyDown={onEnter(save)} />
         </Field>
@@ -231,7 +248,7 @@ export function TodoEditModal({ todo: t }: { todo: Todo }) {
         <Field label="메모" full>
           <Input value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={onEnter(save)} placeholder="선택" />
         </Field>
-        <SubsField subs={subs} />
+        <SubsField subs={subs} onDone={save} />
         <CheckField checked={done} onChange={setDone} full>
           완료
         </CheckField>

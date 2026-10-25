@@ -165,12 +165,12 @@ function EventChip({ event: e, day: d, projects }: { event: CalEvent; day: DateS
   )
 }
 
-/** 마감 줄 (오른쪽 그날 목록의 "마감"과 같은 것). 누르면 그날을 고른다 */
+/** 마감 줄 (오른쪽 그날 목록의 "마감"과 같은 것). 누르면 그날을 고른다. 끝냈는지 볼 할 일이 없는 마감은 지나도 빨갛게 두지 않는다 */
 function DueChip({ due: x, day: d }: { due: PmpDue; day: DateStr }) {
   const dl = dLabel(x.date)
   return (
     <span
-      className={cx(s.chip, s.dl, x.doneDay && s.done, !x.doneDay && (dl.late || dl.soon) && s.urgent)}
+      className={cx(s.chip, s.dl, x.doneDay && s.done, !x.doneDay && (dl.soon || (dl.late && x.linked)) && s.urgent)}
       title={x.label + (x.doneDay ? ' · 완료' : '')}
       onClick={(e) => {
         e.stopPropagation()

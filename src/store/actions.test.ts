@@ -118,6 +118,21 @@ describe('저장된 규칙 옮기기', () => {
     expect(getState().todos.get('a_ev1_r-etmf-t')).toMatchObject({ due: '2026-11-04', start: '2026-10-22' })
   })
 
+  it('Breztri 업무 노트 PSV 서명 문서에 Study Summary 를 한 번만 붙인다', async () => {
+    const notes = {
+      'AZ - Breztri': [
+        { v: 'PSV', items: [], docs: [{ t: 'Signed CV', w: '' }] },
+        { v: 'SIV', items: [], docs: [{ t: 'Delegation log', w: '' }] },
+      ],
+    }
+    const config = { rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10'], notes, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] }
+    await replaceAll({ events: [], todos: [], fuls: [], config })
+    const brz = () => getState().notes!['AZ - Breztri'].map((x) => (x.docs || []).map((d) => d.t))
+    expect(brz()).toEqual([['Signed CV', 'Study Summary'], ['Delegation log']])
+    await replaceAll({ events: [], todos: [], fuls: [], config: { ...config, notes: getState().notes } })
+    expect(brz()).toEqual([['Signed CV', 'Study Summary'], ['Delegation log']])
+  })
+
   it('Imjudo MV 에는 방문 후 WD2 마감 ISF checklist 할 일이 생긴다 (착수는 방문 다음 영업일)', async () => {
     const ev = { ...visit, project: 'AZ - Imjudo' }
     await putEvent(ev)

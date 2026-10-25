@@ -1,4 +1,4 @@
-import { ISF_RULE, PREP_RULES, SCAN_RULE, kindOf } from '../domain/constants.ts'
+import { BRZ, ISF_RULE, PREP_RULES, SCAN_RULE, kindOf } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort } from '../domain/project.ts'
@@ -7,7 +7,7 @@ import {
   FOLLOWUPS, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type NewTodo,
 } from '../domain/specials.ts'
 import { slotByTime } from '../domain/priority.ts'
-import type { CalEvent, Config, DateStr, Ful, Notes, Rule, Todo } from '../types/domain.ts'
+import type { CalEvent, Config, DateStr, Ful, NoteSection, Notes, Rule, Todo } from '../types/domain.ts'
 import { createMemoryRepository } from './localRepository.ts'
 import { newId, type DocTable, type RemoteChange, type Repository, type Snapshot } from './repository.ts'
 import {
@@ -591,6 +591,16 @@ async function migrate() {
     const why = ' · 본인 기준: Approve 기간 고려해 방문 후 WD10'
     const rules = s.rules.map((r) => (r.key === 'ETMF' ? { ...r, ...etmf, basis: (r.basis || '').replace(why, '') + why } : r))
     appStore.setState({ rules, mig: [...s.mig, 'etmf10'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('brzss1')) {
+    /* Breztri 업무 노트 PSV 서명 문서에 Study Summary 추가 (이미 있으면 그대로) */
+    const s = S()
+    const secs = s.notes?.[BRZ]
+    const add = (x: NoteSection) =>
+      x.v.trim().toUpperCase() !== 'PSV' || (x.docs || []).some((d) => /study\s*summary/i.test(d.t)) ? x : { ...x, docs: [...(x.docs || []), { t: 'Study Summary', w: '' }] }
+    const notes = s.notes && secs ? { ...s.notes, [BRZ]: secs.map(add) } : s.notes
+    appStore.setState({ notes, mig: [...s.mig, 'brzss1'] })
     await putConfig()
   }
 }

@@ -1,6 +1,7 @@
 import { BRZ, ISF_RULE, PREP_RULES, SCAN_RULE, kindOf } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
+import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort } from '../domain/project.ts'
 import { genKey, manualTwin, normRule, planTodos, rulesFor } from '../domain/rules.ts'
 import {
@@ -619,6 +620,33 @@ async function migrate() {
   }
 }
 
+/**
+ * 이번 달·다음 달의 매월 할 일을 만든다. 달마다 한 번만 만들어 mig 에 남긴다 (지워도 다시 만들지 않는다).
+ * id 를 달로 고정해서 두 창이 동시에 만들어도 중복되지 않는다. 이번 달 마감이 이미 지났으면 만들지 않는다
+ */
+async function syncMonthly() {
+  const today = todayStr()
+  const months = [today.slice(0, 7), nextMonth(today.slice(0, 7))]
+  const made: string[] = []
+  for (const month of months) {
+    for (const x of MONTHLY) {
+      const key = 'monthly:' + x.id + ':' + month
+      if (S().mig.includes(key)) continue
+      made.push(key)
+      const p = monthlyPlan(month, x, S().holidays)
+      const id = safeId('m_' + x.id + '_' + month)
+      if (p.due < today || S().todos.has(id)) continue
+      await putTodo({
+        id, title: x.title, project: '', start: p.start, due: p.due, time: '', tbd: false, autoDue: false, done: false,
+        basis: p.basis, startBasis: p.startBasis, created: new Date().toISOString(),
+      })
+    }
+  }
+  if (!made.length) return
+  appStore.setState({ mig: [...S().mig, ...made] })
+  await putConfig()
+}
+
 export async function loadAll() {
   unsubscribe?.()
   try {
@@ -630,6 +658,7 @@ export async function loadAll() {
   unsubscribe = repo.subscribe?.({ change: applyRemote, reconnected: () => void resync() }) ?? null
   await migrate()
   await syncAll(false)
+  await syncMonthly()
 }
 
 /** 구독을 끊는다 (로그아웃) */

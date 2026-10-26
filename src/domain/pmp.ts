@@ -108,8 +108,8 @@ export function pmpFor(ev: CalEvent, { todos, holidays }: Pick<Data, 'todos' | '
   return out
 }
 
-/** 제목에 이 말이 든 할 일은 그 마감일에 마감 줄로도 보인다 */
-const TODO_DEADLINE = /OMF/i
+/** 제목에 이 말이 든 할 일은 그 마감일에 마감 줄로도 보인다 (OMF, 비용청구, Monthly 업무 계획 보고) */
+const TODO_DEADLINE = /OMF|비용\s*청구|업무\s*계획\s*보고/i
 
 const todoDeadline = (t: Todo, projects: Data['projects']): PmpDue => {
   const name = stripProj(projects, t.title, t.project || '').replace(/\s+/g, ' ').trim()
@@ -121,7 +121,7 @@ const todoDeadline = (t: Todo, projects: Data['projects']): PmpDue => {
 
 type PmpData = Pick<Data, 'events' | 'todos' | 'holidays' | 'projects'>
 
-/** 마감 줄 전체: PMP 마감, 그리고 OMF 처럼 마감 줄로 보는 할 일 */
+/** 마감 줄 전체: PMP 마감, 그리고 OMF·비용청구처럼 마감 줄로 보는 할 일 */
 export const pmpAll = (data: PmpData): PmpDue[] => [
   ...[...data.events.values()].flatMap((ev) => pmpFor(ev, data)),
   ...[...data.todos.values()].filter((t) => t.due && !t.someday && TODO_DEADLINE.test(t.title)).map((t) => todoDeadline(t, data.projects)),

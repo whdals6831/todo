@@ -132,10 +132,7 @@
   font-size: inherit;
   border-bottom: 1px solid var(--color-fg);
 }
-/* 하위 항목 추가 칸: 이 줄을 골랐거나(과제 꼬리표 등을 누름) 쓰는 중일 때만 */
-.body:not(:focus) .subAddRow:not(:focus-within) {
-  display: none;
-}
+/* 하위 항목 추가 칸: 이 줄을 골랐거나(과제 꼬리표 등을 누름) 쓰는 중일 때만 (TodoRow 의 picked) */
 .subAdd {
   grid-column: 2;
   min-width: 0;

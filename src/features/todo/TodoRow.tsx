@@ -32,8 +32,9 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const notes = useApp((s) => s.notes)
   const events = useApp((s) => s.events)
   const [open, setOpen] = useState('')
-  /** 하위 항목 입력칸에 쓰는 중 (하위 항목이 아직 없어도 목록을 띄운다) */
-  const [adding, setAdding] = useState(false)
+  /** 이 줄을 골랐거나(과제 꼬리표 등을 누름) 하위 항목 입력칸에 쓰는 중 → 입력칸을 띄운다.
+     CSS :focus 로 숨기면 줄 → 입력칸으로 포커스가 옮겨 가는 순간 칸이 잠깐 숨어 포커스를 놓치므로 상태로 둔다 */
+  const [picked, setPicked] = useState(false)
   const urgent = isUrgent(t)
   const dd = localDay(t.doneAt)
   const checks = t.checks || []
@@ -48,25 +49,26 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const checked = (items: { t: string }[], pre: string) => items.filter((d) => checks.includes(pre + d.t)).length
 
   /** 하위 항목 맨 아래 입력칸에 바로 쓰게 한다 */
-  const startSub = (body: HTMLElement) => {
-    setAdding(true)
-    requestAnimationFrame(() => body.querySelector<HTMLInputElement>('[data-sub-add]')?.focus())
-  }
+  const startSub = (body: HTMLElement) => body.querySelector<HTMLInputElement>('[data-sub-add]')?.focus()
 
-  /* 체크해도 편집 창이 열리지 않게. 하위 항목(tail 이 있는 목록)은 글자를 눌러 고친다 */
-  const checklist = (items: { t: string; w?: string }[], pre: string, tail?: ReactNode) => (
+  /* 체크해도 편집 창이 열리지 않게. 하위 항목(sub)은 글자를 눌러 고치고, 줄을 골랐으면 맨 아래에 입력칸 */
+  const checklist = (items: { t: string; w?: string }[], pre: string, sub = false) => (
     <ol className={s.docs} onClick={(e) => e.stopPropagation()}>
       {items.map((d, i) => {
         const on = checks.includes(pre + d.t)
         return (
           <li key={i} className={cx(on && s.docOn)}>
             <RoundCheckbox checked={on} onToggle={() => toggleCheck(t.id, pre + d.t)} label={d.t + ' 체크'} />
-            {tail ? <SubText id={t.id} text={d.t} /> : <span className={s.docT}>{d.t}</span>}
+            {sub ? <SubText id={t.id} text={d.t} /> : <span className={s.docT}>{d.t}</span>}
             {d.w && <span className={s.docW}>{d.w}</span>}
           </li>
         )
       })}
-      {tail}
+      {sub && picked && (
+        <li>
+          <SubAdd id={t.id} />
+        </li>
+      )}
     </ol>
   )
 
@@ -112,6 +114,10 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
         className={s.body}
         tabIndex={0}
         aria-label={t.title + ' · Enter 편집, Shift+Enter 하위 항목 추가'}
+        onFocus={(e) => setPicked(e.target === e.currentTarget || e.target.hasAttribute('data-sub-add'))}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setPicked(false)
+        }}
         onKeyDown={(e) => {
           if (e.target !== e.currentTarget) return
           if (e.key === 'Enter' && e.shiftKey) {
@@ -171,14 +177,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
             </button>
           ))}
         </div>
-        {(subs.length > 0 || adding) &&
-          checklist(
-            subs,
-            '',
-            <li className={s.subAddRow}>
-              <SubAdd id={t.id} onLeave={() => setAdding(false)} />
-            </li>,
-          )}
+        {(subs.length > 0 || picked) && checklist(subs, '', true)}
         {shown && checklist(shown.items, shown.pre)}
         {extra}
       </div>
@@ -225,9 +224,15 @@ function SubText({ id, text }: { id: string; text: string }) {
   )
 }
 
-/** 하위 항목 맨 아래에서 바로 한 줄 더. 아무것도 안 쓰고 벗어나면 onLeave */
-function SubAdd({ id, onLeave }: { id: string; onLeave: () => void }) {
+/** 하위 항목 맨 아래에서 바로 한 줄 더 (Enter 로 추가하고 계속 쓴다. 쓴 채로 벗어나도 추가, Esc 는 취소) */
+function SubAdd({ id }: { id: string }) {
   const [v, setV] = useState('')
+  const cancel = useRef(false)
+  const add = () => {
+    if (v.trim() && !cancel.current) void addSub(id, v)
+    cancel.current = false
+    setV('')
+  }
   return (
     <input
       className={s.subAdd}
@@ -236,15 +241,15 @@ function SubAdd({ id, onLeave }: { id: string; onLeave: () => void }) {
       placeholder="+ 하위 항목 추가 (Enter)"
       aria-label="하위 항목 추가"
       onChange={(e) => setV(e.target.value)}
-      onBlur={() => {
-        if (!v.trim()) onLeave()
-      }}
+      onBlur={add}
       onKeyDown={(e) => {
-        if (e.key === 'Escape') e.currentTarget.blur()
+        if (e.key === 'Escape') {
+          cancel.current = true
+          e.currentTarget.blur()
+        }
         if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
         e.preventDefault()
-        void addSub(id, v)
-        setV('')
+        add()
       }}
     />
   )

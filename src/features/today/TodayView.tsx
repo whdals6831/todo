@@ -8,7 +8,7 @@ import { setUi, useApp, useUi } from '@/store/ui.ts'
 import type { DateStr } from '@/types/domain.ts'
 import { EventRow } from '../event/EventRow.tsx'
 import { QuickAdd } from '../todo/QuickAdd.tsx'
-import { RankInfo, ReorderList } from '../todo/TodoList.tsx'
+import { DoneFold, RankInfo, ReorderList } from '../todo/TodoList.tsx'
 import { RollActions, TodoRow } from '../todo/TodoRow.tsx'
 import s from './Today.module.css'
 
@@ -99,11 +99,12 @@ function TodayBody({ t }: { t: DateStr }) {
             <>
               {complete && <img className={s.yay} src={bunny} alt="" />}
               {complete && <span className={s.yayMsg}>오늘 할 일 끝!</span>}
-              <RankInfo items={b.list} />
+              <RankInfo items={b.list.filter((x) => !x.done)} />
             </>
           }
         >
-          <ReorderList items={b.list} />
+          <ReorderList items={b.list.filter((x) => !x.done)} />
+          <DoneFold id="today-done" items={b.list.filter((x) => x.done)} />
         </Group>
       )}
       {!evs.length && !b.late.length && !b.list.length && <EmptyState>오늘 할 일이 없습니다.</EmptyState>}
@@ -121,7 +122,8 @@ function OtherDayBody({ d, today }: { d: DateStr; today: DateStr }) {
   const todos = useApp((st) => st.todos)
   const evs = eventsOn(d, events)
   const ds = daySet(d, todos)
-  const items = [...ds.open.sort(byPriority), ...ds.done.sort((a, b) => (a.doneAt || '').localeCompare(b.doneAt || ''))]
+  const open = ds.open.sort(byPriority)
+  const items = [...open, ...ds.done.sort((a, b) => (a.doneAt || '').localeCompare(b.doneAt || ''))]
 
   return (
     <>
@@ -139,11 +141,12 @@ function OtherDayBody({ d, today }: { d: DateStr; today: DateStr }) {
           extra={
             <>
               {dayComplete(d, todos) && <img className={s.yay} src={bunny} alt="" />}
-              <RankInfo items={items} />
+              <RankInfo items={open} />
             </>
           }
         >
-          <ReorderList items={items} />
+          <ReorderList items={open} />
+          <DoneFold id="day-done" items={ds.done} />
         </Group>
       )}
       {!evs.length && !items.length && <EmptyState>이날 기록된 할 일이 없습니다.</EmptyState>}

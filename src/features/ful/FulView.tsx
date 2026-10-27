@@ -5,7 +5,7 @@ import { md, nowIso } from '@/domain/date.ts'
 import { projShort, siteCore } from '@/domain/project.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { Input, Select } from '@/components/ui/Field.tsx'
-import { EmptyState, Label, Sub, ViewHeader } from '@/components/ui/Layout.tsx'
+import { EmptyState, Fold, Label, Sub, ViewHeader } from '@/components/ui/Layout.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { addFul, deleteFul, updateFul } from '@/store/actions.ts'
 import { useApp } from '@/store/ui.ts'
@@ -40,16 +40,29 @@ export function FulView() {
 
   const all = [...fuls.values()]
   const order = projects.map((p) => p.name)
-  const groups = new Map<string, { project: string; site: string; items: Ful[] }>()
-  for (const f of all) {
-    const k = f.project + '|' + siteCore(f.site)
-    if (!groups.has(k)) {
-      const known = projects.find((p) => p.name === f.project)?.sites.find((x) => siteCore(x) === siteCore(f.site))
-      groups.set(k, { project: f.project, site: known || f.site, items: [] })
+  /** 기관별로 묶는다 */
+  const bySite = (list: Ful[]) => {
+    const groups = new Map<string, { project: string; site: string; items: Ful[] }>()
+    for (const f of list) {
+      const k = f.project + '|' + siteCore(f.site)
+      if (!groups.has(k)) {
+        const known = projects.find((p) => p.name === f.project)?.sites.find((x) => siteCore(x) === siteCore(f.site))
+        groups.set(k, { project: f.project, site: known || f.site, items: [] })
+      }
+      groups.get(k)!.items.push(f)
     }
-    groups.get(k)!.items.push(f)
+    return [...groups.values()].sort((a, b) => order.indexOf(a.project) - order.indexOf(b.project) || a.site.localeCompare(b.site))
   }
-  const gs = [...groups.values()].sort((a, b) => order.indexOf(a.project) - order.indexOf(b.project) || a.site.localeCompare(b.site))
+  /* 대기 중인 메모만 위에, 할 일로 넘어간 메모는 맨 아래 "완료"에 접어 둔다 */
+  const pending = bySite(all.filter((f) => !f.todoId))
+  const moved = all.filter((f) => f.todoId)
+  const head = (g: { project: string; site: string }, sub: string) => (
+    <div className={s.head}>
+      <Tag className={s.proj}>{projShort(projects, g.project)}</Tag>
+      <strong>{g.site}</strong>
+      <Sub>{sub}</Sub>
+    </div>
+  )
 
   return (
     <section>
@@ -89,37 +102,40 @@ export function FulView() {
         </Button>
       </div>
       {!all.length && <EmptyState>방문 때 기관에 요청·정정해야 할 사항을 적어 두면, 그 기관 외근을 등록할 때 할 일로 자동 추가돼요.</EmptyState>}
-      {gs.map((g) => {
-        const pending = g.items.filter((f) => !f.todoId).sort((a, b) => a.created.localeCompare(b.created))
-        const moved = g.items.filter((f) => f.todoId)
-        return (
-          <section key={g.project + '|' + g.site} className={s.group}>
-            <div className={s.head}>
-              <Tag className={s.proj}>{projShort(projects, g.project)}</Tag>
-              <strong>{g.site}</strong>
-              <Sub>{pending.length ? '대기 ' + pending.length : '모두 할 일로 넘어감'}</Sub>
-            </div>
-            {pending.map((f) => (
+      {pending.map((g) => (
+        <section key={g.project + '|' + g.site} className={s.group}>
+          {head(g, '대기 ' + g.items.length)}
+          {g.items
+            .sort((a, b) => a.created.localeCompare(b.created))
+            .map((f) => (
               <PendingRow key={f.id} ful={f} />
             ))}
-            {moved.map((f) => {
-              const t = f.todoId ? todos.get(f.todoId) : undefined
-              return (
-                <div key={f.id} className={s.row}>
-                  <span className={s.movedType}>→ 할 일</span>
-                  <span className={s.moved}>
-                    {f.text}
-                    <Sub>{' · ' + (t ? md(t.due || '') + ' 마감' + (t.done ? ' · 완료' : '') : '할 일 삭제됨')}</Sub>
-                  </span>
-                  <IconButton variant="mini" label="기록 지우기" onClick={() => deleteFul(f.id)}>
-                    ×
-                  </IconButton>
-                </div>
-              )
-            })}
-          </section>
-        )
-      })}
+        </section>
+      ))}
+      {moved.length > 0 && (
+        <Fold id="ful-done" label={'완료 ' + moved.length + ' · 할 일로 넘어간 메모'}>
+          {bySite(moved).map((g) => (
+            <section key={g.project + '|' + g.site} className={s.group}>
+              {head(g, '할 일로 넘어감 ' + g.items.length)}
+              {g.items.map((f) => {
+                const t = f.todoId ? todos.get(f.todoId) : undefined
+                return (
+                  <div key={f.id} className={s.row}>
+                    <span className={s.movedType}>→ 할 일</span>
+                    <span className={s.moved}>
+                      {f.text}
+                      <Sub>{' · ' + (t ? md(t.due || '') + ' 마감' + (t.done ? ' · 완료' : '') : '할 일 삭제됨')}</Sub>
+                    </span>
+                    <IconButton variant="mini" label="기록 지우기" onClick={() => deleteFul(f.id)}>
+                      ×
+                    </IconButton>
+                  </div>
+                )
+              })}
+            </section>
+          ))}
+        </Fold>
+      )}
     </section>
   )
 }

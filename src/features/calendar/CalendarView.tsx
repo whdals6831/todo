@@ -18,7 +18,7 @@ import { EventRow } from '../event/EventRow.tsx'
 import es from '../event/EventRow.module.css'
 import { openEvent } from '../event/openEvent.ts'
 import { QuickAdd } from '../todo/QuickAdd.tsx'
-import { RankInfo, ReorderList } from '../todo/TodoList.tsx'
+import { DoneFold, RankInfo, ReorderList } from '../todo/TodoList.tsx'
 import s from './Calendar.module.css'
 
 const selectDay = (d: DateStr) => setUi({ sel: d })
@@ -252,6 +252,7 @@ function DayPanel() {
   const projects = useApp((st) => st.projects)
   const pmp = pmpOn(d, { events, todos, holidays, projects })
   const merged = dayTodos(d, todos).sort(byPriority)
+  const open = merged.filter((t) => !t.done)
 
   return (
     <div className={s.day}>
@@ -270,7 +271,7 @@ function DayPanel() {
       </div>
       <QuickAdd placeholder="이날 마감인 할 일 바로 추가" label="할 일 제목" defaultDue={d} autoDue={false} style={{ marginTop: 'var(--space-1)' }} />
       </div>
-      {merged.length > 1 && <Sub className={s.dayHelp} style={{ display: 'block' }}>⋮⋮ 손잡이를 위아래로 끌면 우선순위가, 캘린더 칸에 놓으면 날짜가 바뀝니다.</Sub>}
+      {open.length > 1 && <Sub className={s.dayHelp} style={{ display: 'block' }}>⋮⋮ 손잡이를 위아래로 끌면 우선순위가, 캘린더 칸에 놓으면 날짜가 바뀝니다.</Sub>}
       {!evs.length && !pmp.length && !merged.length && <EmptyState>이날 외근과 할 일이 없습니다.</EmptyState>}
       {evs.map((e) => (
         <EventRow key={e.id} event={e} />
@@ -278,15 +279,16 @@ function DayPanel() {
       {pmp.map((x) => (
         <PmpRow key={x.key} due={x} />
       ))}
-      {merged.length > 0 && (
+      {open.length > 0 && (
         <>
           <div className={s.listHead}>
-            <RankInfo items={merged} label="할 일" />
+            <RankInfo items={open} label="할 일" />
           </div>
           {/* 이날 진행 중인 일(착수했지만 마감 전)을 다른 칸에 놓으면 착수일이 옮겨진다 */}
-          <ReorderList items={merged} field={(t) => (t.due === d || !t.start || t.done ? 'due' : 'start')} />
+          <ReorderList items={open} field={(t) => (t.due === d || !t.start ? 'due' : 'start')} />
         </>
       )}
+      <DoneFold id="cal-done" items={merged.filter((t) => t.done)} />
     </div>
   )
 }

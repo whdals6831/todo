@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/Button.tsx'
-import { Label, Sub } from '@/components/ui/Layout.tsx'
+import { Fold, Label, Sub } from '@/components/ui/Layout.tsx'
 import { resetRanks } from '@/store/actions.ts'
 import type { Todo } from '@/types/domain.ts'
 import { TodoRow } from './TodoRow.tsx'
@@ -40,4 +40,14 @@ export function RankInfo({ items, label }: { items: Todo[]; label?: string }) {
 /** 순서 없이 나열 */
 export function PlainList({ items }: { items: Todo[] }) {
   return items.map((t) => <TodoRow key={t.id} todo={t} />)
+}
+
+/** 끝낸 할 일: 목록 맨 아래에 접어 두고 눌러서 펼쳐 본다 (펼침 상태는 id 별로 기억) */
+export function DoneFold({ id, items }: { id: string; items: Todo[] }) {
+  if (!items.length) return null
+  return (
+    <Fold id={id} label={'완료 ' + items.length}>
+      <PlainList items={items} />
+    </Fold>
+  )
 }

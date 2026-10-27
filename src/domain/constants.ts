@@ -86,10 +86,10 @@ const RPT_RULE: Rule = {
 export const FUL_PACKS: { type: string; subs: string[] }[] = [
   {
     type: 'PSV',
-    subs: ['PSVR 작성', 'PSVR 서명 문서 ZIP', 'PSVR Confirmation Letter', 'PSV Follow-up Letter', 'PSV Site Selection Confirmation Letter', 'PSV OMF 업데이트', 'PSV 결재상신'],
+    subs: ['PSVR 작성', 'PSVR 서명 문서 ZIP', 'PSVR Confirmation Letter', 'PSV Follow-up Letter', 'PSV Site Selection Confirmation Letter', 'PSV OMF 업데이트', 'PSVR 결재 상신'],
   },
-  { type: 'SIV', subs: ['SIVR 작성', 'SIV Pre Checklist 첨부', 'SIV Confirmation Letter', 'SIV FUL', '서명문서 ZIP', 'SIV OMF 업데이트', 'SIV 결재 상신'] },
-  { type: 'MV', subs: ['MVR 작성', 'MV Pre checklist 첨부', 'MV CL', 'MV FL', 'Visit FU & Discrepancy List', 'MV OMF 업데이트'] },
+  { type: 'SIV', subs: ['SIVR 작성', 'SIV Pre Checklist 첨부', 'SIV Confirmation Letter', 'SIV FUL', '서명문서 ZIP', 'SIV OMF 업데이트', 'SIVR 결재 상신'] },
+  { type: 'MV', subs: ['MVR 작성', 'MV Pre checklist 첨부', 'MV CL', 'MV FL', 'Visit FU & Discrepancy List', 'MV OMF 업데이트', 'MVR 결재 상신'] },
 ]
 
 /** 리포트 작성 규칙과 같은 기한으로 그 자리를 덮어쓰는 방문 종류별 FUL 규칙 */

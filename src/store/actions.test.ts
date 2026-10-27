@@ -183,3 +183,29 @@ describe('방문 종류별 FUL (fulpack1)', () => {
     expect(getState().mig).toContain('fulpack1')
   })
 })
+
+describe('결재 상신 고치기 (fulpack2)', () => {
+  it('PSV 결재상신은 PSVR 결재 상신으로(체크도 따라감), MV 는 맨 끝에 MVR 결재 상신을 더한다. 끝낸 할 일은 그대로', async () => {
+    const pack = (id: string, type: string, subs: string[]): Rule => ({
+      id, key: 'OWN', type, project: '*', title: '{site} ' + type + ' FUL', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, subs,
+    })
+    await replaceAll({
+      events: [], fuls: [],
+      todos: [
+        { id: 'a', title: '가나대병원 PSV FUL', due: '2026-10-30', ruleId: 'r-rpt-psv', subs: ['PSVR 작성', 'PSV 결재상신'], checks: ['PSV 결재상신'], done: false },
+        { id: 'b', title: '가나대병원 MV FUL', due: '2026-10-30', ruleId: 'r-rpt-mv', subs: ['MVR 작성', '직접 단 것'], done: false },
+        { id: 'c', title: '다른병원 MV FUL', due: '2026-10-01', ruleId: 'r-rpt-mv', subs: ['MVR 작성'], done: true },
+      ],
+      config: {
+        rules: [pack('r-rpt-psv', 'PSV', ['PSVR 작성', 'PSV 결재상신']), pack('r-rpt-mv', 'MV', ['MVR 작성'])],
+        holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1'], notes: null,
+        projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
+      },
+    })
+    const s = getState()
+    expect(s.rules.map((r) => r.subs)).toEqual([['PSVR 작성', 'PSVR 결재 상신'], ['MVR 작성', 'MVR 결재 상신']])
+    expect(s.todos.get('a')).toMatchObject({ subs: ['PSVR 작성', 'PSVR 결재 상신'], checks: ['PSVR 결재 상신'] })
+    expect(s.todos.get('b')!.subs).toEqual(['MVR 작성', '직접 단 것', 'MVR 결재 상신'])
+    expect(s.todos.get('c')!.subs).toEqual(['MVR 작성'])
+  })
+})

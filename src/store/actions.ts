@@ -643,6 +643,25 @@ async function migrate() {
     appStore.setState({ rules, mig: [...s.mig, 'fulpack1'] })
     await putConfig()
   }
+  if (!S().mig.includes('fulpack2')) {
+    /* 결재 상신은 리포트 결재 상신(PSVR·SIVR), MV 도 맨 끝에 MVR 결재 상신. FUL 규칙과 열린 FUL 할 일 모두 (체크도 따라감) */
+    const rename: Record<string, string> = { 'PSV 결재상신': 'PSVR 결재 상신', 'SIV 결재 상신': 'SIVR 결재 상신' }
+    const fix = (type: string, subs: string[]) => {
+      const n = subs.map((x) => rename[x] ?? x)
+      return type === 'MV' && !n.includes('MVR 결재 상신') ? [...n, 'MVR 결재 상신'] : n
+    }
+    const typeOf = (ruleId?: string | null) => /^r-rpt-(psv|siv|mv)\b/.exec(ruleId || '')?.[1].toUpperCase()
+    const s = S()
+    const rules = s.rules.map((r) => (typeOf(r.id) && r.subs ? { ...r, subs: fix(r.type, r.subs) } : r))
+    for (const t of [...s.todos.values()]) {
+      const type = typeOf(t.ruleId)
+      if (!type || t.done || !t.subs?.length) continue
+      const subs = fix(type, t.subs)
+      if (subs.join('\n') !== t.subs.join('\n')) await putTodo({ ...t, subs, checks: (t.checks || []).map((x) => rename[x] ?? x) })
+    }
+    appStore.setState({ rules, mig: [...S().mig, 'fulpack2'] })
+    await putConfig()
+  }
 }
 
 /**

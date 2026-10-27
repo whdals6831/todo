@@ -93,7 +93,7 @@ describe('방문 종류별 FUL', () => {
     const p = planTodos(visit({ type: 'PSV' }), ctx(rules))
     expect(p.map((x) => [x.ruleId, x.title])).toEqual([['r-rpt-psv', '가나대병원 PSV FUL']])
     expect(p[0].subs).toEqual(FUL_PACKS[0].subs)
-    expect(planTodos(visit({ type: 'MV' }), ctx(rules)).map((x) => [x.title, x.subs.length])).toEqual([['가나대병원 MV FUL', 6]])
+    expect(planTodos(visit({ type: 'MV' }), ctx(rules)).map((x) => [x.title, x.subs.length])).toEqual([['가나대병원 MV FUL', 7]])
     expect(planTodos(visit({ type: 'COV' }), ctx(rules)).map((x) => [x.title, x.subs])).toEqual([['가나대병원 COVR 작성', []]])
   })
 })

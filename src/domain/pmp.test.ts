@@ -69,11 +69,13 @@ describe('마감 줄로 보는 할 일', () => {
     ])
   })
 
-  it('비용청구, Monthly 업무 계획 보고도 마감 줄로 보인다', () => {
+  it('비용청구, Monthly 업무 계획 보고, QC 도 마감 줄로 보인다', () => {
     const list = [
       todo('cost', '브레즈트리 10월 비용 청구', { eventId: undefined, project: 'AZ - Breztri', due: '2026-10-28' }),
       todo('plan', 'Monthly 업무 계획 보고', { eventId: undefined, due: '2026-10-28' }),
+      todo('qc', '암젠 eTMF QC', { eventId: undefined, due: '2026-10-28' }),
+      todo('qcx', 'QCR 정리', { eventId: undefined, due: '2026-10-28' }),
     ]
-    expect(pmpOn('2026-10-28', data(visit({ date: '2026-12-01' }), list)).map((x) => x.chip)).toEqual(['10월 비용 청구', 'Monthly 업무 계획 보고'])
+    expect(pmpOn('2026-10-28', data(visit({ date: '2026-12-01' }), list)).map((x) => x.chip)).toEqual(['10월 비용 청구', 'Monthly 업무 계획 보고', '암젠 eTMF QC'])
   })
 })

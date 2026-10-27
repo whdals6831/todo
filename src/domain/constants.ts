@@ -164,6 +164,7 @@ export const BUILTIN_ALIASES: Record<string, string[]> = {
 
 /* 과제별 특수 흐름이 쓰는 과제 이름 */
 export const BRZ = 'AZ - Breztri'
+export const IMJ = 'AZ - Imjudo'
 export const ENF = 'MSD - 엔플론시아'
 
 /** IRB 가 없어 개시가 급하게 잡히는 과제 — 방문 전 기한을 등록일 이후로 당긴다 */

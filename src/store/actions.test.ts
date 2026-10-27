@@ -157,6 +157,39 @@ describe('저장된 규칙 옮기기', () => {
     expect(brz()).toEqual([['Signed CV', 'Study Summary'], ['Delegation log']])
   })
 
+  it('Imjudo 업무 노트 MV 에 방문 전 할 일·ISF Checklist·현장에서 써 올 것을 한 번만 넣는다 (체크는 그대로)', async () => {
+    const notes = {
+      'AZ - Imjudo': [
+        { v: 'PSV', items: [{ t: 'Confirmation Letter 발송', w: '' }] },
+        {
+          v: 'MV',
+          items: [
+            { t: '등록 · CRF · Safety 현황 확인 → MV Pre-Checklist 작성 · PM 승인', w: 'PMP 기한 없음 (방문 전)', c: true },
+            { t: 'Confirmation Letter 발송', w: '방문 최소 WD1 전' },
+            { t: 'MV 진행 · SDV', w: '방문일' },
+            { t: 'MVR 작성', w: '방문 후 WD5' },
+          ],
+        },
+      ],
+    }
+    const config = { rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3'], notes, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] }
+    await replaceAll({ events: [], todos: [], fuls: [], config })
+    const mv = () => getState().notes!['AZ - Imjudo'][1].items
+    const want = [
+      { t: 'EMR ID 발급', w: '방문 전' },
+      { t: '모니터링룸 예약', w: '방문 전' },
+      { t: 'EDC 입력 현황 파악하여 Query 작성', w: '방문 전' },
+      { t: '등록 · CRF · Safety 현황 확인 → MV Pre-Checklist · ISF Checklist 작성 및 상신 · PM 승인', w: 'PMP 기한 없음 (방문 전)', c: true },
+      { t: 'Confirmation Letter 발송', w: '방문 최소 WD1 전' },
+      { t: 'MV 진행 · SDV · ICF Tracking Log · Discrepancy List 작성', w: '방문일' },
+      { t: 'MVR 작성', w: '방문 후 WD5' },
+    ]
+    expect(mv()).toEqual(want)
+    expect(getState().notes!['AZ - Imjudo'][0].items).toEqual([{ t: 'Confirmation Letter 발송', w: '' }])
+    await replaceAll({ events: [], todos: [], fuls: [], config: { ...config, notes: getState().notes } })
+    expect(mv()).toEqual(want)
+  })
+
   it('Imjudo MV 에는 방문 후 WD2 마감 ISF checklist 할 일이 생긴다 (착수는 방문 다음 영업일)', async () => {
     const ev = { ...visit, project: 'AZ - Imjudo' }
     await putEvent(ev)

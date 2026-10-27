@@ -1,4 +1,4 @@
-import { BRZ, ISF_RULE, MV_SITE_RULE, PREP_RULES, SCAN_RULE, fulPackRules, kindOf } from '../domain/constants.ts'
+import { BRZ, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, SCAN_RULE, fulPackRules, kindOf } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
@@ -8,7 +8,7 @@ import {
   FOLLOWUPS, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type NewTodo,
 } from '../domain/specials.ts'
 import { slotByTime } from '../domain/priority.ts'
-import type { CalEvent, Config, DateStr, Ful, NoteSection, Notes, Rule, Todo } from '../types/domain.ts'
+import type { CalEvent, Config, DateStr, Ful, NoteItem, NoteSection, Notes, Rule, Todo } from '../types/domain.ts'
 import { createMemoryRepository } from './localRepository.ts'
 import { newId, type DocTable, type RemoteChange, type Repository, type Snapshot } from './repository.ts'
 import {
@@ -685,6 +685,28 @@ async function migrate() {
       if (subs.join('\n') !== t.subs.join('\n')) await putTodo({ ...t, subs })
     }
     appStore.setState({ rules, mig: [...S().mig, 'fulpack3'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('imjmv1')) {
+    /* Imjudo 업무 노트 MV: Pre-Checklist 단계 앞에 방문 전 할 일 셋, Pre-Checklist 에 ISF Checklist 작성·상신,
+       MV 진행에 현장에서 써 올 ICF Tracking Log·Discrepancy List (EMR 단계가 이미 있으면 그대로) */
+    const before = ['EMR ID 발급', '모니터링룸 예약', 'EDC 입력 현황 파악하여 Query 작성'].map((t) => ({ t, w: '방문 전' }))
+    const fixItem = (i: NoteItem): NoteItem =>
+      /pre-?\s*checklist/i.test(i.t) && !/isf/i.test(i.t)
+        ? { ...i, t: i.t.replace(/(pre-?\s*checklist)\s*작성/i, '$1 · ISF Checklist 작성 및 상신') }
+        : /MV\s*진행/.test(i.t) && !/icf/i.test(i.t)
+          ? { ...i, t: i.t + ' · ICF Tracking Log · Discrepancy List 작성' }
+          : i
+    const fix = (x: NoteSection): NoteSection => {
+      if (x.v.trim().toUpperCase() !== 'MV' || x.items.some((i) => /EMR/i.test(i.t))) return x
+      const items = x.items.map(fixItem)
+      const j = Math.max(0, items.findIndex((i) => /pre-?\s*checklist/i.test(i.t)))
+      return { ...x, items: [...items.slice(0, j), ...before, ...items.slice(j)] }
+    }
+    const s = S()
+    const secs = s.notes?.[IMJ]
+    const notes = s.notes && secs ? { ...s.notes, [IMJ]: secs.map(fix) } : s.notes
+    appStore.setState({ notes, mig: [...s.mig, 'imjmv1'] })
     await putConfig()
   }
 }

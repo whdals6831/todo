@@ -210,8 +210,8 @@ export async function syncEvent(ev: CalEvent, force = false) {
       /* 같은 일을 직접 만들어 둔 열린 할 일은 이 규칙의 할 일로 바꾼다.
          날짜는 규칙대로 바뀌므로 예전 날짜를 설명하던 메모는 버리고, 순서·체크는 그대로 */
       const base = twin ?? old
-      /* 규칙의 하위 항목 다음에 직접 단 하위 항목 */
-      const subs = [...p.subs, ...(base?.subs || []).filter((x) => !p.subs.includes(x))]
+      /* 하위 항목은 처음 만들 때만 규칙대로. 그 뒤로는 직접 고치고 지운 대로 둔다 */
+      const subs = base?.subs?.length ? base.subs : p.subs
       await putTodo({
         id, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis,
         ruleId: p.ruleId, verify: p.verify, eventId: ev.id, project: ev.project || '', done: false,
@@ -421,6 +421,16 @@ export async function addSub(id: string, text: string) {
   const v = text.trim()
   if (!t || !v || (t.subs || []).includes(v)) return
   await putTodo(withSubs(t, [...(t.subs || []), v]))
+}
+
+/** 하위 항목 글자 고치기: 체크도 따라가고, 비우면 지운다. 이미 있는 이름으로는 바꾸지 않는다 */
+export async function renameSub(id: string, from: string, to: string) {
+  const t = S().todos.get(id)
+  const v = to.trim()
+  const cur = t?.subs || []
+  if (!t || v === from || cur.includes(v)) return
+  if (!v) return putTodo(withSubs(t, cur.filter((x) => x !== from)))
+  await putTodo({ ...t, subs: cur.map((x) => (x === from ? v : x)), checks: (t.checks || []).map((x) => (x === from ? v : x)) })
 }
 
 /* ---------- 설정 ---------- */

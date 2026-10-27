@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_HOLIDAYS, FUL_PACKS } from '../domain/constants.ts'
 import type { CalEvent, Rule } from '../types/domain.ts'
 import {
-  addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, withSubs,
+  addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, withSubs,
 } from './actions.ts'
 import { createMemoryRepository } from './localRepository.ts'
 import { getState } from './store.ts'
@@ -42,14 +42,17 @@ describe('외근 → 자동 할 일', () => {
     expect(getState().events.get('ev1')!.genKey).toMatch(/^v6\|2026-10-21\|MV/)
   })
 
-  it('규칙의 하위 항목을 붙이고, 규칙이 바뀌어도 직접 단 하위 항목은 뒤에 남긴다', async () => {
+  it('처음 만들 때 규칙의 하위 항목을 붙이고, 그 뒤로는 직접 고친 대로 둔다', async () => {
     await saveRules([{ ...RULES[0], subs: ['{type}R 작성', 'OMF 업데이트'] }, RULES[1]])
     await putEvent(visit)
     await syncEvent(visit)
     expect(getState().todos.get('a_ev1_r-ful')!.subs).toEqual(['MVR 작성', 'OMF 업데이트'])
-    await addSub('a_ev1_r-ful', '직접 단 것')
+    await toggleCheck('a_ev1_r-ful', 'MVR 작성')
+    await renameSub('a_ev1_r-ful', 'MVR 작성', 'MVR 초안 작성')
+    await renameSub('a_ev1_r-ful', 'OMF 업데이트', ' ')
+    expect(getState().todos.get('a_ev1_r-ful')).toMatchObject({ subs: ['MVR 초안 작성'], checks: ['MVR 초안 작성'] })
     await saveRules([{ ...RULES[0], subs: ['{type}R 작성', 'OMF 업데이트', '결재 상신'] }, RULES[1]])
-    expect(getState().todos.get('a_ev1_r-ful')!.subs).toEqual(['MVR 작성', 'OMF 업데이트', '결재 상신', '직접 단 것'])
+    expect(getState().todos.get('a_ev1_r-ful')!.subs).toEqual(['MVR 초안 작성'])
   })
 
   it('직접 지운 자동 할 일은 skip 에 남아 다시 생기지 않는다', async () => {

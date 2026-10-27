@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { localDay, md } from '@/domain/date.ts'
 import { dLabel, isUrgent } from '@/domain/priority.ts'
 import { projShort } from '@/domain/project.ts'
@@ -9,7 +9,7 @@ import { ConfirmLine } from '@/components/ui/Layout.tsx'
 import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
-import { addSub, dismissTodo, rollOver, toSomeday, toggleCheck, toggleDone } from '@/store/actions.ts'
+import { addSub, dismissTodo, renameSub, rollOver, toSomeday, toggleCheck, toggleDone } from '@/store/actions.ts'
 import { openModal, openPopover, useApp } from '@/store/ui.ts'
 import type { Todo } from '@/types/domain.ts'
 import { startDrag, wasJustDropped } from '../drag/drag.ts'
@@ -32,22 +32,43 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const notes = useApp((s) => s.notes)
   const events = useApp((s) => s.events)
   const [open, setOpen] = useState('')
+  /** 하위 항목 입력칸에 쓰는 중 (하위 항목이 아직 없어도 목록을 띄운다) */
+  const [adding, setAdding] = useState(false)
   const urgent = isUrgent(t)
   const dd = localDay(t.doneAt)
   const checks = t.checks || []
-  /* 펼쳐 보는 체크리스트. 체크는 앞말(pre)을 붙인 이름으로 남겨, 목록끼리 같은 이름이 있어도 따로 체크된다 */
+  /* 체크리스트. 체크는 앞말(pre)을 붙인 이름으로 남겨, 목록끼리 같은 이름이 있어도 따로 체크된다.
+     서명문서·eTMF 문서는 눌러서 펼쳐 보고, 직접 단 하위 항목은 늘 보인다 */
   const lists = [
     { key: 'docs', name: '서명문서', pre: '', items: signDocsFor(t, notes, events) },
     { key: 'etmf', name: 'eTMF 문서', pre: 'eTMF:', items: etmfDocsFor(t, events) },
-    { key: 'subs', name: '하위 항목', pre: '', items: (t.subs || []).map((x) => ({ t: x, w: '' })) },
-  ].filter((l) => l.items.length || (l.key === 'subs' && open === 'subs'))
+  ].filter((l) => l.items.length)
   const shown = lists.find((l) => l.key === open)
+  const subs = (t.subs || []).map((x) => ({ t: x }))
+  const checked = (items: { t: string }[], pre: string) => items.filter((d) => checks.includes(pre + d.t)).length
 
-  /** 하위 항목을 펼치고 맨 아래 입력칸에 바로 쓰게 한다 */
+  /** 하위 항목 맨 아래 입력칸에 바로 쓰게 한다 */
   const startSub = (body: HTMLElement) => {
-    setOpen('subs')
+    setAdding(true)
     requestAnimationFrame(() => body.querySelector<HTMLInputElement>('[data-sub-add]')?.focus())
   }
+
+  /* 체크해도 편집 창이 열리지 않게. 하위 항목(tail 이 있는 목록)은 글자를 눌러 고친다 */
+  const checklist = (items: { t: string; w?: string }[], pre: string, tail?: ReactNode) => (
+    <ol className={s.docs} onClick={(e) => e.stopPropagation()}>
+      {items.map((d, i) => {
+        const on = checks.includes(pre + d.t)
+        return (
+          <li key={i} className={cx(on && s.docOn)}>
+            <RoundCheckbox checked={on} onToggle={() => toggleCheck(t.id, pre + d.t)} label={d.t + ' 체크'} />
+            {tail ? <SubText id={t.id} text={d.t} /> : <span className={s.docT}>{d.t}</span>}
+            {d.w && <span className={s.docW}>{d.w}</span>}
+          </li>
+        )
+      })}
+      {tail}
+    </ol>
+  )
 
   const due = t.done ? (
     <button
@@ -134,6 +155,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
             <span className={s.rolled}>{'이월 ' + t.rolled + '회' + (t.origDue ? ' · 원래 마감 ' + md(t.origDue) : '')}</span>
           )}
           {t.note && <span>{t.note}</span>}
+          {subs.length > 0 && <span className={s.subCount}>{'하위 항목 ' + checked(subs, '') + '/' + subs.length}</span>}
           {lists.map((l) => (
             <button
               key={l.key}
@@ -145,36 +167,19 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
                 setOpen((o) => (o === l.key ? '' : l.key))
               }}
             >
-              {(open === l.key ? '▴ ' : '▾ ') + l.name + ' ' + l.items.filter((d) => checks.includes(l.pre + d.t)).length + '/' + l.items.length}
+              {(open === l.key ? '▴ ' : '▾ ') + l.name + ' ' + checked(l.items, l.pre) + '/' + l.items.length}
             </button>
           ))}
         </div>
-        {shown && (
-          /* 체크해도 편집 창이 열리지 않게 */
-          <ol className={s.docs} onClick={(e) => e.stopPropagation()}>
-            {shown.items.map((d, i) => {
-              const on = checks.includes(shown.pre + d.t)
-              return (
-                <li key={i} className={cx(on && s.docOn)}>
-                  <RoundCheckbox checked={on} onToggle={() => toggleCheck(t.id, shown.pre + d.t)} label={d.t + ' 체크'} />
-
-                  <span className={s.docT}>{d.t}</span>
-                  {d.w && <span className={s.docW}>{d.w}</span>}
-                </li>
-              )
-            })}
-            {shown.key === 'subs' && (
-              <li>
-                <SubAdd
-                  id={t.id}
-                  onLeave={() => {
-                    if (!t.subs?.length) setOpen('')
-                  }}
-                />
-              </li>
-            )}
-          </ol>
-        )}
+        {(subs.length > 0 || adding) &&
+          checklist(
+            subs,
+            '',
+            <li className={s.subAddRow}>
+              <SubAdd id={t.id} onLeave={() => setAdding(false)} />
+            </li>,
+          )}
+        {shown && checklist(shown.items, shown.pre)}
         {extra}
       </div>
       {due}
@@ -182,7 +187,45 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   )
 }
 
-/** 펼친 하위 항목 맨 아래에서 바로 한 줄 더. 아무것도 안 쓰고 벗어나면 onLeave */
+/** 하위 항목 글자: 누르면 그 자리에서 고친다 (Enter·바깥을 누르면 저장, Esc 는 취소, 비우면 지움) */
+function SubText({ id, text }: { id: string; text: string }) {
+  const [v, setV] = useState<string | null>(null)
+  const cancel = useRef(false)
+  if (v == null)
+    return (
+      <span
+        className={cx(s.docT, s.subT)}
+        title="눌러서 고치기"
+        /* 줄이 골라져 추가 칸이 잠깐 보이지 않게 */
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setV(text)}
+      >
+        {text}
+      </span>
+    )
+  return (
+    <input
+      className={cx(s.subAdd, s.subEdit)}
+      autoFocus
+      value={v}
+      aria-label={text + ' 고치기'}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => {
+        if (!cancel.current) void renameSub(id, text, v)
+        cancel.current = false
+        setV(null)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') cancel.current = true
+        else if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+        e.preventDefault()
+        e.currentTarget.blur()
+      }}
+    />
+  )
+}
+
+/** 하위 항목 맨 아래에서 바로 한 줄 더. 아무것도 안 쓰고 벗어나면 onLeave */
 function SubAdd({ id, onLeave }: { id: string; onLeave: () => void }) {
   const [v, setV] = useState('')
   return (

@@ -78,6 +78,12 @@ export const ISF_RULE: Rule = {
   basis: 'Imjudo: ISF checklist 는 MV 시 확인 후 해당일 업데이트 및 CRA 서명 (본인 기준 WD2)', start: 'fresh', startN: 0,
 }
 
+/** MV 방문 당일 현장에서 써 오는 것 */
+export const MV_SITE_RULE: Rule = {
+  id: 'r-mv-site', key: '', type: 'MV', project: '*', title: '{site} MV 현장에서 써 올 것', subs: ['ICF Tracking Log', 'Discrepancy List'],
+  dir: 'after', n: 0, unit: 'WD', send: false, verify: false, basis: '본인 기준: MV 때 현장에서 작성해 옴', start: 'due', startN: 0,
+}
+
 const RPT_RULE: Rule = {
   id: 'r-rpt', key: 'OWN', type: '*', project: '*', title: '{site} {type}R 작성', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, basis: '방문 리포트 본인 작성 기한 WD5', start: 'fresh', startN: 0,
 }
@@ -89,7 +95,10 @@ export const FUL_PACKS: { type: string; subs: string[] }[] = [
     subs: ['PSVR 작성', 'PSVR 서명 문서 ZIP', 'PSVR Confirmation Letter', 'PSV Follow-up Letter', 'PSV Site Selection Confirmation Letter', 'PSV OMF 업데이트', 'PSVR 결재 상신'],
   },
   { type: 'SIV', subs: ['SIVR 작성', 'SIV Pre Checklist 첨부', 'SIV Confirmation Letter', 'SIV FUL', '서명문서 ZIP', 'SIV OMF 업데이트', 'SIVR 결재 상신'] },
-  { type: 'MV', subs: ['MVR 작성', 'MV Pre checklist 첨부', 'MV CL', 'MV FL', 'Visit FU & Discrepancy List', 'MV OMF 업데이트', 'MVR 결재 상신'] },
+  {
+    type: 'MV',
+    subs: ['MVR 작성', 'MV Pre checklist 첨부', 'ISF Checklist 첨부', 'MV CL', 'MV FL', 'ICF Tracking Log', 'Visit FU & Discrepancy List', 'MV OMF 업데이트', 'MVR 결재 상신'],
+  },
 ]
 
 /** 리포트 작성 규칙과 같은 기한으로 그 자리를 덮어쓰는 방문 종류별 FUL 규칙 */
@@ -99,6 +108,7 @@ export const fulPackRules = (rpt: Rule): Rule[] =>
 export const DEFAULT_RULES: Rule[] = [
   { ...SCAN_RULE },
   { ...ISF_RULE },
+  { ...MV_SITE_RULE },
   ...PREP_RULES.map((r) => ({ ...r })),
   { id: 'r-cl', key: 'CL', type: '*', project: '*', title: '{site} {type} Confirmation Letter 발송', dir: 'before', n: 3, unit: 'WD', send: true, verify: true, basis: 'PMP 확인 필요 (임시값)', start: 'lead', startN: 2 },
   { ...RPT_RULE },

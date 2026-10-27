@@ -51,6 +51,9 @@ export function computeDue(ev: CalEvent, r: Rule, { holidays: hol }: Pick<Data, 
     d = addWorkdays(base, r.n | 0, hol)
     if (!isWork(d, hol)) d = nextWorkOrSame(d, hol)
     parts.push('외근 등록일 ' + md(base) + (r.n ? ' 후 WD' + r.n : ' 당일') + ' = ' + md(d))
+  } else if (!r.n) {
+    d = v
+    parts.push('방문 당일 ' + md(v))
   } else if (r.unit === 'WD') {
     d = addWorkdays(v, sign * r.n, hol)
     const first = r.n > 0 ? addWorkdays(v, sign, hol) : null

@@ -1,4 +1,4 @@
-import { BRZ, ISF_RULE, PREP_RULES, SCAN_RULE, fulPackRules, kindOf } from '../domain/constants.ts'
+import { BRZ, ISF_RULE, MV_SITE_RULE, PREP_RULES, SCAN_RULE, fulPackRules, kindOf } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
@@ -660,6 +660,31 @@ async function migrate() {
       if (subs.join('\n') !== t.subs.join('\n')) await putTodo({ ...t, subs, checks: (t.checks || []).map((x) => rename[x] ?? x) })
     }
     appStore.setState({ rules, mig: [...S().mig, 'fulpack2'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('fulpack3')) {
+    /* MV FUL 에 ISF Checklist 첨부(Pre checklist 다음)·ICF Tracking Log(Discrepancy List 앞)를 더하고, MV 당일 "현장에서 써 올 것" 규칙 추가.
+       이미 비슷한 항목이 있으면 그대로. FUL 규칙과 열린 MV FUL 할 일 모두 */
+    /* at 항목 앞(before)이나 뒤에. 그 항목이 없으면 결재 상신 앞, 그것도 없으면 맨 끝 */
+    const ins = (list: string[], item: string, has: RegExp, at: RegExp, before: boolean) => {
+      if (list.some((x) => has.test(x))) return list
+      let j = list.findIndex((x) => at.test(x))
+      if (j >= 0 && !before) j++
+      if (j < 0) j = list.findIndex((x) => /결재/.test(x))
+      if (j < 0) j = list.length
+      return [...list.slice(0, j), item, ...list.slice(j)]
+    }
+    const fix = (subs: string[]) =>
+      ins(ins(subs, 'ISF Checklist 첨부', /isf/i, /pre[\s-]*check\s*list/i, false), 'ICF Tracking Log', /icf/i, /discrepancy/i, true)
+    const s = S()
+    const rules = s.rules.map((r) => (r.id === 'r-rpt-mv' && r.subs ? { ...r, subs: fix(r.subs) } : r))
+    if (!rules.some((r) => r.id === MV_SITE_RULE.id)) rules.push(normRule(MV_SITE_RULE))
+    for (const t of [...s.todos.values()]) {
+      if (t.ruleId !== 'r-rpt-mv' || t.done || !t.subs?.length) continue
+      const subs = fix(t.subs)
+      if (subs.join('\n') !== t.subs.join('\n')) await putTodo({ ...t, subs })
+    }
+    appStore.setState({ rules, mig: [...S().mig, 'fulpack3'] })
     await putConfig()
   }
 }

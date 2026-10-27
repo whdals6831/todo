@@ -21,7 +21,7 @@ beforeEach(async () => {
   await replaceAll({
     events: [], todos: [], fuls: [],
     config: {
-      rules: RULES, holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'ful5'], notes: null,
+      rules: RULES, holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'ful5', 'fulpack3'], notes: null,
       projects: [{ name: 'P', short: 'Pj', sites: [] }],
       companions: [{ project: 'P', keyword: 'OMF', items: ['로그 업데이트', '마일스톤 작성'] }],
     },
@@ -198,7 +198,7 @@ describe('결재 상신 고치기 (fulpack2)', () => {
       ],
       config: {
         rules: [pack('r-rpt-psv', 'PSV', ['PSVR 작성', 'PSV 결재상신']), pack('r-rpt-mv', 'MV', ['MVR 작성'])],
-        holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1'], notes: null,
+        holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack3'], notes: null,
         projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
       },
     })
@@ -207,5 +207,31 @@ describe('결재 상신 고치기 (fulpack2)', () => {
     expect(s.todos.get('a')).toMatchObject({ subs: ['PSVR 작성', 'PSVR 결재 상신'], checks: ['PSVR 결재 상신'] })
     expect(s.todos.get('b')!.subs).toEqual(['MVR 작성', '직접 단 것', 'MVR 결재 상신'])
     expect(s.todos.get('c')!.subs).toEqual(['MVR 작성'])
+  })
+})
+
+describe('MV FUL 에 ISF Checklist·ICF Tracking Log, MV 당일 현장에서 써 올 것 (fulpack3)', () => {
+  it('규칙과 열린 MV FUL 에 제자리로 더하고(이미 있으면 그대로), MV 방문 날 할 일이 생긴다', async () => {
+    const mv: Rule = {
+      id: 'r-rpt-mv', key: 'OWN', type: 'MV', project: '*', title: '{site} MV FUL', dir: 'after', n: 5, unit: 'WD', send: false, verify: false,
+      subs: ['MVR 작성', 'MV Pre checklist 첨부', 'MV FL', 'Visit FU & Discrepancy List', 'MVR 결재 상신'],
+    }
+    await replaceAll({
+      events: [{ ...visit, genKey: 'v6|old' }], fuls: [],
+      todos: [
+        { id: 'a', title: '가나대병원 MV FUL', due: '2026-10-28', ruleId: 'r-rpt-mv', subs: ['MVR 작성', 'ICF Log', 'MVR 결재 상신'], done: false },
+        { id: 'b', title: '다른병원 MV FUL', due: '2026-10-01', ruleId: 'r-rpt-mv', subs: ['MVR 작성'], done: true },
+      ],
+      config: {
+        rules: [mv], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2'], notes: null,
+        projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
+      },
+    })
+    const s = getState()
+    expect(s.rules[0].subs).toEqual(['MVR 작성', 'MV Pre checklist 첨부', 'ISF Checklist 첨부', 'MV FL', 'ICF Tracking Log', 'Visit FU & Discrepancy List', 'MVR 결재 상신'])
+    expect(s.todos.get('a')!.subs).toEqual(['MVR 작성', 'ICF Log', 'ISF Checklist 첨부', 'MVR 결재 상신'])
+    expect(s.todos.get('b')!.subs).toEqual(['MVR 작성'])
+    expect(s.todos.get('a_ev1_r-mv-site')).toMatchObject({ title: '가나대병원 MV 현장에서 써 올 것', due: '2026-10-21', start: '2026-10-21', subs: ['ICF Tracking Log', 'Discrepancy List'] })
+    expect(s.mig).toContain('fulpack3')
   })
 })

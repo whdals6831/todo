@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { localDay, md } from '@/domain/date.ts'
 import { dLabel, isUrgent } from '@/domain/priority.ts'
 import { projShort } from '@/domain/project.ts'
+import { copyText } from '@/domain/rules.ts'
 import { etmfDocsFor, signDocsFor } from '@/domain/signDocs.ts'
 import { Button } from '@/components/ui/Button.tsx'
 import { Highlight } from '@/components/ui/Highlight.tsx'
@@ -31,6 +32,8 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const projects = useApp((s) => s.projects)
   const notes = useApp((s) => s.notes)
   const events = useApp((s) => s.events)
+  const rules = useApp((s) => s.rules)
+  const copy = t.done ? '' : copyText(t, { rules, events, projects })
   const [open, setOpen] = useState('')
   /** 이 줄을 골랐거나(과제 꼬리표 등을 누름) 하위 항목 입력칸에 쓰는 중 → 입력칸을 띄운다.
      CSS :focus 로 숨기면 줄 → 입력칸으로 포커스가 옮겨 가는 순간 칸이 잠깐 숨어 포커스를 놓치므로 상태로 둔다 */
@@ -177,6 +180,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
             </button>
           ))}
         </div>
+        {copy && <CopyLine text={copy} />}
         {(subs.length > 0 || picked) && checklist(subs, '', true)}
         {shown && checklist(shown.items, shown.pre)}
         {extra}
@@ -221,6 +225,28 @@ function SubText({ id, text }: { id: string; text: string }) {
         e.currentTarget.blur()
       }}
     />
+  )
+}
+
+/** 결재 상신 제목: 눌러서 복사 */
+function CopyLine({ text }: { text: string }) {
+  const [done, setDone] = useState(false)
+  return (
+    <button
+      type="button"
+      className={s.copy}
+      title="눌러서 복사"
+      onClick={async (e) => {
+        e.stopPropagation()
+        await navigator.clipboard.writeText(text)
+        setDone(true)
+        setTimeout(() => setDone(false), 1500)
+      }}
+    >
+      <span className={s.copyLbl}>상신 제목</span>
+      <span className={s.copyT}>{text}</span>
+      <span className={s.copyLbl}>{done ? '복사됨 ✓' : '복사'}</span>
+    </button>
   )
 }
 

@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CalEvent, Rule } from '../types/domain.ts'
-import { DEFAULT_HOLIDAYS as holidays, ENF, FUL_PACKS, fulPackRules } from './constants.ts'
-import { computeDue, computeStart, genKey, manualTwin, planTodos, rulesFor, stableStringify } from './rules.ts'
+import { BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS as holidays, ENF, FUL_PACKS, brzPsvFulRule, fulPackRules } from './constants.ts'
+import { computeDue, computeStart, copyText, genKey, manualTwin, planTodos, rulesFor, stableStringify } from './rules.ts'
 
 const projects = [
   { name: 'AZ - Imjudo', short: 'Imjudo', sites: ['09. 가나대병원(PI 홍길동)'] },
   { name: ENF, short: '엔플론시아', sites: [] },
+  { name: BRZ, short: 'Breztri', sites: ['09. 강원대병원(PI 권오범)', '022. 대구가톨릭대학교병원(PI 김은진)'] },
 ]
 const rule = (o: Partial<Rule>): Rule => ({
   id: 'r', key: '', type: '*', project: '*', title: '{site} {type}', dir: 'after', n: 3, unit: 'WD', send: false, verify: false, start: 'due', startN: 0, ...o,
@@ -128,5 +129,25 @@ describe('manualTwin', () => {
     expect(manualTwin(ev, title, [todo('이뮤도 다라대 PSV 서명문서 준비')], projects)).toBeUndefined()
     expect(manualTwin(ev, title, [todo('이뮤도 가나대 PSV 서명문서 준비', { due: '2026-08-01' })], projects)).toBeUndefined()
     expect(manualTwin(ev, title, [todo('이뮤도 가나대 PSV 서명문서 준비', { eventId: 'ev0' })], projects)).toBeUndefined()
+  })
+})
+
+describe('Breztri PSV FUL', () => {
+  const psv = fulPackRules(rule({ id: 'r-rpt', key: 'OWN', title: '{site} {type}R 작성' }))[0]
+  const rules = [psv, brzPsvFulRule(psv)]
+
+  it('Breztri PSV 만 결재 상신 순서의 하위 항목으로 덮어쓰고, 다른 과제는 그대로', () => {
+    const brz = planTodos(visit({ type: 'PSV', project: BRZ, site: '대구가톨릭대학교병원(PI 김은진)' }), ctx(rules))
+    expect(brz.map((x) => [x.ruleId, x.title, x.subs])).toEqual([['r-rpt-psv-b', '대구가톨릭대학교병원 PSV FUL', BRZ_PSV_FUL.subs]])
+    expect(planTodos(visit({ type: 'PSV' }), ctx(rules)).map((x) => x.ruleId)).toEqual(['r-rpt-psv'])
+  })
+
+  it('상신 제목: 담당 기관 목록에서 기관번호·기관명·PI 를 찾아 채운다 (모르면 이름 그대로)', () => {
+    const ev = visit({ id: 'b1', date: '2026-10-23', type: 'PSV', project: BRZ, site: '대구가톨릭대학교병원(PI 김은진)' })
+    const c = ctx(rules, [ev, visit({ id: 'b2', type: 'PSV', project: BRZ, site: '09. 강원대병원(PI 권오범)' }), visit({ id: 'b3', type: 'PSV', project: BRZ, site: '새병원' })])
+    expect(copyText({ ruleId: 'r-rpt-psv-b', eventId: 'b1' }, c)).toBe('AstraZeneca_Breztri_PMS_S022. 대구가톨릭대학교병원(PI 김은진)_PSVR_20261023')
+    expect(copyText({ ruleId: 'r-rpt-psv-b', eventId: 'b2' }, c)).toBe('AstraZeneca_Breztri_PMS_S009. 강원대병원(PI 권오범)_PSVR_20261008')
+    expect(copyText({ ruleId: 'r-rpt-psv-b', eventId: 'b3' }, c)).toBe('AstraZeneca_Breztri_PMS_S기관번호. 새병원(PI PI 이름)_PSVR_20261008')
+    expect(copyText({ ruleId: 'r-rpt-psv', eventId: 'b1' }, c)).toBe('')
   })
 })

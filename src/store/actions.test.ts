@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_HOLIDAYS, FUL_PACKS } from '../domain/constants.ts'
+import { BRZ_PSV_FUL, DEFAULT_HOLIDAYS, FUL_PACKS } from '../domain/constants.ts'
 import type { CalEvent, Rule } from '../types/domain.ts'
 import {
   addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, withSubs,
@@ -231,7 +231,7 @@ describe('결재 상신 고치기 (fulpack2)', () => {
       ],
       config: {
         rules: [pack('r-rpt-psv', 'PSV', ['PSVR 작성', 'PSV 결재상신']), pack('r-rpt-mv', 'MV', ['MVR 작성'])],
-        holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack3'], notes: null,
+        holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack3', 'brzful1'], notes: null,
         projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
       },
     })
@@ -240,6 +240,33 @@ describe('결재 상신 고치기 (fulpack2)', () => {
     expect(s.todos.get('a')).toMatchObject({ subs: ['PSVR 작성', 'PSVR 결재 상신'], checks: ['PSVR 결재 상신'] })
     expect(s.todos.get('b')!.subs).toEqual(['MVR 작성', '직접 단 것', 'MVR 결재 상신'])
     expect(s.todos.get('c')!.subs).toEqual(['MVR 작성'])
+  })
+})
+
+describe('Breztri PSV FUL (brzful1)', () => {
+  it('PSV FUL 규칙 다음에 Breztri 규칙을 넣고, 열린 Breztri PSV FUL 은 체크·직접 단 항목을 지켜 옮긴다', async () => {
+    const psv: Rule = {
+      id: 'r-rpt-psv', key: 'OWN', type: 'PSV', project: '*', title: '{site} PSV FUL', dir: 'after', n: 5, unit: 'WD', send: false, verify: false,
+      subs: ['PSVR 작성', 'PSVR 결재 상신'],
+    }
+    const ev: CalEvent = { ...visit, type: 'PSV', project: 'AZ - Breztri', site: '대구가톨릭대학교병원(PI 김은진)', genKey: 'v6|old' }
+    await replaceAll({
+      events: [ev], fuls: [],
+      todos: [
+        { id: 'a_ev1_r-rpt-psv', title: '대구가톨릭대학교병원 PSV FUL', due: '2026-10-28', eventId: 'ev1', ruleId: 'r-rpt-psv', project: 'AZ - Breztri', subs: ['PSVR 작성', '내가 단 것', 'PSVR 결재 상신'], checks: ['PSVR 작성'], note: '메모', done: false },
+      ],
+      config: {
+        rules: [psv], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1'], notes: null,
+        projects: [{ name: 'AZ - Breztri', short: 'Breztri', sites: ['022. 대구가톨릭대학교병원(PI 김은진)'] }], companions: [],
+      },
+    })
+    const s = getState()
+    expect(s.rules.map((r) => r.id)).toEqual(['r-rpt-psv', 'r-rpt-psv-b'])
+    expect(todos().map((t) => t.id)).toEqual(['a_ev1_r-rpt-psv-b'])
+    expect(todos()[0]).toMatchObject({
+      ruleId: 'r-rpt-psv-b', checks: ['PSVR 작성'], note: '메모',
+      subs: [...BRZ_PSV_FUL.subs.slice(0, -1), '내가 단 것', 'PSVR 결재 상신'],
+    })
   })
 })
 

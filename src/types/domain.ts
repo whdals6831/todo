@@ -138,6 +138,8 @@ export interface Rule {
   time?: TimeStr
   /** 만들 할 일에 붙일 하위 항목 (자리표시자를 쓸 수 있다) */
   subs?: string[]
+  /** 할 일에 띄워 눌러서 복사하는 결재 상신 제목 (자리표시자를 쓸 수 있다) */
+  copy?: string
 }
 
 export type NormRule = Rule & { key: string; start: StartMode; startN: number }

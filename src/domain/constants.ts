@@ -1,5 +1,10 @@
 import type { CalEvent, Companion, DateStr, EventKind, Holidays, Project, Rule, StartMode } from '../types/domain.ts'
 
+/* 과제별 특수 흐름이 쓰는 과제 이름 */
+export const BRZ = 'AZ - Breztri'
+export const IMJ = 'AZ - Imjudo'
+export const ENF = 'MSD - 엔플론시아'
+
 export const TYPES = ['PSV', 'SIV', 'MV', 'Add-on', 'COV', '기타'] as const
 
 export const TYPE_LABEL: Record<string, string> = {
@@ -105,6 +110,18 @@ export const FUL_PACKS: { type: string; subs: string[] }[] = [
 export const fulPackRules = (rpt: Rule): Rule[] =>
   FUL_PACKS.map((p) => ({ ...rpt, id: 'r-rpt-' + p.type.toLowerCase(), key: 'OWN', type: p.type, title: '{site} ' + p.type + ' FUL', subs: [...p.subs] }))
 
+/** Breztri PSV FUL: 실제 결재 상신에 붙이는 순서대로, 상신 제목은 눌러서 복사 */
+export const BRZ_PSV_FUL = {
+  id: 'r-rpt-psv-b',
+  subs: [
+    'PSVR Confirmation Letter', '기관 선정 확인 요청 메일 (Re)', 'PSV Site Selection Confirmation Letter', 'PSV Follow-up Letter',
+    'PSV OMF 업데이트', 'PSVR 서명 문서 ZIP', 'PSVR 작성', 'PSVR 결재 상신',
+  ],
+  copy: 'AstraZeneca_Breztri_PMS_S{no}. {hosp}(PI {pi})_PSVR_{ymd}',
+}
+/** 방문 종류별 PSV FUL 규칙(psv)과 같은 기한으로 Breztri 에서만 그 자리를 덮어쓴다 */
+export const brzPsvFulRule = (psv: Rule): Rule => ({ ...psv, ...BRZ_PSV_FUL, subs: [...BRZ_PSV_FUL.subs], project: BRZ, type: 'PSV', key: 'OWN' })
+
 export const DEFAULT_RULES: Rule[] = [
   { ...SCAN_RULE },
   { ...ISF_RULE },
@@ -113,6 +130,7 @@ export const DEFAULT_RULES: Rule[] = [
   { id: 'r-cl', key: 'CL', type: '*', project: '*', title: '{site} {type} Confirmation Letter 발송', dir: 'before', n: 3, unit: 'WD', send: true, verify: true, basis: 'PMP 확인 필요 (임시값)', start: 'lead', startN: 2 },
   { ...RPT_RULE },
   ...fulPackRules(RPT_RULE),
+  brzPsvFulRule(fulPackRules(RPT_RULE)[0]),
   { id: 'r-pm', key: 'REPORT', type: '*', project: '*', title: 'PM - {proj} {site} {type} (WD10)', dir: 'after', n: 10, unit: 'WD', send: false, verify: false, basis: 'PM 리포트 검토 기한 WD10', start: 'lead', startN: 2 },
   { id: 'r-ful', key: 'FUL', type: '*', project: '*', title: '{site} {type} Follow-up Letter 발송', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, basis: '방문 후 WD5 송부 (PMP: WD5 이내)', start: 'lead', startN: 2 },
   { id: 'r-ssl', key: 'SSL', type: 'PSV', project: '*', title: '[대기] {site} 의뢰사 선정 승인 확인 → Site Selection CL 발송', dir: 'after', n: 5, unit: 'WD', send: false, verify: true, basis: 'PMP 확인 필요 (임시값), 승인 조건부', start: 'due', startN: 0 },
@@ -161,11 +179,6 @@ export const BUILTIN_ALIASES: Record<string, string[]> = {
   'MSD - 엔플론시아': ['엔플론시아', 'enflonsia', '엔플'],
   'Amgen - Tarlatamab': ['tarlatamab', '탈라타맙', '임델트라', 'imdelltra', 'tarla'],
 }
-
-/* 과제별 특수 흐름이 쓰는 과제 이름 */
-export const BRZ = 'AZ - Breztri'
-export const IMJ = 'AZ - Imjudo'
-export const ENF = 'MSD - 엔플론시아'
 
 /** IRB 가 없어 개시가 급하게 잡히는 과제 — 방문 전 기한을 등록일 이후로 당긴다 */
 export const URGENT_PROJECTS = [ENF]

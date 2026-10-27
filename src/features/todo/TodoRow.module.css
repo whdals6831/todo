@@ -75,6 +75,36 @@
   color: var(--color-danger);
 }
 
+/* 결재 상신 제목: 눌러서 복사 */
+.copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-0-5) var(--space-2);
+  max-width: 100%;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-md);
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-2xs);
+  color: var(--color-fg);
+  text-align: left;
+  cursor: copy;
+}
+.copy:hover {
+  background: var(--color-soft);
+}
+.copyT {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.copyLbl {
+  color: var(--color-muted);
+  font-weight: var(--weight-medium);
+}
+
 /* 체크리스트 (업무 노트의 서명 문서, eTMF 에 올릴 문서, 직접 단 하위 항목) */
 .docsBtn {
   padding: 0;

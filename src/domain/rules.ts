@@ -135,15 +135,41 @@ export interface PlannedTodo {
   subs: string[]
 }
 
-/** 외근 하나가 만들 자동 할 일 목록 */
-export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
-  const fill = (s: string) =>
+/**
+ * 규칙 글의 자리표시자를 이 외근으로 채운다.
+ * {site} 기관 {type} 방문 종류 {proj} 과제 약칭, 그리고 과제의 담당 기관 목록("022. 기관명(PI 이름)")에서
+ * {no} 기관번호(세 자리) {hosp} 기관명 {pi} PI 이름, {ymd} 방문일(20261023). 모르는 값은 그 이름 그대로 남긴다
+ */
+function filler(ev: CalEvent, projects: Project[]) {
+  const sites = projects.find((p) => p.name === ev.project)?.sites || []
+  const core = siteCore(ev.site)
+  const full = sites.find((x) => siteCore(x) === core) || sites.find((x) => sameSite(siteCore(x), core)) || ev.site || ''
+  const vals: Record<string, string> = {
+    site: siteShort(ev.site),
+    type: ev.type || '',
+    proj: projShort(projects, ev.project),
+    no: /^\s*(?:\(X\))?\s*(\d+)/.exec(full)?.[1].padStart(3, '0') || '기관번호',
+    hosp: siteShort(full),
+    pi: /\(\s*PI\s*([^)]*?)\s*\)\s*$/.exec(full)?.[1] || 'PI 이름',
+    ymd: ev.date.replaceAll('-', ''),
+  }
+  return (s: string) =>
     s
-      .replaceAll('{site}', siteShort(ev.site))
-      .replaceAll('{type}', ev.type || '')
-      .replaceAll('{proj}', projShort(ctx.projects, ev.project))
+      .replace(/\{(\w+)\}/g, (m, k: string) => vals[k] ?? m)
       .replace(/\s+/g, ' ')
       .trim()
+}
+
+/** 할 일에 띄워 복사할 결재 상신 제목 (규칙에 copy 가 있는 외근 할 일만) */
+export function copyText(t: Pick<Todo, 'ruleId' | 'eventId'>, { rules, events, projects }: Pick<Data, 'rules' | 'events' | 'projects'>) {
+  const r = rules.find((x) => x.id === t.ruleId)
+  const ev = t.eventId ? events.get(t.eventId) : undefined
+  return r?.copy && ev ? filler(ev, projects)(r.copy) : ''
+}
+
+/** 외근 하나가 만들 자동 할 일 목록 */
+export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
+  const fill = filler(ev, ctx.projects)
   return rulesFor(ev, ctx.rules).map((r) => {
     const { due, basis } = computeDue(ev, r, ctx)
     const { start, startBasis } = computeStart(ev, r, due, ctx)

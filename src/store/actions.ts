@@ -1,4 +1,4 @@
-import { BRZ, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, SCAN_RULE, fulPackRules, kindOf } from '../domain/constants.ts'
+import { BRZ, BRZ_PSV_FUL, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, SCAN_RULE, brzPsvFulRule, fulPackRules, kindOf } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
@@ -707,6 +707,27 @@ async function migrate() {
     const secs = s.notes?.[IMJ]
     const notes = s.notes && secs ? { ...s.notes, [IMJ]: secs.map(fix) } : s.notes
     appStore.setState({ notes, mig: [...s.mig, 'imjmv1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('brzful1')) {
+    /* Breztri PSV FUL: 실제 결재 상신 순서의 하위 항목과 상신 제목 (기한은 PSV FUL 규칙 그대로, 지워 두었으면 그대로).
+       열린 Breztri PSV FUL 할 일은 새 규칙의 할 일로 옮긴다: 체크·메모 그대로, 직접 단 하위 항목은 결재 상신 앞에 */
+    const s = S()
+    const psv = s.rules.find((r) => r.id === 'r-rpt-psv')
+    let rules = s.rules
+    if (psv && !rules.some((r) => r.id === BRZ_PSV_FUL.id)) {
+      const i = rules.indexOf(psv) + 1
+      rules = [...rules.slice(0, i), brzPsvFulRule(psv), ...rules.slice(i)]
+      const known = new Set([...(psv.subs || []), ...BRZ_PSV_FUL.subs])
+      for (const t of [...s.todos.values()]) {
+        if (t.ruleId !== psv.id || t.project !== BRZ || t.done || !t.eventId) continue
+        const own = (t.subs || []).filter((x) => !known.has(x))
+        const subs = [...BRZ_PSV_FUL.subs.slice(0, -1), ...own, ...BRZ_PSV_FUL.subs.slice(-1)]
+        await putTodo({ ...t, id: safeId('a_' + t.eventId + '_' + BRZ_PSV_FUL.id), ruleId: BRZ_PSV_FUL.id, subs })
+        await deleteTodo(t.id)
+      }
+    }
+    appStore.setState({ rules, mig: [...S().mig, 'brzful1'] })
     await putConfig()
   }
 }

@@ -136,6 +136,8 @@ export interface Rule {
   /** 꺼 둔 규칙 (같은 key 의 '전체' 규칙도 막는다) */
   off?: boolean
   time?: TimeStr
+  /** 만들 할 일에 붙일 하위 항목 (자리표시자를 쓸 수 있다) */
+  subs?: string[]
 }
 
 export type NormRule = Rule & { key: string; start: StartMode; startN: number }

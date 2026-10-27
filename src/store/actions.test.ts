@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_HOLIDAYS } from '../domain/constants.ts'
+import { DEFAULT_HOLIDAYS, FUL_PACKS } from '../domain/constants.ts'
 import type { CalEvent, Rule } from '../types/domain.ts'
-import { addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, replaceAll, setRepository, syncEvent, toggleCheck, withSubs } from './actions.ts'
+import {
+  addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, withSubs,
+} from './actions.ts'
 import { createMemoryRepository } from './localRepository.ts'
 import { getState } from './store.ts'
 
@@ -37,7 +39,17 @@ describe('외근 → 자동 할 일', () => {
     ])
     await syncEvent(getState().events.get('ev1')!, true)
     expect(todos()).toHaveLength(2)
-    expect(getState().events.get('ev1')!.genKey).toMatch(/^v5\|2026-10-21\|MV/)
+    expect(getState().events.get('ev1')!.genKey).toMatch(/^v6\|2026-10-21\|MV/)
+  })
+
+  it('규칙의 하위 항목을 붙이고, 규칙이 바뀌어도 직접 단 하위 항목은 뒤에 남긴다', async () => {
+    await saveRules([{ ...RULES[0], subs: ['{type}R 작성', 'OMF 업데이트'] }, RULES[1]])
+    await putEvent(visit)
+    await syncEvent(visit)
+    expect(getState().todos.get('a_ev1_r-ful')!.subs).toEqual(['MVR 작성', 'OMF 업데이트'])
+    await addSub('a_ev1_r-ful', '직접 단 것')
+    await saveRules([{ ...RULES[0], subs: ['{type}R 작성', 'OMF 업데이트', '결재 상신'] }, RULES[1]])
+    expect(getState().todos.get('a_ev1_r-ful')!.subs).toEqual(['MVR 작성', 'OMF 업데이트', '결재 상신', '직접 단 것'])
   })
 
   it('직접 지운 자동 할 일은 skip 에 남아 다시 생기지 않는다', async () => {
@@ -147,5 +159,24 @@ describe('저장된 규칙 옮기기', () => {
     await putEvent(ev)
     await syncEvent(ev)
     expect(getState().todos.get('a_ev1_r-i-isf')).toMatchObject({ title: '가나대병원 MV ISF checklist 업데이트·CRA 서명', due: '2026-10-23', start: '2026-10-22' })
+  })
+})
+
+describe('방문 종류별 FUL (fulpack1)', () => {
+  it('리포트 작성 규칙이 있으면 PSV·SIV·MV 의 열린 리포트 작성 할 일을 FUL 할 일로 바꾸고 하위 항목을 단다', async () => {
+    /* key·start 가 없는 옛 규칙 */
+    const rpt: Rule = { id: 'r-rpt', type: '*', project: '*', title: '{site} {type}R 작성', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, basis: 'PMP 공통' }
+    await replaceAll({
+      events: [{ ...visit, type: 'PSV', genKey: 'v5|old' }],
+      todos: [{ id: 'a_ev1_r-rpt', title: '가나대병원 PSVR 작성', due: '2026-10-28', eventId: 'ev1', ruleId: 'r-rpt', project: 'P', done: false }],
+      fuls: [],
+      config: {
+        rules: [rpt], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1'], notes: null,
+        projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
+      },
+    })
+    expect(todos().map((t) => [t.id, t.title, t.due])).toEqual([['a_ev1_r-rpt-psv', '가나대병원 PSV FUL', '2026-10-28']])
+    expect(todos()[0].subs).toEqual(FUL_PACKS[0].subs)
+    expect(getState().mig).toContain('fulpack1')
   })
 })

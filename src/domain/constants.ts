@@ -78,12 +78,31 @@ export const ISF_RULE: Rule = {
   basis: 'Imjudo: ISF checklist 는 MV 시 확인 후 해당일 업데이트 및 CRA 서명 (본인 기준 WD2)', start: 'fresh', startN: 0,
 }
 
+const RPT_RULE: Rule = {
+  id: 'r-rpt', key: 'OWN', type: '*', project: '*', title: '{site} {type}R 작성', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, basis: '방문 리포트 본인 작성 기한 WD5', start: 'fresh', startN: 0,
+}
+
+/** 방문 후 할 일을 방문 종류별 "FUL" 하나로 묶어 하위 항목으로 단다 */
+export const FUL_PACKS: { type: string; subs: string[] }[] = [
+  {
+    type: 'PSV',
+    subs: ['PSVR 작성', 'PSVR 서명 문서 ZIP', 'PSVR Confirmation Letter', 'PSV Follow-up Letter', 'PSV Site Selection Confirmation Letter', 'PSV OMF 업데이트', 'PSV 결재상신'],
+  },
+  { type: 'SIV', subs: ['SIVR 작성', 'SIV Pre Checklist 첨부', 'SIV Confirmation Letter', 'SIV FUL', '서명문서 ZIP', 'SIV OMF 업데이트', 'SIV 결재 상신'] },
+  { type: 'MV', subs: ['MVR 작성', 'MV Pre checklist 첨부', 'MV CL', 'MV FL', 'Visit FU & Discrepancy List', 'MV OMF 업데이트'] },
+]
+
+/** 리포트 작성 규칙과 같은 기한으로 그 자리를 덮어쓰는 방문 종류별 FUL 규칙 */
+export const fulPackRules = (rpt: Rule): Rule[] =>
+  FUL_PACKS.map((p) => ({ ...rpt, id: 'r-rpt-' + p.type.toLowerCase(), key: 'OWN', type: p.type, title: '{site} ' + p.type + ' FUL', subs: [...p.subs] }))
+
 export const DEFAULT_RULES: Rule[] = [
   { ...SCAN_RULE },
   { ...ISF_RULE },
   ...PREP_RULES.map((r) => ({ ...r })),
   { id: 'r-cl', key: 'CL', type: '*', project: '*', title: '{site} {type} Confirmation Letter 발송', dir: 'before', n: 3, unit: 'WD', send: true, verify: true, basis: 'PMP 확인 필요 (임시값)', start: 'lead', startN: 2 },
-  { id: 'r-rpt', key: 'OWN', type: '*', project: '*', title: '{site} {type}R 작성', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, basis: '방문 리포트 본인 작성 기한 WD5', start: 'fresh', startN: 0 },
+  { ...RPT_RULE },
+  ...fulPackRules(RPT_RULE),
   { id: 'r-pm', key: 'REPORT', type: '*', project: '*', title: 'PM - {proj} {site} {type} (WD10)', dir: 'after', n: 10, unit: 'WD', send: false, verify: false, basis: 'PM 리포트 검토 기한 WD10', start: 'lead', startN: 2 },
   { id: 'r-ful', key: 'FUL', type: '*', project: '*', title: '{site} {type} Follow-up Letter 발송', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, basis: '방문 후 WD5 송부 (PMP: WD5 이내)', start: 'lead', startN: 2 },
   { id: 'r-ssl', key: 'SSL', type: 'PSV', project: '*', title: '[대기] {site} 의뢰사 선정 승인 확인 → Site Selection CL 발송', dir: 'after', n: 5, unit: 'WD', send: false, verify: true, basis: 'PMP 확인 필요 (임시값), 승인 조건부', start: 'due', startN: 0 },

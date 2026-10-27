@@ -129,20 +129,23 @@ export interface PlannedTodo {
   ruleId: string
   verify: boolean
   time: string
+  subs: string[]
 }
 
 /** 외근 하나가 만들 자동 할 일 목록 */
 export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
-  return rulesFor(ev, ctx.rules).map((r) => {
-    const { due, basis } = computeDue(ev, r, ctx)
-    const { start, startBasis } = computeStart(ev, r, due, ctx)
-    const title = r.title
+  const fill = (s: string) =>
+    s
       .replaceAll('{site}', siteShort(ev.site))
       .replaceAll('{type}', ev.type || '')
       .replaceAll('{proj}', projShort(ctx.projects, ev.project))
       .replace(/\s+/g, ' ')
       .trim()
-    return { title, due, basis, start, startBasis, ruleId: r.id, verify: !!r.verify, time: r.time || '' }
+  return rulesFor(ev, ctx.rules).map((r) => {
+    const { due, basis } = computeDue(ev, r, ctx)
+    const { start, startBasis } = computeStart(ev, r, due, ctx)
+    const subs = [...new Set((r.subs || []).map(fill).filter(Boolean))]
+    return { title: fill(r.title), due, basis, start, startBasis, ruleId: r.id, verify: !!r.verify, time: r.time || '', subs }
   })
 }
 
@@ -188,4 +191,4 @@ export function stableStringify(v: unknown): string {
 
 /** 자동 할 일을 만든 입력의 서명. 바뀌었을 때만 다시 만든다 */
 export const genKey = (ev: CalEvent, { rules }: RuleCtx) =>
-  ['v5', ev.date, ev.type, ev.project, ev.site, stableStringify(rulesFor(ev, rules))].join('|')
+  ['v6', ev.date, ev.type, ev.project, ev.site, stableStringify(rulesFor(ev, rules))].join('|')

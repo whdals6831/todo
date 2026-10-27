@@ -64,7 +64,7 @@ function overview() {
     guide: INSTRUCTIONS,
     projects: s.projects.map((p) => p.name),
     visitTypes: TYPES,
-    rules: s.rules.map((r) => ({ type: r.type, project: r.project, title: r.title, dir: r.dir, n: r.n, unit: r.unit, send: r.send, verify: r.verify, basis: r.basis })),
+    rules: s.rules.map((r) => ({ type: r.type, project: r.project, title: r.title, dir: r.dir, n: r.n, unit: r.unit, send: r.send, verify: r.verify, basis: r.basis, subs: r.subs })),
     events: [...s.events.values()]
       .filter((e) => e.date >= lo && e.date <= hi)
       .sort((a, b) => a.date.localeCompare(b.date))

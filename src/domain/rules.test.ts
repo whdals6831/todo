@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CalEvent, Rule } from '../types/domain.ts'
-import { DEFAULT_HOLIDAYS as holidays, ENF } from './constants.ts'
+import { DEFAULT_HOLIDAYS as holidays, ENF, FUL_PACKS, fulPackRules } from './constants.ts'
 import { computeDue, computeStart, genKey, manualTwin, planTodos, rulesFor, stableStringify } from './rules.ts'
 
 const projects = [
@@ -83,6 +83,18 @@ describe('rulesFor', () => {
     expect(rulesFor(visit(), [rule({ id: 'a' }), rule({ id: 's', key: 'SKIP', project: 'AZ - Imjudo' })])).toEqual([])
     expect(rulesFor(visit({ kind: 'meeting' }), [rule({ id: 'a' })])).toEqual([])
     expect(rulesFor(visit({ type: '기타' }), [rule({ id: 'a' })])).toEqual([])
+  })
+})
+
+describe('방문 종류별 FUL', () => {
+  const rules = [rule({ id: 'r-rpt', key: 'OWN', title: '{site} {type}R 작성' }), ...fulPackRules(rule({ id: 'r-rpt', key: 'OWN', title: '{site} {type}R 작성' }))]
+
+  it('PSV·SIV·MV 는 리포트 작성 대신 FUL 할 일에 하위 항목, COV 는 그대로', () => {
+    const p = planTodos(visit({ type: 'PSV' }), ctx(rules))
+    expect(p.map((x) => [x.ruleId, x.title])).toEqual([['r-rpt-psv', '가나대병원 PSV FUL']])
+    expect(p[0].subs).toEqual(FUL_PACKS[0].subs)
+    expect(planTodos(visit({ type: 'MV' }), ctx(rules)).map((x) => [x.title, x.subs.length])).toEqual([['가나대병원 MV FUL', 6]])
+    expect(planTodos(visit({ type: 'COV' }), ctx(rules)).map((x) => [x.title, x.subs])).toEqual([['가나대병원 COVR 작성', []]])
   })
 })
 

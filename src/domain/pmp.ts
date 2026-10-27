@@ -24,7 +24,7 @@ const ETMF = /eTMF/i
 /** 방문·보고서 공통 */
 const REPORTS: PmpItem[] = [
   { item: 'Follow-up Letter', dir: 'after', n: 5, unit: 'WD', todo: /Follow-up Letter/i },
-  { item: 'Visit Report 작성', dir: 'after', n: 5, unit: 'WD', todo: /(PSV|SIV|MV|COV)R 작성|Report 작성/i },
+  { item: 'Visit Report 작성', dir: 'after', n: 5, unit: 'WD', todo: /(PSV|SIV|MV|COV)R 작성|Report 작성|(PSV|SIV|MV|COV) FUL$/i },
   { item: 'PM 승인', dir: 'after', n: 10, unit: 'WD', todo: /^PM - / },
 ]
 

@@ -1,4 +1,4 @@
-import { BRZ, ISF_RULE, PREP_RULES, SCAN_RULE, kindOf } from '../domain/constants.ts'
+import { BRZ, ISF_RULE, PREP_RULES, SCAN_RULE, fulPackRules, kindOf } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
@@ -210,10 +210,12 @@ export async function syncEvent(ev: CalEvent, force = false) {
       /* 같은 일을 직접 만들어 둔 열린 할 일은 이 규칙의 할 일로 바꾼다.
          날짜는 규칙대로 바뀌므로 예전 날짜를 설명하던 메모는 버리고, 순서·체크는 그대로 */
       const base = twin ?? old
+      /* 규칙의 하위 항목 다음에 직접 단 하위 항목 */
+      const subs = [...p.subs, ...(base?.subs || []).filter((x) => !p.subs.includes(x))]
       await putTodo({
         id, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis,
         ruleId: p.ruleId, verify: p.verify, eventId: ev.id, project: ev.project || '', done: false,
-        rank: base?.rank, note: old?.note, subs: base?.subs, checks: base?.checks, created: base?.created || new Date().toISOString(),
+        rank: base?.rank, note: old?.note, subs: subs.length ? subs : undefined, checks: base?.checks, created: base?.created || new Date().toISOString(),
       })
       if (twin) {
         for (const c of [...S().todos.values()].filter((x) => x.parentId === twin.id)) await putTodo({ ...c, parentId: id })
@@ -616,6 +618,19 @@ async function migrate() {
       x.v.trim().toUpperCase() !== 'PSV' || (x.docs || []).some((d) => /study\s*summary/i.test(d.t)) ? x : { ...x, docs: [...(x.docs || []), { t: 'Study Summary', w: '' }] }
     const notes = s.notes && secs ? { ...s.notes, [BRZ]: secs.map(add) } : s.notes
     appStore.setState({ notes, mig: [...s.mig, 'brzss1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('fulpack1')) {
+    /* PSV·SIV·MV 는 리포트 작성 대신 "FUL" 할 일 하나에 하위 항목으로 (기한은 리포트 작성 규칙 그대로).
+       미완료 자동 할 일은 이어지는 syncAll 이 바꾼다 */
+    const s = S()
+    /* 리포트 작성 규칙을 지워 두었으면 그대로 */
+    const rpt = s.rules.find((r) => r.id === 'r-rpt')
+    const have = new Set(s.rules.map((r) => r.id))
+    const rules = rpt
+      ? [...s.rules.map((r) => (r === rpt && !normRule(r).key ? { ...r, key: 'OWN' } : r)), ...fulPackRules(rpt).filter((r) => !have.has(r.id))]
+      : s.rules
+    appStore.setState({ rules, mig: [...s.mig, 'fulpack1'] })
     await putConfig()
   }
 }

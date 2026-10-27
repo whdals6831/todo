@@ -274,6 +274,7 @@ function RulesSection() {
         <li><strong>보내는 일</strong>체크하면 마감을 한 영업일 앞당깁니다.</li>
         <li><strong>확인 필요</strong>PMP 원문으로 확인하지 못한 기한이면 체크하세요. 할 일에 "규칙 확인 필요"가 붙습니다.</li>
         <li><strong>근거</strong>PMP 조항처럼 기한을 정한 출처를 적으면 할 일의 기한 근거에 같이 나옵니다.</li>
+        <li><strong>하위 항목</strong>쉼표로 나눠 적으면 그 할 일에 체크리스트로 붙습니다.</li>
       </ul>
       <div className={s.scroll}>
         {/* 규칙 하나를 두 줄로: 위는 무엇을, 아래는 언제·어떻게 (넓은 표가 화면 밖으로 잘리지 않게) */}
@@ -357,6 +358,18 @@ function RulesSection() {
                           <span className={cx(s.ruleField, s.ruleBasis)}>
                             근거
                             <Input size="sm" value={r.basis || ''} onChange={(e) => upd(r.id, { basis: e.target.value })} placeholder="선택" aria-label="근거" title={r.basis || undefined} />
+                          </span>
+                          {/* 쓰는 그대로 두고(쉼표 뒤 빈칸 포함) 할 일을 만들 때 다듬는다 */}
+                          <span className={cx(s.ruleField, s.ruleBasis)}>
+                            하위 항목
+                            <Input
+                              size="sm"
+                              value={(r.subs || []).join(',')}
+                              onChange={(e) => upd(r.id, { subs: e.target.value ? e.target.value.split(',') : undefined })}
+                              placeholder="쉼표로 구분 (선택)"
+                              aria-label="하위 항목"
+                              title={r.subs?.join(', ') || undefined}
+                            />
                           </span>
                         </div>
                       </td>

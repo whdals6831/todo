@@ -106,7 +106,7 @@
   gap: var(--space-2);
 }
 
-/* 퇴근 시간표: 하트 아래 검정 상자에 한 줄씩. 사이드바 자리가 모자라면 상자만 줄어 안에서 스크롤 */
+/* 퇴근 시간표: 가운데 하트 아래 검정 테두리 상자에 한 줄씩. 사이드바 자리가 모자라면 상자만 줄어 안에서 스크롤 */
 .bus {
   display: flex;
   flex-direction: column;
@@ -115,6 +115,7 @@
   font-size: var(--text-xs);
 }
 .heart {
+  text-align: center;
   color: var(--color-fg);
 }
 .bus ol {
@@ -123,9 +124,10 @@
   padding: var(--space-2) var(--space-3);
   overflow-y: auto;
   list-style: none;
+  border: 1px solid var(--color-fg);
   border-radius: var(--radius-md);
-  background: var(--color-fg);
-  color: var(--color-bg);
+  background: var(--color-bg);
+  color: var(--color-fg);
   font-variant-numeric: tabular-nums;
   line-height: 1.6;
 }

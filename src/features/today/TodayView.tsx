@@ -1,11 +1,11 @@
 import bunny from '@/assets/bunny.png'
-import { DOW, localHM, md, parse, shift } from '@/domain/date.ts'
+import { DOW, localDay, localHM, md, parse, shift } from '@/domain/date.ts'
 import { briefData, dayComplete, daySet, eventsOn, todayBuckets } from '@/domain/daySets.ts'
 import { byPriority } from '@/domain/priority.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Fold, Group, Sub, ViewHeader } from '@/components/ui/Layout.tsx'
 import { setUi, useApp, useUi } from '@/store/ui.ts'
-import type { DateStr } from '@/types/domain.ts'
+import type { DateStr, Todo } from '@/types/domain.ts'
 import { EventRow } from '../event/EventRow.tsx'
 import { QuickAdd } from '../todo/QuickAdd.tsx'
 import { DoneFold, RankInfo, ReorderList } from '../todo/TodoList.tsx'
@@ -164,8 +164,8 @@ function BriefCard({ d }: { d: DateStr }) {
   if (!b) return null
   /* 끝낸 할 일과 체크한 하위 항목을 시간 순으로. 시각을 모르는 체크는 맨 뒤 */
   const log = [
-    ...b.done.map((x) => ({ key: x.id, at: x.doneAt || '', title: x.title, sub: '', subs: x.subs })),
-    ...b.subs.map((x) => ({ key: x.key, at: x.at, title: x.title, sub: x.name, subs: undefined })),
+    ...b.done.map((x) => ({ key: x.id, at: x.doneAt || '', title: x.title, sub: '', todo: x })),
+    ...b.subs.map((x) => ({ key: x.key, at: x.at, title: x.title, sub: x.name, todo: undefined })),
   ].sort((p, q) => (p.at.length === 10 ? '~' : p.at).localeCompare(q.at.length === 10 ? '~' : q.at))
   return (
     <section className={s.brief} aria-label="오늘 브리핑">
@@ -195,7 +195,7 @@ function BriefCard({ d }: { d: DateStr }) {
                 ) : (
                   <span>
                     {x.title}
-                    <SubLines subs={x.subs} />
+                    <SubLines t={x.todo} d={d} />
                   </span>
                 )}
               </li>
@@ -222,13 +222,14 @@ function BriefCard({ d }: { d: DateStr }) {
   )
 }
 
-/** 끝낸 할 일 아래에 그 하위 항목 */
-function SubLines({ subs }: { subs?: string[] }) {
-  if (!subs?.length) return null
+/** 끝낸 할 일 아래에 그 하위 항목과 체크한 시각 (시각을 모르는 옛 체크는 빼고, 다른 날이면 날짜) */
+function SubLines({ t, d }: { t?: Todo; d: DateStr }) {
+  if (!t?.subs?.length) return null
+  const when = (at?: string) => (!at || at.length === 10 ? '' : localDay(at) === d ? localHM(at) : md(localDay(at)))
   return (
     <span className={s.subLines}>
-      {subs.map((x) => (
-        <span key={x}>{'› ' + x}</span>
+      {t.subs.map((x) => (
+        <span key={x}>{'› ' + x + (when(t.checkAt?.[x]) ? ' · ' + when(t.checkAt?.[x]) : '')}</span>
       ))}
     </span>
   )

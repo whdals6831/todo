@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/Button.tsx'
 import { Fold, Label, Sub } from '@/components/ui/Layout.tsx'
 import { resetRanks } from '@/store/actions.ts'
 import type { Todo } from '@/types/domain.ts'
+import s from './TodoList.module.css'
 import { TodoRow } from './TodoRow.tsx'
 
 /** 끌어서 순서를 바꿀 수 있는 할 일 목록. field 는 캘린더 칸에 놓았을 때 옮길 날짜 */
@@ -23,7 +24,7 @@ export function OpenList({ id, items, field }: { id: string; items: Todo[]; fiel
   return (
     <>
       {up.length > 0 && (
-        <Fold id={id + '-etmf'} label={'eTMF 업로드 ' + up.length}>
+        <Fold id={id + '-etmf'} label={'eTMF 업로드 ' + up.length} className={s.etmf}>
           <ReorderList items={up} field={field} />
         </Fold>
       )}

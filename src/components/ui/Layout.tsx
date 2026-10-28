@@ -52,10 +52,10 @@ export function Group({ title, count, over, extra, hint, children }: GroupProps)
 }
 
 /** 접히는 묶음. 다시 그려도 열림 상태를 기억한다 */
-export function Fold({ id, label, children }: { id: string; label: ReactNode; children: ReactNode }) {
+export function Fold({ id, label, className, children }: { id: string; label: ReactNode; className?: string; children: ReactNode }) {
   const open = useUi((u) => u.foldOpen.has(id))
   return (
-    <details className={s.fold} open={open} onToggle={(e) => toggleFold(id, e.currentTarget.open)}>
+    <details className={cx(s.fold, className)} open={open} onToggle={(e) => toggleFold(id, e.currentTarget.open)}>
       <summary>{label}</summary>
       {open && children}
     </details>

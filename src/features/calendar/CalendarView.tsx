@@ -220,11 +220,6 @@ function PmpRow({ due: x }: { due: PmpDue }) {
   const projects = useApp((st) => st.projects)
   const dl = dLabel(x.date)
   const late = x.doneDay && x.doneDay > x.date ? diffDays(x.date, x.doneDay) : 0
-  const state = x.doneDay
-    ? monthDay(x.doneDay) + ' 완료' + (late ? ' · ' + late + '일 지나서' : '')
-    : x.linked && x.date < todayStr()
-      ? '미완료'
-      : ''
   return (
     <div className={cx(es.row, x.doneDay && s.pmpDone)}>
       <span className={cx(es.time, s.pmpLabel)}>마감</span>
@@ -233,9 +228,17 @@ function PmpRow({ due: x }: { due: PmpDue }) {
           {x.project && <Tag>{projShort(projects, x.project)}</Tag>}
           <span className={s.pmpName}>{x.label}</span>
         </div>
-        {state && <Sub>{state}</Sub>}
+        {!x.doneDay && x.linked && x.date < todayStr() && <Sub>미완료</Sub>}
       </div>
-      {!x.doneDay && <span className={cx(s.pmpLeft, (dl.late || dl.soon) && s.pmpUrgent)}>{dl.t}</span>}
+      {/* 오른쪽 칸(일정 줄의 편집 자리): 끝낸 날, 아니면 남은 날 */}
+      {x.doneDay ? (
+        <span className={s.pmpLeft}>
+          {monthDay(x.doneDay) + ' 완료'}
+          {late > 0 && <span className={s.pmpLate}>{late + '일 지나서'}</span>}
+        </span>
+      ) : (
+        <span className={cx(s.pmpLeft, (dl.late || dl.soon) && s.pmpUrgent)}>{dl.t}</span>
+      )}
     </div>
   )
 }

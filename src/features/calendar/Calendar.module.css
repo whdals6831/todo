@@ -418,6 +418,11 @@ span.pmpLabel {
   color: var(--color-muted);
   white-space: nowrap;
 }
+/* 끝낸 날 아래 줄: 마감보다 늦게 끝낸 날 수 */
+.pmpLate {
+  display: block;
+  text-align: right;
+}
 .pmpUrgent {
   font-weight: var(--weight-semibold);
   color: var(--color-danger);

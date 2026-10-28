@@ -142,11 +142,12 @@ const followId = (t: Todo, fid: string) => safeId('f_' + t.id + '_' + fid)
 function followDates(t: Todo, f: FollowUp) {
   const day = localDay(t.doneAt) || todayStr()
   const hol = S().holidays
-  const start = f.startN ? addWorkdays(day, f.startN, hol) : day
-  const due = addWorkdays(day, f.n, hol)
+  const visit = f.visitN && t.eventId ? S().events.get(t.eventId)?.date : undefined
+  const due = visit ? addWorkdays(visit, f.visitN!, hol) : addWorkdays(day, f.n, hol)
+  const start = f.startN ? [addWorkdays(day, f.startN, hol), due].sort()[0] : day
   return {
     start, due,
-    basis: '「' + t.title + '」 완료일 ' + md(day) + ' 후 WD' + f.n + ' = ' + md(due) + ' [' + f.basis + ']',
+    basis: (visit ? '방문 ' + md(visit) + ' 후 WD' + f.visitN : '「' + t.title + '」 완료일 ' + md(day) + ' 후 WD' + f.n) + ' = ' + md(due) + ' [' + f.basis + ']',
     startBasis: f.startN ? '완료일 ' + md(day) + ' 후 WD' + f.startN + ' ' + md(start) + ' 착수' : '요청 완료한 당일 착수',
   }
 }
@@ -754,6 +755,12 @@ async function migrate() {
       if (localDay(t.doneAt) >= '2026-10-26') await followUpsOnDone(c, 'rpt-fix')
     }
     appStore.setState({ mig: [...S().mig, 'rptfix1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('rptfix2')) {
+    /* 리포트 R FUL 마감을 PM 마감(방문 후 WD10)으로. 이미 만든 열린 R FUL 도 옮긴다 (직접 날짜를 바꾼 것은 그대로) */
+    for (const t of [...S().todos.values()]) if (t.done) await followUpsRedate(t)
+    appStore.setState({ mig: [...S().mig, 'rptfix2'] })
     await putConfig()
   }
 }

@@ -139,6 +139,8 @@ export interface FollowUp {
   match: (x: string) => boolean
   /** 마감: 완료일 + WD n */
   n: number
+  /** 마감을 이어진 외근 방문일 + WD visitN 으로 (외근이 없으면 n) */
+  visitN?: number
   /** 착수: 완료일 + WD startN (없으면 완료한 당일) */
   startN?: number
   title: (x: string) => string
@@ -154,14 +156,15 @@ export const FOLLOWUPS: FollowUp[] = [
   {
     id: 'rpt-fix',
     match: (x) => REPORT_DONE.test(x.trim()),
-    n: 5,
+    n: 10,
+    visitN: 10,
     startN: 1,
     title: (x) => x.trim().replace(REPORT_DONE, (_, pre: string, v: string) => pre + v.toUpperCase() + 'R FUL'),
     subs: (x) => {
       const v = REPORT_DONE.exec(x.trim())![2].toUpperCase()
       return [v + 'R 수정', 'T-Sign', 'T-Sign본 WID 업로드']
     },
-    basis: '본인 기준: 리포트 FUL 끝낸 다음 영업일부터 리포트 수정·T-Sign·WID 업로드',
+    basis: '본인 기준: 리포트 FUL 끝낸 다음 영업일부터, PM 마감(방문 후 WD10)까지 리포트 수정·T-Sign·WID 업로드',
   },
   {
     id: 'sae-irb',

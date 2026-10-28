@@ -5,7 +5,7 @@ import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort } from '../domain/project.ts'
 import { genKey, manualTwin, normRule, planTodos, rulesFor } from '../domain/rules.ts'
 import {
-  FOLLOWUPS, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type NewTodo,
+  FOLLOWUPS, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type FollowUp, type NewTodo,
 } from '../domain/specials.ts'
 import { slotByTime } from '../domain/priority.ts'
 import type { CalEvent, Config, DateStr, Ful, NoteItem, NoteSection, Notes, Rule, Todo } from '../types/domain.ts'
@@ -60,11 +60,16 @@ export async function deleteEvent(id: string) {
   await write(repo.deleteEvent(id))
 }
 
-/** 할 일 저장. 완료 상태가 바뀌면 확인 할 일(FOLLOWUPS)을 만들거나 지우거나 옮긴다 */
+/** 끝낸 할 일의 하위 항목은 모두 체크 */
+const checkAllSubs = <T extends Pick<Todo, 'subs' | 'checks'>>(t: T): T =>
+  t.subs?.some((x) => !(t.checks || []).includes(x)) ? { ...t, checks: [...new Set([...(t.checks || []), ...t.subs])] } : t
+
+/** 할 일 저장. 완료하면 하위 항목을 모두 체크하고, 완료 상태가 바뀌면 이어지는 할 일(FOLLOWUPS)을 만들거나 지우거나 옮긴다 */
 export async function putTodo(t0: NewTodo): Promise<string> {
   const prev = t0.id ? (S().todos.get(t0.id) ?? null) : null
   let t = slotByTime({ ...t0, id: t0.id || '' }, prev, S().todos)
   if (!t.id) t = { ...t, id: newId() }
+  if (t.done && !prev?.done) t = checkAllSubs(t)
   setTodo(t)
   await write(repo.putTodo(t))
   if (t.done && !prev?.done) await followUpsOnDone(t)
@@ -133,17 +138,28 @@ export async function deleteEventCascade(id: string) {
 
 const followId = (t: Todo, fid: string) => safeId('f_' + t.id + '_' + fid)
 
-async function followUpsOnDone(t: Todo) {
+/** 완료일에서 이어지는 할 일의 착수·마감 */
+function followDates(t: Todo, f: FollowUp) {
   const day = localDay(t.doneAt) || todayStr()
+  const hol = S().holidays
+  const start = f.startN ? addWorkdays(day, f.startN, hol) : day
+  const due = addWorkdays(day, f.n, hol)
+  return {
+    start, due,
+    basis: '「' + t.title + '」 완료일 ' + md(day) + ' 후 WD' + f.n + ' = ' + md(due) + ' [' + f.basis + ']',
+    startBasis: f.startN ? '완료일 ' + md(day) + ' 후 WD' + f.startN + ' ' + md(start) + ' 착수' : '요청 완료한 당일 착수',
+  }
+}
+
+async function followUpsOnDone(t: Todo, only?: string) {
   for (const f of FOLLOWUPS) {
-    if (t.followOf || !f.match(t.title || '')) continue
+    if (t.followOf || (only && f.id !== only) || !f.match(t.title || '')) continue
     const id = followId(t, f.id)
     if (S().todos.has(id)) continue
-    const due = addWorkdays(day, f.n, S().holidays)
+    const subs = f.subs?.(t.title)
     await putTodo({
-      id, title: f.title(t.title), project: t.project || '', start: day, due, time: '', tbd: false, autoDue: false, done: false, followOf: t.id,
-      basis: '「' + t.title + '」 완료일 ' + md(day) + ' 후 WD' + f.n + ' = ' + md(due) + ' [' + f.basis + ']',
-      startBasis: '요청 완료한 당일 착수', created: new Date().toISOString(),
+      id, title: f.title(t.title), project: t.project || '', ...followDates(t, f), time: '', tbd: false, autoDue: false, done: false, followOf: t.id,
+      ...(subs?.length ? { subs } : {}), created: new Date().toISOString(),
     })
   }
 }
@@ -154,13 +170,12 @@ async function followUpsUndo(t: Todo) {
 
 /** 완료일을 나중에 고치면 열린 확인 할 일도 따라 옮긴다 (직접 날짜를 바꾼 것은 그대로) */
 async function followUpsRedate(t: Todo) {
-  const day = localDay(t.doneAt) || todayStr()
   for (const x of [...S().todos.values()].filter((x) => x.followOf === t.id && !x.done && !/직접 변경|Claude가 변경/.test(x.basis || ''))) {
     const f = FOLLOWUPS.find((f) => followId(t, f.id) === x.id)
     if (!f) continue
-    const due = addWorkdays(day, f.n, S().holidays)
-    if (x.due === due && x.start === day) continue
-    await putTodo({ ...x, start: day, due, basis: '「' + t.title + '」 완료일 ' + md(day) + ' 후 WD' + f.n + ' = ' + md(due) + ' [' + f.basis + ']' })
+    const d = followDates(t, f)
+    if (x.due === d.due && x.start === d.start) continue
+    await putTodo({ ...x, ...d })
   }
 }
 
@@ -728,6 +743,17 @@ async function migrate() {
       }
     }
     appStore.setState({ rules, mig: [...S().mig, 'brzful1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('rptfix1')) {
+    /* 이미 끝낸 할 일의 하위 항목도 모두 체크. 이번 주(10/26~)에 끝낸 리포트 FUL 은 리포트 수정·T-Sign 할 일을 지금 만든다 */
+    for (const t of [...S().todos.values()]) {
+      if (!t.done) continue
+      const c = checkAllSubs(t)
+      if (c !== t) await putTodo(c)
+      if (localDay(t.doneAt) >= '2026-10-26') await followUpsOnDone(c, 'rpt-fix')
+    }
+    appStore.setState({ mig: [...S().mig, 'rptfix1'] })
     await putConfig()
   }
 }

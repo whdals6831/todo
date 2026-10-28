@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BRZ_PSV_FUL, DEFAULT_HOLIDAYS, FUL_PACKS } from '../domain/constants.ts'
 import type { CalEvent, Rule } from '../types/domain.ts'
 import {
-  addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, withSubs,
+  addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, withSubs,
 } from './actions.ts'
 import { createMemoryRepository } from './localRepository.ts'
 import { getState } from './store.ts'
@@ -106,6 +106,19 @@ describe('할 일 추가', () => {
     expect(getState().todos.get('f_' + id + '_sae-irb')).toMatchObject({ title: '가나대 SAE IRB 제출 여부 확인', due: '2026-10-14' })
     await putTodo({ ...getState().todos.get(id)!, done: false, doneAt: null })
     expect(getState().todos.has('f_' + id + '_sae-irb')).toBe(false)
+  })
+
+  it('리포트 FUL 을 끝내면 하위 항목이 모두 체크되고, 다음 영업일부터 R FUL(수정·T-Sign·WID 업로드)이 생긴다', async () => {
+    const id = await addTodo({ title: '가나대병원 MV FUL', due: '2026-10-12', subs: ['MVR 작성', 'MVR 결재 상신'], checks: ['MVR 작성'], done: false })
+    await toggleDone(getState().todos.get(id)!)
+    expect(getState().todos.get(id)!.checks).toEqual(['MVR 작성', 'MVR 결재 상신'])
+    const f = getState().todos.get('f_' + id + '_rpt-fix')!
+    expect(f).toMatchObject({ title: '가나대병원 MVR FUL', start: '2026-10-13', due: '2026-10-19', subs: ['MVR 수정', 'T-Sign', 'T-Sign본 WID 업로드'], followOf: id })
+    await toggleDone(f)
+    expect(todos().filter((t) => t.followOf === f.id)).toEqual([])
+    const cov = await addTodo({ title: '나다병원 COVR 작성', due: '2026-10-12', done: false })
+    await toggleDone(getState().todos.get(cov)!)
+    expect(getState().todos.get('f_' + cov + '_rpt-fix')).toMatchObject({ title: '나다병원 COVR FUL', subs: ['COVR 수정', 'T-Sign', 'T-Sign본 WID 업로드'] })
   })
 
   it('하위 항목: 줄을 더하고 체크하고, 뺀 항목의 체크는 같이 지운다', async () => {
@@ -240,6 +253,26 @@ describe('결재 상신 고치기 (fulpack2)', () => {
     expect(s.todos.get('a')).toMatchObject({ subs: ['PSVR 작성', 'PSVR 결재 상신'], checks: ['PSVR 결재 상신'] })
     expect(s.todos.get('b')!.subs).toEqual(['MVR 작성', '직접 단 것', 'MVR 결재 상신'])
     expect(s.todos.get('c')!.subs).toEqual(['MVR 작성'])
+  })
+})
+
+describe('끝낸 할 일 정리 (rptfix1)', () => {
+  it('끝낸 할 일의 하위 항목을 모두 체크하고, 이번 주에 끝낸 리포트 FUL 만 R FUL 을 만든다', async () => {
+    await replaceAll({
+      events: [], fuls: [],
+      todos: [
+        { id: 'a', title: '가나대병원 MV FUL', due: '2026-10-28', subs: ['MVR 작성', 'MVR 결재 상신'], checks: ['MVR 작성'], done: true, doneAt: '2026-10-27T05:00:00.000Z' },
+        { id: 'b', title: '다른병원 SIVR 작성', due: '2026-10-20', done: true, doneAt: '2026-10-20T05:00:00.000Z' },
+      ],
+      config: {
+        rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1'], notes: null,
+        projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
+      },
+    })
+    const s = getState()
+    expect(s.todos.get('a')!.checks).toEqual(['MVR 작성', 'MVR 결재 상신'])
+    expect(s.todos.get('f_a_rpt-fix')).toMatchObject({ title: '가나대병원 MVR FUL', start: '2026-10-28', due: '2026-11-03' })
+    expect(s.todos.has('f_b_rpt-fix')).toBe(false)
   })
 })
 

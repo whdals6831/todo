@@ -134,8 +134,35 @@ export const companionsFor = (t: Pick<Todo, 'title' | 'project'>, companions: Da
   )
 }
 
-/** 완료하면 확인 할 일이 생기는 할 일 (완료일 + WD n). 완료를 취소하면 아직 열린 확인 할 일은 지운다 */
-export const FOLLOWUPS = [
+export interface FollowUp {
+  id: string
+  match: (x: string) => boolean
+  /** 마감: 완료일 + WD n */
+  n: number
+  /** 착수: 완료일 + WD startN (없으면 완료한 당일) */
+  startN?: number
+  title: (x: string) => string
+  subs?: (x: string) => string[]
+  basis: string
+}
+
+/** 방문 리포트 FUL (PSV·SIV·MV FUL, COVR 작성) */
+const REPORT_DONE = /(^|\s)(PSV|SIV|MV|COV)(?: FUL|R 작성)$/i
+
+/** 완료하면 이어지는 할 일이 생기는 할 일. 완료를 취소하면 아직 열린 이어지는 할 일은 지운다 */
+export const FOLLOWUPS: FollowUp[] = [
+  {
+    id: 'rpt-fix',
+    match: (x) => REPORT_DONE.test(x.trim()),
+    n: 5,
+    startN: 1,
+    title: (x) => x.trim().replace(REPORT_DONE, (_, pre: string, v: string) => pre + v.toUpperCase() + 'R FUL'),
+    subs: (x) => {
+      const v = REPORT_DONE.exec(x.trim())![2].toUpperCase()
+      return [v + 'R 수정', 'T-Sign', 'T-Sign본 WID 업로드']
+    },
+    basis: '본인 기준: 리포트 FUL 끝낸 다음 영업일부터 리포트 수정·T-Sign·WID 업로드',
+  },
   {
     id: 'sae-irb',
     match: (x: string) => /SAE/i.test(x) && /IRB/i.test(x) && /요청/.test(x) && !/확인/.test(x),

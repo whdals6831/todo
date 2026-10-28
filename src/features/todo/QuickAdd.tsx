@@ -57,7 +57,7 @@ export function KeywordHints({ value, focused, onPick }: HintsProps) {
   if (f) {
     return (
       <div className={s.hints} aria-live="polite">
-        <div className={s.desc}>완료 체크하면 → {f.title(v)} (완료일 후 WD2) 자동 추가</div>
+        <div className={s.desc}>완료 체크하면 → {f.title(v)} (완료일 후 WD{f.n}) 자동 추가</div>
       </div>
     )
   }

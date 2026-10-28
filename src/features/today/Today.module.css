@@ -81,14 +81,16 @@
   min-width: 62px;
   color: var(--color-muted);
 }
-/* 끝낸 할 일의 하위 항목 */
-.subLines {
-  display: block;
+/* 끝낸 할 일 아래 줄마다 하위 항목: 왼쪽 칸에 체크한 시각, 오른쪽에 이름 */
+.brief li.withSubs {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 0 var(--space-2-5);
+}
+.subT,
+.subN {
   font-size: var(--text-xs);
   color: var(--color-muted);
-}
-.subLines > span {
-  display: block;
 }
 /* 하위 항목 줄의 할 일 제목 */
 .subOf {

@@ -1,9 +1,11 @@
+import { Fragment } from 'react'
 import bunny from '@/assets/bunny.png'
 import { DOW, localDay, localHM, md, parse, shift } from '@/domain/date.ts'
 import { briefData, dayComplete, daySet, eventsOn, todayBuckets } from '@/domain/daySets.ts'
 import { byPriority } from '@/domain/priority.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Fold, Group, Sub, ViewHeader } from '@/components/ui/Layout.tsx'
+import { cx } from '@/lib/cx.ts'
 import { setUi, useApp, useUi } from '@/store/ui.ts'
 import type { DateStr, Todo } from '@/types/domain.ts'
 import { EventRow } from '../event/EventRow.tsx'
@@ -185,7 +187,7 @@ function BriefCard({ d }: { d: DateStr }) {
           <div className={s.lbl}>완료한 일</div>
           <ul>
             {log.map((x) => (
-              <li key={x.key}>
+              <li key={x.key} className={cx(!!x.todo?.subs?.length && s.withSubs)}>
                 <span>{x.at.length > 10 ? localHM(x.at) : '—'}</span>
                 {x.sub ? (
                   <span>
@@ -193,11 +195,9 @@ function BriefCard({ d }: { d: DateStr }) {
                     {x.sub}
                   </span>
                 ) : (
-                  <span>
-                    {x.title}
-                    <SubLines t={x.todo} d={d} />
-                  </span>
+                  <span>{x.title}</span>
                 )}
+                {x.todo && <SubRows t={x.todo} d={d} />}
               </li>
             ))}
           </ul>
@@ -222,15 +222,13 @@ function BriefCard({ d }: { d: DateStr }) {
   )
 }
 
-/** 끝낸 할 일 아래에 그 하위 항목과 체크한 시각 (시각을 모르는 옛 체크는 빼고, 다른 날이면 날짜) */
-function SubLines({ t, d }: { t?: Todo; d: DateStr }) {
-  if (!t?.subs?.length) return null
+/** 끝낸 할 일 아래 줄마다 하위 항목: 체크한 시각(다른 날이면 날짜, 시각이 남지 않은 옛 체크는 비움) · 이름 */
+function SubRows({ t, d }: { t: Todo; d: DateStr }) {
   const when = (at?: string) => (!at || at.length === 10 ? '' : localDay(at) === d ? localHM(at) : md(localDay(at)))
-  return (
-    <span className={s.subLines}>
-      {t.subs.map((x) => (
-        <span key={x}>{'› ' + x + (when(t.checkAt?.[x]) ? ' · ' + when(t.checkAt?.[x]) : '')}</span>
-      ))}
-    </span>
-  )
+  return (t.subs || []).map((x) => (
+    <Fragment key={x}>
+      <span className={s.subT}>{when(t.checkAt?.[x])}</span>
+      <span className={s.subN}>{'› ' + x}</span>
+    </Fragment>
+  ))
 }

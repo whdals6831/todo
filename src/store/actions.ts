@@ -763,6 +763,12 @@ async function migrate() {
     appStore.setState({ mig: [...S().mig, 'rptfix2'] })
     await putConfig()
   }
+  if (!S().mig.includes('sivrsend1')) {
+    /* Imjudo SIVR 송부: 이 기능이 생기기 전 오늘(10/28) 끝낸 SIVR FUL 에도 만든다 */
+    for (const t of [...S().todos.values()]) if (t.done && localDay(t.doneAt) >= '2026-10-28') await followUpsOnDone(t, 'sivr-send')
+    appStore.setState({ mig: [...S().mig, 'sivrsend1'] })
+    await putConfig()
+  }
 }
 
 /**

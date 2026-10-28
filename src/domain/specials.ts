@@ -1,5 +1,5 @@
 import type { Data, Todo } from '../types/domain.ts'
-import { BRZ, ENF } from './constants.ts'
+import { BRZ, ENF, IMJ } from './constants.ts'
 import { addWorkdays, md, todayStr } from './date.ts'
 import { detectProject, sameSite, siteCore, stripProj } from './project.ts'
 
@@ -143,6 +143,10 @@ export interface FollowUp {
   visitN?: number
   /** 착수: 완료일 + WD startN (없으면 완료한 당일) */
   startN?: number
+  /** 이 과제의 할 일만 */
+  project?: string
+  /** 이어진 할 일(followOf)을 끝내도 만든다 */
+  chain?: boolean
   title: (x: string) => string
   subs?: (x: string) => string[]
   basis: string
@@ -150,6 +154,8 @@ export interface FollowUp {
 
 /** 방문 리포트 FUL (PSV·SIV·MV FUL, COVR 작성) */
 const REPORT_DONE = /(^|\s)(PSV|SIV|MV|COV)(?: FUL|R 작성)$/i
+/** Imjudo SIVR FUL (수정·T-Sign·WID 업로드) */
+const SIVR_FUL = /(^|\s)SIVR FUL$/i
 
 /** 완료하면 이어지는 할 일이 생기는 할 일. 완료를 취소하면 아직 열린 이어지는 할 일은 지운다 */
 export const FOLLOWUPS: FollowUp[] = [
@@ -165,6 +171,16 @@ export const FOLLOWUPS: FollowUp[] = [
       return [v + 'R 수정', 'T-Sign', 'T-Sign본 WID 업로드']
     },
     basis: '본인 기준: 리포트 FUL 끝낸 다음 영업일부터, PM 마감(방문 후 WD10)까지 리포트 수정·T-Sign·WID 업로드',
+  },
+  {
+    id: 'sivr-send',
+    match: (x) => SIVR_FUL.test(x.trim()),
+    n: 3,
+    startN: 1,
+    project: IMJ,
+    chain: true,
+    title: (x) => x.trim().replace(SIVR_FUL, (_, pre: string) => pre + 'SIVR 송부'),
+    basis: '본인 기준(Imjudo): SIVR FUL 끝낸 다음 영업일에 착수, WD3 내 기관에 SIVR 송부',
   },
   {
     id: 'sae-irb',

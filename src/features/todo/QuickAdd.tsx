@@ -53,7 +53,7 @@ export function KeywordHints({ value, focused, onPick }: HintsProps) {
       </div>
     )
   }
-  const f = FOLLOWUPS.find((f) => f.match(v))
+  const f = FOLLOWUPS.find((f) => f.match(v) && (!f.project || detectProject(projects, v) === f.project))
   if (f) {
     return (
       <div className={s.hints} aria-live="polite">

@@ -121,6 +121,15 @@ describe('할 일 추가', () => {
     expect(getState().todos.get('f_' + cov + '_rpt-fix')).toMatchObject({ title: '나다병원 COVR FUL', subs: ['COVR 수정', 'T-Sign', 'T-Sign본 WID 업로드'] })
   })
 
+  it('Imjudo SIVR FUL 을 끝내면 다음 영업일 착수, WD3 마감 SIVR 송부가 생긴다 (다른 과제는 안 생긴다)', async () => {
+    const id = await addTodo({ title: '인하대병원 SIVR FUL', project: 'AZ - Imjudo', due: '2026-10-12', followOf: 'x', done: false })
+    await putTodo({ ...getState().todos.get(id)!, done: true, doneAt: '2026-10-08T05:00:00.000Z' })
+    expect(getState().todos.get('f_' + id + '_sivr-send')).toMatchObject({ title: '인하대병원 SIVR 송부', start: '2026-10-12', due: '2026-10-14', project: 'AZ - Imjudo' })
+    const other = await addTodo({ title: '가나대병원 SIVR FUL', project: 'AZ - Breztri', due: '2026-10-12', done: false })
+    await toggleDone(getState().todos.get(other)!)
+    expect(getState().todos.has('f_' + other + '_sivr-send')).toBe(false)
+  })
+
   it('하위 항목: 줄을 더하고 체크하고, 뺀 항목의 체크는 같이 지운다', async () => {
     const id = await addTodo({ title: '분당 MV Preparation', due: '2026-10-19', subs: ['ISF 문서 인쇄'], done: false })
     await addSub(id, ' 바인더 정리 ')

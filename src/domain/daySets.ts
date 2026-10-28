@@ -6,11 +6,14 @@ import { byPriority } from './priority.ts'
 const uniq = <T,>(xs: T[]) => [...new Set(xs)]
 const after = (a: DateStr | undefined, b: DateStr) => (a || '') > b
 
+/** 실제로 끝낸 날 (완료 시각이 없는 옛 기록은 마감일) */
+export const doneDay = (x: Todo): DateStr => localDay(x.doneAt) || x.due || ''
+
 /** 그날에 걸친 일정 (종류·시간 순) */
 export const eventsOn = (d: DateStr, events: Data['events']): CalEvent[] =>
   [...events.values()].filter((e) => coversDay(e, d)).sort(byKindTime)
 
-/** 오늘 할 일 화면의 묶음: 지연 · 오늘 마감 · 착수한 일 · TBD · 오늘 완료 */
+/** 오늘 할 일 화면의 묶음: 지연 · 오늘 마감 · 착수한 일 · TBD · 오늘 완료. 끝낸 일은 실제로 끝낸 날에만 보인다 */
 export function todaySet(t: DateStr, todos: Data['todos']) {
   const all = [...todos.values()]
   const open = all.filter((x) => !x.done)
@@ -18,19 +21,19 @@ export function todaySet(t: DateStr, todos: Data['todos']) {
   const doing = open.filter((x) => after(x.due, t) && x.start && x.start <= t)
   const tbd = open.filter((x) => !x.due && !x.someday)
   const late = open.filter((x) => x.due && x.due < t)
-  const doneT = uniq(all.filter((x) => x.done && (localDay(x.doneAt) === t || x.due === t)))
+  const doneT = all.filter((x) => x.done && doneDay(x) === t)
   return { today, doing, tbd, late, doneT, openN: today.length + doing.length + tbd.length }
 }
 
-/** 다른 날의 목록: 그날 마감 · 그날 완료 · (미래면) 그날 진행 중이어야 할 일 */
+/** 다른 날의 목록: 그날 마감인 열린 일 · 그날 끝낸 일 · (미래면) 그날 진행 중이어야 할 일 */
 export function daySet(d: DateStr, todos: Data['todos']) {
   const fut = d > todayStr()
   const items = uniq(
     [...todos.values()].filter(
       (x) =>
         !x.someday &&
-        (x.due === d ||
-          (x.done && localDay(x.doneAt) === d) ||
+        ((!x.done && x.due === d) ||
+          (x.done && doneDay(x) === d) ||
           (fut && !x.done && x.start && x.start <= d && after(x.due, d))),
     ),
   )
@@ -54,8 +57,9 @@ export function dayComplete(d: DateStr, todos: Data['todos']) {
     return s.doneT.length > 0 && s.openN === 0 && s.late.length === 0
   }
   if (d > t || d < BUNNY_SINCE) return false
-  const set = [...todos.values()].filter((x) => !x.someday && (x.due === d || (x.done && localDay(x.doneAt) === d)))
-  return set.length > 0 && set.every((x) => x.done)
+  /* 그날 마감인 일을 모두 그날까지 끝냈다 */
+  const set = [...todos.values()].filter((x) => !x.someday && (x.due === d || (x.done && doneDay(x) === d)))
+  return set.length > 0 && set.every((x) => x.done && doneDay(x) <= d)
 }
 
 /** 사이드바 "오늘 할 일" 숫자: 지연 · 오늘 마감 · 착수한 일 · TBD (Someday 제외) */
@@ -70,7 +74,7 @@ export function todayBuckets(t: DateStr, todos: Data['todos']) {
   const late = open.filter((x) => x.due && x.due < t).sort((a, b) => a.due!.localeCompare(b.due!))
   const today = open.filter((x) => x.due === t)
   const doing = open.filter((x) => after(x.due, t) && x.start && x.start <= t).sort((a, b) => a.due!.localeCompare(b.due!))
-  const doneT = uniq(all.filter((x) => (x.done && localDay(x.doneAt) === t) || (x.done && x.due === t)))
+  const doneT = all.filter((x) => x.done && doneDay(x) === t)
   const tbdOpen = open.filter((x) => !x.due && !x.someday)
   return {
     /** 한 번 미룬 일이 또 밀림 */
@@ -113,7 +117,8 @@ export function briefData(t: DateStr, now: Date, data: Pick<Data, 'todos' | 'hol
   if (past) {
     const s = daySet(t, data.todos)
     done = s.done
-    left = s.open
+    /* 그날 마감이었지만 다음 날 이후에 끝낸 일도 그날은 못 끝낸 일 */
+    left = [...s.open, ...[...data.todos.values()].filter((x) => x.done && !x.someday && x.due === t && doneDay(x) > t)]
   } else {
     const s = todaySet(t, data.todos)
     done = s.doneT

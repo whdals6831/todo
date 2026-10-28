@@ -154,7 +154,7 @@ function followDates(t: Todo, f: FollowUp) {
 
 async function followUpsOnDone(t: Todo, only?: string) {
   for (const f of FOLLOWUPS) {
-    if (t.followOf || (only && f.id !== only) || !f.match(t.title || '')) continue
+    if ((t.followOf && !f.chain) || (only && f.id !== only) || (f.project && t.project !== f.project) || !f.match(t.title || '')) continue
     const id = followId(t, f.id)
     if (S().todos.has(id)) continue
     const subs = f.subs?.(t.title)

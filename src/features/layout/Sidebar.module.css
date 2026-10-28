@@ -106,6 +106,41 @@
   gap: var(--space-2);
 }
 
+/* 퇴근 시간표 */
+.bus {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+.busHead {
+  margin-bottom: var(--space-1);
+  font-weight: var(--weight-medium);
+  color: var(--color-fg);
+}
+.heart {
+  margin-right: var(--space-1-5);
+  color: var(--color-fg);
+}
+/* 위에서 아래로 읽고 옆 칸으로 (두 칸이라 사이드바가 화면을 넘지 않게) */
+.bus ol {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  grid-template-rows: repeat(8, auto);
+  grid-auto-flow: column;
+  column-gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+}
+.busPast {
+  color: var(--color-faint);
+}
+.busNext {
+  font-weight: var(--weight-semibold);
+  color: var(--color-fg);
+}
+
 .settings {
   margin-top: auto;
   padding: var(--space-1-5) 0;
@@ -165,5 +200,20 @@
   .settings {
     order: 4;
     margin-top: 0;
+  }
+  /* 좁은 화면: 한 줄로 다음 차만 */
+  .bus {
+    display: flex;
+    gap: var(--space-2);
+    order: 4;
+  }
+  .busHead {
+    margin-bottom: 0;
+  }
+  .bus ol {
+    display: block;
+  }
+  .bus li:not(.busNext) {
+    display: none;
   }
 }

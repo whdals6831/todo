@@ -5,6 +5,7 @@ import { Button, LinkButton } from '@/components/ui/Button.tsx'
 import { supabase } from '@/store/supabase/client.ts'
 import { setUi, setView, ui, useApp, useUi, type View } from '@/store/ui.ts'
 import { openEvent } from '../event/openEvent.ts'
+import { Commute } from './Commute.tsx'
 import { openTodoForView } from './shortcuts.ts'
 import s from './Sidebar.module.css'
 
@@ -59,6 +60,7 @@ export function Sidebar() {
           </LinkButton>
         )}
       </div>
+      <Commute />
       <button type="button" className={s.settings} aria-pressed={view === 'rules'} onClick={() => setView('rules')}>
         과제·규칙 설정
       </button>

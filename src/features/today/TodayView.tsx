@@ -1,5 +1,5 @@
 import bunny from '@/assets/bunny.png'
-import { DOW, localDay, localHM, md, parse, shift } from '@/domain/date.ts'
+import { DOW, localHM, md, parse, shift } from '@/domain/date.ts'
 import { briefData, dayComplete, daySet, eventsOn, todayBuckets } from '@/domain/daySets.ts'
 import { byPriority } from '@/domain/priority.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
@@ -162,6 +162,11 @@ function BriefCard({ d }: { d: DateStr }) {
   const now = new Date(nowMs)
   const b = briefData(d, now, { todos, holidays })
   if (!b) return null
+  /* 끝낸 할 일과 체크한 하위 항목을 시간 순으로. 시각을 모르는 체크는 맨 뒤 */
+  const log = [
+    ...b.done.map((x) => ({ key: x.id, at: x.doneAt || '', title: x.title, sub: '', subs: x.subs })),
+    ...b.subs.map((x) => ({ key: x.key, at: x.at, title: x.title, sub: x.name, subs: undefined })),
+  ].sort((p, q) => (p.at.length === 10 ? '~' : p.at).localeCompare(q.at.length === 10 ? '~' : q.at))
   return (
     <section className={s.brief} aria-label="오늘 브리핑">
       <h3>
@@ -170,22 +175,29 @@ function BriefCard({ d }: { d: DateStr }) {
       </h3>
       <div>
         <span className={s.rate}>{b.rate}%</span>
-        <Sub>{'목표 ' + b.goal + '개 중 ' + b.done.length + '개 완료'}</Sub>
+        <Sub>{'목표 ' + b.goal + '개 중 ' + b.done.length + '개 완료' + (b.subs.length ? ' · 하위 항목 ' + b.subs.length + '개 체크' : '')}</Sub>
       </div>
       <div className={s.bar}>
         <i style={{ width: b.rate + '%' }} />
       </div>
-      {b.done.length > 0 && (
+      {log.length > 0 && (
         <>
           <div className={s.lbl}>완료한 일</div>
           <ul>
-            {b.done.map((x) => (
-              <li key={x.id}>
-                <span>{x.doneAt ? (localDay(x.doneAt) === d ? localHM(x.doneAt) : md(localDay(x.doneAt))) : '—'}</span>
-                <span>
-                  {x.title}
-                  <SubLines subs={x.subs} />
-                </span>
+            {log.map((x) => (
+              <li key={x.key}>
+                <span>{x.at.length > 10 ? localHM(x.at) : '—'}</span>
+                {x.sub ? (
+                  <span>
+                    <span className={s.subOf}>{x.title + ' › '}</span>
+                    {x.sub}
+                  </span>
+                ) : (
+                  <span>
+                    {x.title}
+                    <SubLines subs={x.subs} />
+                  </span>
+                )}
               </li>
             ))}
           </ul>

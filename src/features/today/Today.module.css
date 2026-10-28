@@ -90,6 +90,10 @@
 .subLines > span {
   display: block;
 }
+/* 하위 항목 줄의 할 일 제목 */
+.subOf {
+  color: var(--color-muted);
+}
 .lbl {
   margin-top: var(--space-1-5);
   font-size: var(--text-xs);

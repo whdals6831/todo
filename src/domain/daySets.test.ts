@@ -30,3 +30,17 @@ describe('끝낸 일은 실제로 끝낸 날에', () => {
     expect(dayComplete('2026-10-27', todos)).toBe(false)
   })
 })
+
+describe('브리핑의 하위 항목', () => {
+  it('그날 체크한 하위 항목만, 그날 끝낸 할 일의 것과 체크를 푼 것은 빼고', () => {
+    const todos = map([
+      {
+        id: 'a', title: '인하대병원 SIVR FUL', due: '2026-11-09', subs: ['SIVR 수정', 'T-Sign', 'WID'], checks: ['SIVR 수정', 'T-Sign'],
+        checkAt: { 'SIVR 수정': '2026-10-28', 'T-Sign': '2026-10-28T07:00:00.000Z', WID: '2026-10-28T08:00:00.000Z', 'eTMF:Log': '2026-10-27T08:00:00.000Z' },
+      },
+      { id: 'b', title: '오늘 끝낸 일', due: '2026-10-28', done: true, doneAt: '2026-10-28T03:00:00.000Z', checks: ['x'], checkAt: { x: '2026-10-28T03:00:00.000Z' } },
+    ])
+    const b = briefData('2026-10-28', new Date(), { todos, holidays: {} })!
+    expect(b.subs.map((x) => [x.name, x.at])).toEqual([['SIVR 수정', '2026-10-28'], ['T-Sign', '2026-10-28T07:00:00.000Z']])
+  })
+})

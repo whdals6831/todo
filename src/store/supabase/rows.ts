@@ -29,6 +29,7 @@ export const TODO_COLS: readonly Col[] = [
   ['parentId', 'parent_id', 'text'], ['ownDate', 'own_date', 'value'], ['followOf', 'follow_of', 'text'], ['fulId', 'ful_id', 'text'],
   ['prepKey', 'prep_key', 'text'], ['prepSite', 'prep_site', 'text'], ['approvedSite', 'approved_site', 'text'],
   ['created', 'created', 'ts'], ['source', 'source', 'text'], ['checks', 'checks', 'opt'], ['subs', 'subs', 'opt'],
+  ['checkAt', 'check_at', 'opt'],
 ]
 
 export const FUL_COLS: readonly Col[] = [

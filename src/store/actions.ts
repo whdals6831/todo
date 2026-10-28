@@ -1,5 +1,5 @@
 import { BRZ, BRZ_PSV_FUL, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, SCAN_RULE, brzPsvFulRule, fulPackRules, kindOf } from '../domain/constants.ts'
-import { addWorkdays, localDay, md, nextWorkOrSame, prevWork, todayStr } from '../domain/date.ts'
+import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort } from '../domain/project.ts'
@@ -60,9 +60,17 @@ export async function deleteEvent(id: string) {
   await write(repo.deleteEvent(id))
 }
 
-/** 끝낸 할 일의 하위 항목은 모두 체크 */
-const checkAllSubs = <T extends Pick<Todo, 'subs' | 'checks'>>(t: T): T =>
-  t.subs?.some((x) => !(t.checks || []).includes(x)) ? { ...t, checks: [...new Set([...(t.checks || []), ...t.subs])] } : t
+/** 끝낸 할 일의 하위 항목은 모두 체크 (체크 시각은 완료 시각) */
+const checkAllSubs = <T extends Pick<Todo, 'subs' | 'checks' | 'checkAt' | 'doneAt'>>(t: T): T => {
+  const add = (t.subs || []).filter((x) => !(t.checks || []).includes(x))
+  if (!add.length) return t
+  const at = t.doneAt || nowIso()
+  return { ...t, checks: [...(t.checks || []), ...add], checkAt: { ...t.checkAt, ...Object.fromEntries(add.map((x) => [x, at])) } }
+}
+
+/** 체크 시각에서 지운 항목은 빼고, 이름을 바꾼 항목은 따라간다 */
+const keepAt = (at: Todo['checkAt'], f: (name: string) => string | null) =>
+  at && Object.fromEntries(Object.entries(at).flatMap(([k, v]) => (f(k) == null ? [] : [[f(k)!, v]])))
 
 /** 할 일 저장. 완료하면 하위 항목을 모두 체크하고, 완료 상태가 바뀌면 이어지는 할 일(FOLLOWUPS)을 만들거나 지우거나 옮긴다 */
 export async function putTodo(t0: NewTodo): Promise<string> {
@@ -231,7 +239,7 @@ export async function syncEvent(ev: CalEvent, force = false) {
       await putTodo({
         id, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis,
         ruleId: p.ruleId, verify: p.verify, eventId: ev.id, project: ev.project || '', done: false,
-        rank: base?.rank, note: old?.note, subs: subs.length ? subs : undefined, checks: base?.checks, created: base?.created || new Date().toISOString(),
+        rank: base?.rank, note: old?.note, subs: subs.length ? subs : undefined, checks: base?.checks, checkAt: base?.checkAt, created: base?.created || new Date().toISOString(),
       })
       if (twin) {
         for (const c of [...S().todos.values()].filter((x) => x.parentId === twin.id)) await putTodo({ ...c, parentId: id })
@@ -423,13 +431,16 @@ export async function toggleCheck(id: string, name: string) {
   const t = S().todos.get(id)
   if (!t) return
   const cur = t.checks || []
-  await putTodo({ ...t, checks: cur.includes(name) ? cur.filter((x) => x !== name) : [...cur, name] })
+  const on = cur.includes(name)
+  const checkAt = keepAt(t.checkAt, (x) => (x === name ? null : x)) || {}
+  if (!on) checkAt[name] = nowIso()
+  await putTodo({ ...t, checks: on ? cur.filter((x) => x !== name) : [...cur, name], checkAt })
 }
 
 /** 하위 항목을 고치면 지운 항목의 체크도 같이 지운다 */
 export const withSubs = (t: Todo, subs: string[]): Todo => {
   const gone = (t.subs || []).filter((x) => !subs.includes(x))
-  return { ...t, subs, checks: (t.checks || []).filter((x) => !gone.includes(x)) }
+  return { ...t, subs, checks: (t.checks || []).filter((x) => !gone.includes(x)), checkAt: keepAt(t.checkAt, (x) => (gone.includes(x) ? null : x)) }
 }
 
 export async function addSub(id: string, text: string) {
@@ -446,7 +457,8 @@ export async function renameSub(id: string, from: string, to: string) {
   const cur = t?.subs || []
   if (!t || v === from || cur.includes(v)) return
   if (!v) return putTodo(withSubs(t, cur.filter((x) => x !== from)))
-  await putTodo({ ...t, subs: cur.map((x) => (x === from ? v : x)), checks: (t.checks || []).map((x) => (x === from ? v : x)) })
+  const ren = (x: string) => (x === from ? v : x)
+  await putTodo({ ...t, subs: cur.map(ren), checks: (t.checks || []).map(ren), checkAt: keepAt(t.checkAt, ren) })
 }
 
 /* ---------- 설정 ---------- */
@@ -767,6 +779,16 @@ async function migrate() {
     /* Imjudo SIVR 송부: 이 기능이 생기기 전 오늘(10/28) 끝낸 SIVR FUL 에도 만든다 */
     for (const t of [...S().todos.values()]) if (t.done && localDay(t.doneAt) >= '2026-10-28') await followUpsOnDone(t, 'sivr-send')
     appStore.setState({ mig: [...S().mig, 'sivrsend1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('chkat1')) {
+    /* 체크한 시각은 이제부터 남는다. 오늘 만든 할 일의 체크는 오늘 한 것이라 시각 없이 날짜만 남긴다 */
+    const today = todayStr()
+    for (const t of [...S().todos.values()]) {
+      if (t.done || t.checkAt || !t.checks?.length || localDay(t.created) !== today) continue
+      await putTodo({ ...t, checkAt: Object.fromEntries(t.checks.map((x) => [x, today])) })
+    }
+    appStore.setState({ mig: [...S().mig, 'chkat1'] })
     await putConfig()
   }
 }

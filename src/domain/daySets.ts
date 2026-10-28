@@ -105,6 +105,20 @@ export function todoGroups(todos: Todo[], t: DateStr) {
   return { open, groups: groups.filter((g) => g.items.length), done }
 }
 
+/** 체크한 날 (시각을 모르는 옛 체크는 날짜만 있다) */
+const atDay = (at: string) => (at.length === 10 ? at : localDay(at))
+
+/** 그날 체크한 하위 항목. 그날 끝낸 할 일의 것은 할 일로 보이므로 뺀다 */
+export function checkedOn(d: DateStr, todos: Data['todos'], skip: Set<string>) {
+  return [...todos.values()]
+    .filter((x) => !skip.has(x.id))
+    .flatMap((x) =>
+      Object.entries(x.checkAt || {})
+        .filter(([name, at]) => (x.checks || []).includes(name) && atDay(at) === d)
+        .map(([name, at]) => ({ key: x.id + '|' + name, title: x.title, name: name.replace(/^eTMF:/, ''), at })),
+    )
+}
+
 /** 브리핑을 보여 주는 시각 (17:50 이후, 또는 지난 날) */
 export const BRIEF_FROM_MIN = 17 * 60 + 50
 
@@ -131,6 +145,7 @@ export function briefData(t: DateStr, now: Date, data: Pick<Data, 'todos' | 'hol
     rate: Math.round((done.length / goal) * 100),
     goal,
     done: [...done].sort((a, b) => (a.doneAt || '').localeCompare(b.doneAt || '')),
+    subs: checkedOn(t, data.todos, new Set(done.map((x) => x.id))),
     left,
     next: nextWork(t, data.holidays),
   }

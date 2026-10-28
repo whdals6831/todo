@@ -135,8 +135,11 @@ describe('할 일 추가', () => {
     await addSub(id, ' 바인더 정리 ')
     await addSub(id, 'ISF 문서 인쇄')
     await toggleCheck(id, 'ISF 문서 인쇄')
-    expect(getState().todos.get(id)).toMatchObject({ subs: ['ISF 문서 인쇄', '바인더 정리'], checks: ['ISF 문서 인쇄'] })
-    expect(withSubs(getState().todos.get(id)!, ['바인더 정리'])).toMatchObject({ subs: ['바인더 정리'], checks: [] })
+    expect(getState().todos.get(id)).toMatchObject({ subs: ['ISF 문서 인쇄', '바인더 정리'], checks: ['ISF 문서 인쇄'], checkAt: { 'ISF 문서 인쇄': '2026-10-12T00:00:00.000Z' } })
+    await toggleCheck(id, '바인더 정리')
+    await toggleCheck(id, '바인더 정리')
+    expect(getState().todos.get(id)!.checkAt).toEqual({ 'ISF 문서 인쇄': '2026-10-12T00:00:00.000Z' })
+    expect(withSubs(getState().todos.get(id)!, ['바인더 정리'])).toMatchObject({ subs: ['바인더 정리'], checks: [], checkAt: {} })
   })
 })
 

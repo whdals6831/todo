@@ -1,7 +1,8 @@
 import { TYPES, kindLabel, kindOf } from '../domain/constants.ts'
 import { DOW, dow, md, mkDoneAt, nowIso, shift, todayStr } from '../domain/date.ts'
 import { parseWhen } from '../domain/parseWhen.ts'
-import { detectProject } from '../domain/project.ts'
+import { pmpAll } from '../domain/pmp.ts'
+import { detectProject, projShort } from '../domain/project.ts'
 import { planTodos } from '../domain/rules.ts'
 import { addTodo, applySnapshot, dismissTodo, flushWrites, manualId, putEvent, putTodo, setRepository, syncEvent } from '../store/actions.ts'
 import type { Repository } from '../store/repository.ts'
@@ -14,7 +15,7 @@ import type { CalEvent, EventKind, Todo } from '../types/domain.ts'
  * 자동 할 일·확인 할 일·함께 추가할 할 일 규칙이 화면에서 고칠 때와 똑같이 적용된다.
  */
 
-export type ToolName = 'get_overview' | 'list_items' | 'add_visit' | 'add_todo' | 'update_todo' | 'update_visit' | 'delete_todo'
+export type ToolName = 'get_overview' | 'list_items' | 'list_deadlines' | 'add_visit' | 'add_todo' | 'update_todo' | 'update_visit' | 'delete_todo'
 type Input = Record<string, unknown>
 
 /** Claude 에 주는 사용 안내 (서버 instructions, get_overview 에도 싣는다) */
@@ -77,6 +78,39 @@ function overview() {
   }
 }
 
+/** 구글 캘린더 알림용 일정에 넣는 표시 (이 말로 동기화한 일정을 찾는다) */
+export const DEADLINE_TAG = 'tododeadline'
+/** 시간이 없는 마감은 퇴근 시간까지로 본다 */
+const DEADLINE_TIME = '18:00'
+
+/**
+ * 앱 캘린더의 마감 줄(PMP 마감, OMF·비용청구처럼 마감으로 보는 할 일) 중 아직 끝내지 않은 것.
+ * 끝냈는지 알 수 있는 마감은 지난 14일까지, 알 수 없는 마감은 오늘부터, 앞으로 60일까지.
+ * sync_id 에 날짜·시간이 들어 있어 마감이 옮겨지면 다른 sync_id 가 된다
+ */
+function deadlines() {
+  const s = S()
+  const t = todayStr()
+  const hm = (m: number) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0')
+  return pmpAll(s)
+    .filter((d) => d.date && !d.doneDay && d.date <= shift(t, 60) && d.date >= (d.linked ? shift(t, -14) : t))
+    .sort((a, b) => (a.date + (a.time || DEADLINE_TIME)).localeCompare(b.date + (b.time || DEADLINE_TIME)))
+    .map((d) => {
+      const time = d.time || DEADLINE_TIME
+      const [h, m] = time.split(':').map(Number)
+      const short = projShort(s.projects, d.project)
+      return {
+        sync_id: d.key + '@' + d.date + 'T' + time,
+        title: '마감 · ' + (short ? short + ' ' : '') + d.label,
+        date: d.date,
+        time,
+        time_given: !!d.time,
+        start: d.date + 'T' + time + ':00',
+        end: d.date + 'T' + hm(Math.min(h * 60 + m + 30, 23 * 60 + 59)) + ':00',
+      }
+    })
+}
+
 /** 도구를 실행하고 Claude 에 돌려줄 결과(JSON 문자열)를 만든다. 잘못된 입력이면 Error. withData 안에서 부른다 */
 export async function runTool(name: ToolName, i: Input): Promise<string> {
   switch (name) {
@@ -93,6 +127,8 @@ export async function runTool(name: ToolName, i: Input): Promise<string> {
           .map((t) => ({ id: t.id, title: t.title, due: t.due, start: t.start || '', done: !!t.done, project: t.project, basis: t.basis })),
       })
     }
+    case 'list_deadlines':
+      return JSON.stringify({ today: todayStr(), tag: DEADLINE_TAG, deadlines: deadlines() })
     case 'add_visit': {
       const k: EventKind = ['meeting', 'training', 'leave'].includes(str(i.kind)) ? (str(i.kind) as EventKind) : 'visit'
       const base = { kind: k, createdDate: todayStr(), date: str(i.date), project: str(i.project), memo: str(i.memo), genKey: '' }

@@ -60,6 +60,16 @@ Deno.serve(
           (i) => run('list_items', i),
         )
         server.registerTool(
+          'list_deadlines',
+          {
+            title: '마감 줄 보기',
+            description:
+              '앱 캘린더의 마감 줄(PMP 마감, OMF·비용청구·QC처럼 마감으로 보는 할 일) 중 아직 끝내지 않은 것을 돌려줍니다 (지난 14일 ~ 앞으로 60일). 시간이 없는 마감은 18:00. 구글 캘린더 알림 동기화에 쓰며, sync_id 는 마감·날짜·시간마다 달라 일정 설명에 넣어 같은 마감인지 비교합니다.',
+            annotations: read,
+          },
+          () => run('list_deadlines'),
+        )
+        server.registerTool(
           'add_visit',
           {
             title: '일정 추가',

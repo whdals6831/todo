@@ -83,4 +83,20 @@ describe('커넥터 도구', () => {
     /* 실패한 뒤에도 다음 요청은 돈다 */
     expect((await call('get_overview')).today).toBe('2026-10-12 (월)')
   })
+
+  it('마감 줄: 안 끝낸 PMP 마감·마감으로 보는 할 일을 구글 캘린더 알림용으로 (시간이 없으면 18:00)', async () => {
+    const { db, call } = fakeDb()
+    db.events.set('e1', { id: 'e1', kind: 'visit', date: '2026-10-21', type: 'MV', project: 'AZ - Imjudo', site: '09. 가나대병원(PI 홍길동)' })
+    await call('add_todo', { title: 'OMF 정리 10/14 14시', project: 'P' })
+    const done = await call('add_todo', { title: '10월 비용 청구', due: '2026-10-13' })
+    await call('update_todo', { id: done.id, done: true })
+    const out = await call('list_deadlines')
+    expect(out.tag).toBe('tododeadline')
+    const omf = out.deadlines.find((d: { title: string }) => /OMF/.test(d.title))
+    expect(omf).toMatchObject({ title: '마감 · Pj OMF 정리 · 14:00까지', start: '2026-10-14T14:00:00', end: '2026-10-14T14:30:00', time_given: true })
+    expect(out.deadlines.find((d: { sync_id: string }) => d.sync_id === 'e1|1@2026-10-28T18:00')).toMatchObject({
+      title: '마감 · AZ - Imjudo 가나대병원 MV · Follow-up Letter', start: '2026-10-28T18:00:00', end: '2026-10-28T18:30:00', time_given: false,
+    })
+    expect(out.deadlines.some((d: { title: string }) => /비용/.test(d.title))).toBe(false)
+  })
 })

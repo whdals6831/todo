@@ -15,6 +15,23 @@ export function ReorderList({ items, field = () => 'due' }: { items: Todo[]; fie
   )
 }
 
+const isEtmfUpload = (t: Todo) => /eTMF\s*업로드/i.test(t.title)
+
+/** 열린 할 일 목록. eTMF 업로드는 맨 위에 접어 두고 눌러서 펼쳐 본다 (펼침 상태는 id 별로 기억) */
+export function OpenList({ id, items, field }: { id: string; items: Todo[]; field?: (t: Todo) => 'due' | 'start' }) {
+  const up = items.filter(isEtmfUpload)
+  return (
+    <>
+      {up.length > 0 && (
+        <Fold id={id + '-etmf'} label={'eTMF 업로드 ' + up.length}>
+          <ReorderList items={up} field={field} />
+        </Fold>
+      )}
+      <ReorderList items={items.filter((x) => !isEtmfUpload(x))} field={field} />
+    </>
+  )
+}
+
 /**
  * 정렬 상태 안내와 "마감순으로 되돌리기".
  * label 이 있으면 왼쪽에 "할 일 · 마감 임박순"으로, 없으면 묶음 제목 줄 오른쪽에 붙는다.

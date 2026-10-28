@@ -8,7 +8,7 @@ import { setUi, useApp, useUi } from '@/store/ui.ts'
 import type { DateStr, Todo } from '@/types/domain.ts'
 import { EventRow } from '../event/EventRow.tsx'
 import { QuickAdd } from '../todo/QuickAdd.tsx'
-import { DoneFold, RankInfo, ReorderList } from '../todo/TodoList.tsx'
+import { DoneFold, OpenList, RankInfo } from '../todo/TodoList.tsx'
 import { RollActions, TodoRow } from '../todo/TodoRow.tsx'
 import s from './Today.module.css'
 
@@ -103,7 +103,7 @@ function TodayBody({ t }: { t: DateStr }) {
             </>
           }
         >
-          <ReorderList items={b.list.filter((x) => !x.done)} />
+          <OpenList id="today" items={b.list.filter((x) => !x.done)} />
           <DoneFold id="today-done" items={b.list.filter((x) => x.done)} />
         </Group>
       )}
@@ -145,7 +145,7 @@ function OtherDayBody({ d, today }: { d: DateStr; today: DateStr }) {
             </>
           }
         >
-          <ReorderList items={open} />
+          <OpenList id="day" items={open} />
           <DoneFold id="day-done" items={ds.done} />
         </Group>
       )}

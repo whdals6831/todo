@@ -18,7 +18,7 @@ import { EventRow } from '../event/EventRow.tsx'
 import es from '../event/EventRow.module.css'
 import { openEvent } from '../event/openEvent.ts'
 import { QuickAdd } from '../todo/QuickAdd.tsx'
-import { DoneFold, RankInfo, ReorderList } from '../todo/TodoList.tsx'
+import { DoneFold, OpenList, RankInfo } from '../todo/TodoList.tsx'
 import s from './Calendar.module.css'
 
 const selectDay = (d: DateStr) => setUi({ sel: d })
@@ -285,7 +285,7 @@ function DayPanel() {
             <RankInfo items={open} label="할 일" />
           </div>
           {/* 이날 진행 중인 일(착수했지만 마감 전)을 다른 칸에 놓으면 착수일이 옮겨진다 */}
-          <ReorderList items={open} field={(t) => (t.due === d || !t.start ? 'due' : 'start')} />
+          <OpenList id="cal" items={open} field={(t) => (t.due === d || !t.start ? 'due' : 'start')} />
         </>
       )}
       <DoneFold id="cal-done" items={merged.filter((t) => t.done)} />

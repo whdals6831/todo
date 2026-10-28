@@ -182,7 +182,10 @@ function BriefCard({ d }: { d: DateStr }) {
             {b.done.map((x) => (
               <li key={x.id}>
                 <span>{x.doneAt ? (localDay(x.doneAt) === d ? localHM(x.doneAt) : md(localDay(x.doneAt))) : '—'}</span>
-                <span>{x.title}</span>
+                <span>
+                  {x.title}
+                  <SubLines subs={x.subs} />
+                </span>
               </li>
             ))}
           </ul>
@@ -204,5 +207,17 @@ function BriefCard({ d }: { d: DateStr }) {
         <div className={s.lbl}>남은 일 없음. 수고했어요.</div>
       )}
     </section>
+  )
+}
+
+/** 끝낸 할 일 아래에 그 하위 항목 */
+function SubLines({ subs }: { subs?: string[] }) {
+  if (!subs?.length) return null
+  return (
+    <span className={s.subLines}>
+      {subs.map((x) => (
+        <span key={x}>{'› ' + x}</span>
+      ))}
+    </span>
   )
 }

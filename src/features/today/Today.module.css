@@ -81,6 +81,15 @@
   min-width: 62px;
   color: var(--color-muted);
 }
+/* 끝낸 할 일의 하위 항목 */
+.subLines {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+.subLines > span {
+  display: block;
+}
 .lbl {
   margin-top: var(--space-1-5);
   font-size: var(--text-xs);

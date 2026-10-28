@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BRZ_PSV_FUL, DEFAULT_HOLIDAYS, FUL_PACKS } from '../domain/constants.ts'
+import { BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, FUL_PACKS } from '../domain/constants.ts'
 import type { CalEvent, Rule } from '../types/domain.ts'
 import {
   addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, withSubs,
@@ -360,5 +360,27 @@ describe('MV FUL 에 ISF Checklist·ICF Tracking Log, MV 당일 현장에서 써
     expect(s.todos.get('b')!.subs).toEqual(['MVR 작성'])
     expect(s.todos.get('a_ev1_r-mv-site')).toMatchObject({ title: '가나대병원 MV 현장에서 써 올 것', due: '2026-10-21', start: '2026-10-21', subs: ['ICF Tracking Log', 'Discrepancy List'] })
     expect(s.mig).toContain('fulpack3')
+  })
+})
+
+describe('엔플론시아는 SIV 도시락 예약 없음 (enflunch1)', () => {
+  it('꺼 둔 엔플론시아 규칙을 더하고, 열린 도시락 예약 할 일은 지운다 (다른 과제는 그대로)', async () => {
+    const lunch = DEFAULT_RULES.find((r) => r.id === 'r-siv-lunch')!
+    const siv = (id: string, project: string): CalEvent => ({ ...visit, id, type: 'SIV', project, date: '2026-11-13', genKey: 'v6|old' })
+    await replaceAll({
+      events: [siv('e1', 'MSD - 엔플론시아'), siv('e2', 'AZ - Breztri')], fuls: [],
+      todos: [
+        { id: 'a_e1_r-siv-lunch', title: '가나대병원 SIV 도시락 예약', due: '2026-11-10', eventId: 'e1', ruleId: 'r-siv-lunch', done: false },
+        { id: 'a_e2_r-siv-lunch', title: '가나대병원 SIV 도시락 예약', due: '2026-11-10', eventId: 'e2', ruleId: 'r-siv-lunch', done: false },
+      ],
+      config: {
+        rules: [lunch], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2'], notes: null,
+        projects: [], companions: [],
+      },
+    })
+    const s = getState()
+    expect(s.rules.map((r) => [r.id, r.project, !!r.off])).toEqual([['r-siv-lunch', '*', false], ['r-e-lunch', 'MSD - 엔플론시아', true]])
+    expect(s.todos.has('a_e1_r-siv-lunch')).toBe(false)
+    expect(s.todos.has('a_e2_r-siv-lunch')).toBe(true)
   })
 })

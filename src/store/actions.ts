@@ -1,4 +1,4 @@
-import { BRZ, BRZ_PSV_FUL, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, SCAN_RULE, brzPsvFulRule, fulPackRules, kindOf } from '../domain/constants.ts'
+import { BRZ, BRZ_PSV_FUL, ENF, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, SCAN_RULE, brzPsvFulRule, fulPackRules, kindOf } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
@@ -789,6 +789,19 @@ async function migrate() {
       await putTodo({ ...t, checkAt: Object.fromEntries(t.checks.map((x) => [x, today])) })
     }
     appStore.setState({ mig: [...S().mig, 'chkat1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('enflunch1')) {
+    /* 엔플론시아 SIV 는 도시락 예약이 필요 없다: 꺼 둔 엔플론시아 규칙으로 덮어써, 열린 도시락 예약 할 일은 다음 맞추기에서 지워진다 */
+    const s = S()
+    const lunch = s.rules.find((r) => r.key === 'LUNCH' && r.project === '*')
+    let rules = s.rules
+    if (lunch && !rules.some((r) => r.key === 'LUNCH' && r.project === ENF)) {
+      const i = rules.indexOf(lunch) + 1
+      const off: Rule = { ...lunch, id: 'r-e-lunch', project: ENF, off: true, basis: '엔플론시아는 SIV 도시락 예약 필요 없음' }
+      rules = [...rules.slice(0, i), off, ...rules.slice(i)]
+    }
+    appStore.setState({ rules, mig: [...s.mig, 'enflunch1'] })
     await putConfig()
   }
 }

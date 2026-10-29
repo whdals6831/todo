@@ -118,8 +118,11 @@
   text-align: center;
   color: var(--color-fg);
 }
+/* 한 번에 3줄 (다음 차부터). 나머지는 상자 안에서 스크롤 */
 .bus ol {
   min-height: 0;
+  max-height: calc(3 * 1.6em + 2 * var(--space-2) + 2px);
+  font-size: var(--text-lg);
   margin: 0;
   padding: var(--space-2) var(--space-3);
   overflow-y: auto;
@@ -212,8 +215,10 @@
     order: 4;
   }
   .bus ol {
+    max-height: none;
     padding: var(--space-0-5) var(--space-2);
     overflow: visible;
+    font-size: var(--text-sm);
   }
   .bus li:not(.busNext) {
     display: none;

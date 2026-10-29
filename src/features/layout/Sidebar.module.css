@@ -111,17 +111,18 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1-5);
-  min-height: 0;
+  /* 위 칸과 사이를 좁혀 3줄 상자가 낮은 화면에도 들어가게 */
+  margin-top: calc(-1 * var(--space-3));
   font-size: var(--text-xs);
 }
 .heart {
   text-align: center;
   color: var(--color-fg);
 }
-/* 한 번에 3줄 (다음 차부터). 나머지는 상자 안에서 스크롤 */
+/* 늘 3줄 (다음 차부터). 나머지는 상자 안에서 스크롤 */
 .bus ol {
-  min-height: 0;
-  max-height: calc(3 * 1.6em + 2 * var(--space-2) + 2px);
+  flex: none;
+  height: calc(3 * 1.6em + 2 * var(--space-2) + 2px);
   font-size: var(--text-lg);
   margin: 0;
   padding: var(--space-2) var(--space-3);
@@ -213,9 +214,10 @@
     align-items: center;
     gap: var(--space-2);
     order: 4;
+    margin-top: 0;
   }
   .bus ol {
-    max-height: none;
+    height: auto;
     padding: var(--space-0-5) var(--space-2);
     overflow: visible;
     font-size: var(--text-sm);

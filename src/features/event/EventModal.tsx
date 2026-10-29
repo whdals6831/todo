@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { KINDS, TYPES, TYPE_LABEL, kindLabel, kindOf } from '@/domain/constants.ts'
-import { todayStr } from '@/domain/date.ts'
+import { md, todayStr } from '@/domain/date.ts'
+import { dLabel } from '@/domain/priority.ts'
+import { chipSite, escapeRegExp, safeId, siteShort } from '@/domain/project.ts'
 import { Button } from '@/components/ui/Button.tsx'
 import { Field, FormGrid, Input, Select, Textarea } from '@/components/ui/Field.tsx'
-import { ConfirmLine, Label } from '@/components/ui/Layout.tsx'
+import { ConfirmLine, Label, Sub } from '@/components/ui/Layout.tsx'
+import { cx } from '@/lib/cx.ts'
 import { Modal, ModalFoot } from '@/components/ui/Modal.tsx'
 import { SegmentedControl } from '@/components/ui/SegmentedControl.tsx'
 import { deleteEventCascade, putEvent, syncEvent } from '@/store/actions.ts'
@@ -105,6 +108,7 @@ export function EventModal({ event: ev, as }: { event: Partial<CalEvent>; as?: E
           <Textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder={kind === 'visit' ? 'PI, 장소 등' : '장소, 링크 등'} />
         </Field>
       </FormGrid>
+      {!isNew && kind === 'visit' && kindOf(ev) === 'visit' && <VisitTodos ev={ev as CalEvent} />}
       <ModalFoot>
         {confirming ? (
           <ConfirmLine
@@ -126,5 +130,52 @@ export function EventModal({ event: ev, as }: { event: Partial<CalEvent>; as?: E
         )}
       </ModalFoot>
     </Modal>
+  )
+}
+
+/** 이 외근으로 생긴 할 일 (자동 할 일 · 전 FUL · 끝내면 이어지는 할 일) 중 남은 것을 마감 순으로 */
+function VisitTodos({ ev }: { ev: CalEvent }) {
+  const todos = useApp((st) => st.todos)
+  const all = [...todos.values()]
+  const ids = new Set(all.filter((t) => t.eventId === ev.id || t.id === safeId('fu_' + ev.id)).map((t) => t.id))
+  for (let grew = true; grew; ) {
+    grew = false
+    for (const t of all) {
+      if (!t.followOf || !ids.has(t.followOf) || ids.has(t.id)) continue
+      ids.add(t.id)
+      grew = true
+    }
+  }
+  if (!ids.size) return null
+  const left = all
+    .filter((t) => ids.has(t.id) && !t.done)
+    .sort((a, b) => (a.due || '9').localeCompare(b.due || '9') || a.title.localeCompare(b.title))
+  /* 제목 앞의 기관 이름은 이 창에서는 빼고 보여 준다 */
+  const pre = new RegExp('^\\s*(' + [siteShort(ev.site), chipSite(ev.site)].filter(Boolean).map(escapeRegExp).join('|') + ')\\s+')
+  return (
+    <div className={s.left}>
+      <Label>
+        남은 할 일 {left.length} · 전체 {ids.size}
+      </Label>
+      {left.length ? (
+        <ul>
+          {left.map((t) => {
+            const d = t.due ? dLabel(t.due) : null
+            const subs = t.subs?.length ? t.subs.filter((x) => t.checks?.includes(x)).length + '/' + t.subs.length : ''
+            return (
+              <li key={t.id}>
+                <span>
+                  {t.title.replace(pre, '')}
+                  {subs && <Sub>{' · 하위 ' + subs}</Sub>}
+                </span>
+                <span className={cx(s.due, d?.late && s.late)}>{t.due ? md(t.due) + ' · ' + d!.t : '마감 미정'}</span>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <Sub>모두 끝냈어요</Sub>
+      )}
+    </div>
   )
 }

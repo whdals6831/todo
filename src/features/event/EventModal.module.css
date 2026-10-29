@@ -5,3 +5,38 @@
   display: block;
   margin-bottom: var(--space-2);
 }
+
+/* 외근 편집: 이 외근으로 생긴 남은 할 일 */
+.left {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+.left ul {
+  margin: var(--space-1-5) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.left li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1-5) 0;
+  border-top: 1px dashed var(--color-line);
+  font-size: var(--text-sm);
+}
+.left li:first-child {
+  border-top: 0;
+}
+.due {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.late {
+  font-weight: var(--weight-semibold);
+  color: var(--color-danger);
+}

@@ -221,7 +221,7 @@ function sortRules<T extends Pick<Rule, 'project' | 'type' | 'key' | 'title'>>(l
     .sort((a, b) => pi(a.project) - pi(b.project) || ti(a.type) - ti(b.type) || ki(a.key) - ki(b.key) || String(a.title).localeCompare(String(b.title), 'ko'))
 }
 
-const START_OPTIONS = [['fresh', '방문 다음 영업일'], ['lead', '마감 N영업일 전'], ['due', '마감일 당일']] as const
+const START_OPTIONS = [['fresh', '방문 다음 영업일'], ['lead', '마감 N영업일 전'], ['due', '마감일 당일'], ['reg', '외근 등록한 날']] as const
 const DIR_OPTIONS = [['before', '방문 전'], ['after', '방문 후']] as const
 const UNIT_OPTIONS = [['WD', 'WD'], ['CD', 'CD'], ['ADD', '외근 등록일 기준']] as const
 

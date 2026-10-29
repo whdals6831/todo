@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, FUL_PACKS } from '../domain/constants.ts'
+import { BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, FUL_PACKS, WID_RULE } from '../domain/constants.ts'
 import { nowIso } from '../domain/date.ts'
 import type { CalEvent, Rule } from '../types/domain.ts'
 import {
@@ -22,7 +22,7 @@ beforeEach(async () => {
   await replaceAll({
     events: [], todos: [], fuls: [],
     config: {
-      rules: RULES, holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'ful5', 'fulpack3'], notes: null,
+      rules: RULES, holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'ful5', 'fulpack3', 'wid1'], notes: null,
       projects: [{ name: 'P', short: 'Pj', sites: [] }],
       companions: [{ project: 'P', keyword: 'OMF', items: ['로그 업데이트', '마일스톤 작성'] }],
     },
@@ -168,6 +168,17 @@ describe('할 일 추가', () => {
     expect(todos().filter((t) => t.id.startsWith('fu_'))).toHaveLength(1)
   })
 
+  it('외근을 등록하면 WID 외근 일정 등록이 생긴다 (등록한 날 착수 · 등록일 WD3 마감). 규칙을 넣기 전 외근에는 안 생긴다', async () => {
+    await putEvent(visit)
+    await syncEvent(visit)
+    await saveRules([...RULES, { ...WID_RULE }])
+    expect(getState().todos.has('a_ev1_r-wid')).toBe(false)
+    const ev2: CalEvent = { ...visit, id: 'ev2', site: '다라병원', date: '2026-10-28', createdDate: '2026-10-12' }
+    await putEvent(ev2)
+    await syncEvent(ev2)
+    expect(getState().todos.get('a_ev2_r-wid')).toMatchObject({ title: '다라병원 MV WID 외근 일정 등록', start: '2026-10-12', due: '2026-10-15' })
+  })
+
   it('하위 항목: 줄을 더하고 체크하고, 뺀 항목의 체크는 같이 지운다', async () => {
     const id = await addTodo({ title: '분당 MV Preparation', due: '2026-10-19', subs: ['ISF 문서 인쇄'], done: false })
     await addSub(id, ' 바인더 정리 ')
@@ -294,7 +305,7 @@ describe('결재 상신 고치기 (fulpack2)', () => {
       ],
       config: {
         rules: [pack('r-rpt-psv', 'PSV', ['PSVR 작성', 'PSV 결재상신']), pack('r-rpt-mv', 'MV', ['MVR 작성'])],
-        holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack3', 'brzful1'], notes: null,
+        holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack3', 'brzful1', 'wid1'], notes: null,
         projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
       },
     })
@@ -361,7 +372,7 @@ describe('Breztri PSV FUL (brzful1)', () => {
         { id: 'a_ev1_r-rpt-psv', title: '대구가톨릭대학교병원 PSV FUL', due: '2026-10-28', eventId: 'ev1', ruleId: 'r-rpt-psv', project: 'AZ - Breztri', subs: ['PSVR 작성', '내가 단 것', 'PSVR 결재 상신'], checks: ['PSVR 작성'], note: '메모', done: false },
       ],
       config: {
-        rules: [psv], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1'], notes: null,
+        rules: [psv], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'wid1'], notes: null,
         projects: [{ name: 'AZ - Breztri', short: 'Breztri', sites: ['022. 대구가톨릭대학교병원(PI 김은진)'] }], companions: [],
       },
     })
@@ -388,7 +399,7 @@ describe('MV FUL 에 ISF Checklist·ICF Tracking Log, MV 당일 현장에서 써
         { id: 'b', title: '다른병원 MV FUL', due: '2026-10-01', ruleId: 'r-rpt-mv', subs: ['MVR 작성'], done: true },
       ],
       config: {
-        rules: [mv], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2'], notes: null,
+        rules: [mv], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'wid1'], notes: null,
         projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
       },
     })
@@ -412,7 +423,7 @@ describe('엔플론시아는 SIV 도시락 예약 없음 (enflunch1)', () => {
         { id: 'a_e2_r-siv-lunch', title: '가나대병원 SIV 도시락 예약', due: '2026-11-10', eventId: 'e2', ruleId: 'r-siv-lunch', done: false },
       ],
       config: {
-        rules: [lunch], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2'], notes: null,
+        rules: [lunch], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'wid1'], notes: null,
         projects: [], companions: [],
       },
     })
@@ -420,5 +431,22 @@ describe('엔플론시아는 SIV 도시락 예약 없음 (enflunch1)', () => {
     expect(s.rules.map((r) => [r.id, r.project, !!r.off])).toEqual([['r-siv-lunch', '*', false], ['r-e-lunch', 'MSD - 엔플론시아', true]])
     expect(s.todos.has('a_e1_r-siv-lunch')).toBe(false)
     expect(s.todos.has('a_e2_r-siv-lunch')).toBe(true)
+  })
+})
+
+describe('WID 외근 일정 등록 (wid1)', () => {
+  it('WID 규칙을 더하고, 업무 노트의 엔플론시아 도시락 예약만 뺀다', async () => {
+    const sec = () => [{ v: 'SIV', items: [{ t: '바인더 제작 요청' }, { t: '도시락 예약', w: 'PMP 기한 없음' }] }]
+    await replaceAll({
+      events: [], fuls: [], todos: [],
+      config: {
+        rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'enflunch1'],
+        notes: { 'MSD - 엔플론시아': sec(), 'AZ - Breztri': sec() }, projects: [], companions: [],
+      },
+    })
+    const s = getState()
+    expect(s.rules.map((r) => r.id)).toEqual(['r-wid'])
+    expect(s.notes!['MSD - 엔플론시아'][0].items.map((x) => x.t)).toEqual(['바인더 제작 요청'])
+    expect(s.notes!['AZ - Breztri'][0].items.map((x) => x.t)).toEqual(['바인더 제작 요청', '도시락 예약'])
   })
 })

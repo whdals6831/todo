@@ -97,10 +97,13 @@ export const hasVisit = (d: DateStr, events: Data['events']) =>
 
 /** 착수일과 근거. 착수일이 다른 외근 날과 겹치면 하루 옮긴다 */
 export function computeStart(ev: CalEvent, r: Rule, due: DateStr, { holidays: hol, events }: Pick<Data, 'holidays' | 'events'>) {
-  const mode = r.unit === 'ADD' ? 'due' : r.start || 'lead'
+  const mode = r.start === 'reg' ? 'reg' : r.unit === 'ADD' ? 'due' : r.start || 'lead'
   let st: DateStr
   const parts: string[] = []
-  if (mode === 'due') {
+  if (mode === 'reg') {
+    st = nextWorkOrSame(ev.createdDate || todayStr(), hol)
+    parts.push('외근 등록한 날 ' + md(st) + ' 착수')
+  } else if (mode === 'due') {
     st = due
     parts.push('마감일 당일 착수')
   } else if (mode === 'fresh' && r.dir === 'after') {
@@ -112,7 +115,7 @@ export function computeStart(ev: CalEvent, r: Rule, due: DateStr, { holidays: ho
     parts.push('마감 ' + k + '영업일 전 ' + md(st) + ' 착수')
   }
   if (st > due) st = due
-  if (st < due && hasVisit(st, events) && st !== ev.date) {
+  if (mode !== 'reg' && st < due && hasVisit(st, events) && st !== ev.date) {
     const o = st
     const alt = mode === 'fresh' ? nextWork(st, hol) : prevWork(st, hol)
     if (alt <= due) {

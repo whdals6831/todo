@@ -1,4 +1,4 @@
-import { BRZ, BRZ_PSV_FUL, ENF, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, SCAN_RULE, brzPsvFulRule, fulPackRules, kindOf } from '../domain/constants.ts'
+import { BRZ, BRZ_PSV_FUL, ENF, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, SCAN_RULE, WID_RULE, brzPsvFulRule, fulPackRules, kindOf } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
@@ -257,6 +257,8 @@ export async function syncEvent(ev: CalEvent, force = false) {
     const skip = new Set(ev.skip || [])
     const plan = planTodos(ev, S()).filter((p) => !skip.has(p.ruleId))
     const want = new Set(plan.map((p) => detId(p.ruleId)))
+    /* "외근 등록한 날 착수" 규칙은 외근을 처음 등록할 때만 만든다 (규칙을 새로 넣어도 예전 외근에는 안 생긴다) */
+    const regOnly = new Set(rulesFor(ev, S().rules).filter((r) => r.start === 'reg').map((r) => r.id))
     for (const t of mine) {
       if (!t.done && t.ruleId && !t.ruleId.endsWith('-manual') && !want.has(t.id)) await deleteTodo(t.id)
     }
@@ -277,7 +279,7 @@ export async function syncEvent(ev: CalEvent, force = false) {
         if (old && !old.done) await deleteTodo(id)
         continue
       }
-      if (!twin && regen && !old && p.due && p.due < today) continue
+      if (!twin && regen && !old && ((p.due && p.due < today) || regOnly.has(p.ruleId))) continue
       /* 같은 일을 직접 만들어 둔 열린 할 일은 이 규칙의 할 일로 바꾼다.
          날짜는 규칙대로 바뀌므로 예전 날짜를 설명하던 메모는 버리고, 순서·체크는 그대로 */
       const base = twin ?? old
@@ -865,6 +867,16 @@ async function migrate() {
       rules = [...rules.slice(0, i), off, ...rules.slice(i)]
     }
     appStore.setState({ rules, mig: [...s.mig, 'enflunch1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('wid1')) {
+    /* 외근 등록하면 WID 외근 일정 등록 (앞으로 등록하는 외근부터) */
+    const s = S()
+    const rules = s.rules.some((r) => r.id === WID_RULE.id) ? s.rules : [...s.rules, { ...WID_RULE }]
+    /* 엔플론시아는 SIV 도시락 예약이 필요 없어 업무 노트에서도 뺀다 */
+    const secs = s.notes?.[ENF]
+    const notes = s.notes && secs ? { ...s.notes, [ENF]: secs.map((x) => ({ ...x, items: x.items.filter((it) => it.t.trim() !== '도시락 예약') })) } : s.notes
+    appStore.setState({ rules, notes, mig: [...s.mig, 'wid1'] })
     await putConfig()
   }
   if (!S().mig.includes('sivrprint1')) {

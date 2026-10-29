@@ -113,7 +113,7 @@ export type RuleDir = 'before' | 'after'
 /** WD 영업일 · CD 달력일 · ADD 외근 등록일 기준 영업일 */
 export type RuleUnit = 'WD' | 'CD' | 'ADD'
 /** fresh 방문 다음 영업일 · lead 마감 N영업일 전 · due 마감일 당일 */
-export type StartMode = 'fresh' | 'lead' | 'due'
+export type StartMode = 'fresh' | 'lead' | 'due' | 'reg'
 
 /** 기한 규칙. 같은 key 끼리는 과제·방문 종류를 지정한 규칙이 '전체' 규칙을 덮어쓴다 */
 export interface Rule {

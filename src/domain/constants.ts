@@ -50,6 +50,7 @@ export const KEYS: [string, string][] = [
   ['ETMF', 'eTMF 업로드'],
   ['EDC', 'EDC 계정 요청'],
   ['LUNCH', '도시락 예약'],
+  ['WID', 'WID 외근 일정 등록'],
   ['', '기타 (덮어쓰지 않음)'],
   ['SKIP', '이 과제·방문은 자동 할 일 없음'],
 ]
@@ -89,6 +90,12 @@ export const MV_SITE_RULE: Rule = {
   dir: 'after', n: 0, unit: 'WD', send: false, verify: false, basis: '본인 기준: MV 때 현장에서 작성해 옴', start: 'due', startN: 0,
 }
 
+/** 외근을 등록하면 WID 에도 외근 일정 등록 (등록한 날 착수, 등록일 WD3 마감) */
+export const WID_RULE: Rule = {
+  id: 'r-wid', key: 'WID', type: '*', project: '*', title: '{site} {type} WID 외근 일정 등록',
+  dir: 'after', n: 3, unit: 'ADD', send: false, verify: false, basis: '본인 기준: 외근 등록하면 WD3 내 WID 에 외근 일정 등록', start: 'reg', startN: 0,
+}
+
 const RPT_RULE: Rule = {
   id: 'r-rpt', key: 'OWN', type: '*', project: '*', title: '{site} {type}R 작성', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, basis: '방문 리포트 본인 작성 기한 WD5', start: 'fresh', startN: 0,
 }
@@ -126,6 +133,7 @@ export const DEFAULT_RULES: Rule[] = [
   { ...SCAN_RULE },
   { ...ISF_RULE },
   { ...MV_SITE_RULE },
+  { ...WID_RULE },
   ...PREP_RULES.map((r) => ({ ...r })),
   { id: 'r-cl', key: 'CL', type: '*', project: '*', title: '{site} {type} Confirmation Letter 발송', dir: 'before', n: 3, unit: 'WD', send: true, verify: true, basis: 'PMP 확인 필요 (임시값)', start: 'lead', startN: 2 },
   { ...RPT_RULE },
@@ -144,6 +152,7 @@ export const START_WHY: Record<StartMode, string> = {
   fresh: '방문 기억이 가장 선명할 때 초안 (망각곡선: 하루 안에 많이 잊음)',
   lead: '작업 시간을 실제보다 짧게 잡는 경향(계획 오류) 대비 여유',
   due: '그날 바로 처리하는 일',
+  reg: '외근을 등록하면서 바로 챙기는 일',
 }
 
 /** 옛 규칙에 key·start 가 없을 때 채우는 값 */

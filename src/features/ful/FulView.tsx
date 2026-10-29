@@ -73,6 +73,13 @@ export function FulView() {
       <ViewHeader title="FUL 메모">
         <Label>다음 방문 때 챙길 기관별 사항 · 외근 등록하면 할 일로 넘어가요</Label>
       </ViewHeader>
+      <div className={s.filters}>
+        {['전체', ...projects.map((p) => p.name)].map((n) => (
+          <Button key={n} size="sm" pressed={draft.filter === n} onClick={() => useDraft.setState({ filter: n })}>
+            {n === '전체' ? '전체' : projShort(projects, n)}
+          </Button>
+        ))}
+      </div>
       <div className={s.form}>
         <Select
           aria-label="과제"
@@ -104,13 +111,6 @@ export function FulView() {
         <Button variant="solid" onClick={add}>
           추가
         </Button>
-      </div>
-      <div className={s.filters}>
-        {['전체', ...projects.map((p) => p.name)].map((n) => (
-          <Button key={n} size="sm" pressed={draft.filter === n} onClick={() => useDraft.setState({ filter: n })}>
-            {n === '전체' ? '전체' : projShort(projects, n)}
-          </Button>
-        ))}
       </div>
       {!all.length && <EmptyState>방문 때 기관에 요청·정정해야 할 사항을 적어 두면, 그 기관 외근을 등록할 때 할 일로 자동 추가돼요.</EmptyState>}
       {!!all.length && !shown.length && <EmptyState>이 과제의 FUL 메모가 없어요.</EmptyState>}

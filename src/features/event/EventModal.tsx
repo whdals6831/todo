@@ -9,9 +9,10 @@ import { ConfirmLine, Label, Sub } from '@/components/ui/Layout.tsx'
 import { cx } from '@/lib/cx.ts'
 import { Modal, ModalFoot } from '@/components/ui/Modal.tsx'
 import { SegmentedControl } from '@/components/ui/SegmentedControl.tsx'
-import { deleteEventCascade, putEvent, syncEvent } from '@/store/actions.ts'
+import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
+import { deleteEventCascade, putEvent, syncEvent, toggleDone } from '@/store/actions.ts'
 import { closeModal, setUi, ui, useApp } from '@/store/ui.ts'
-import type { CalEvent, EventKind } from '@/types/domain.ts'
+import type { CalEvent, EventKind, Todo } from '@/types/domain.ts'
 import s from './EventModal.module.css'
 
 type FieldKey = 'title' | 'date' | 'end' | 'time' | 'proj' | 'projOpt' | 'type' | 'site' | 'memo'
@@ -133,10 +134,11 @@ export function EventModal({ event: ev, as }: { event: Partial<CalEvent>; as?: E
   )
 }
 
-/** 이 외근으로 생긴 할 일 (자동 할 일 · 전 FUL · 끝내면 이어지는 할 일) 중 남은 것을 마감 순으로 */
+/** 이 외근으로 생긴 할 일 (자동 할 일 · 전 FUL · 끝내면 이어지는 할 일) 중 남은 것을 마감 순으로. 여기서 체크하면 할 일도 지금 완료된다 */
 function VisitTodos({ ev }: { ev: CalEvent }) {
   const todos = useApp((st) => st.todos)
   const projects = useApp((st) => st.projects)
+  const [touched, setTouched] = useState<string[]>([])
   const all = [...todos.values()]
   const ids = new Set(all.filter((t) => t.eventId === ev.id || t.id === safeId('fu_' + ev.id)).map((t) => t.id))
   for (let grew = true; grew; ) {
@@ -148,9 +150,15 @@ function VisitTodos({ ev }: { ev: CalEvent }) {
     }
   }
   if (!ids.size) return null
-  const left = all
-    .filter((t) => ids.has(t.id) && !t.done)
+  /* 이 창에서 체크한 일은 창을 닫을 때까지 줄을 그어 남겨 둔다 (잘못 눌렀으면 다시 풀 수 있게) */
+  const shown = all
+    .filter((t) => ids.has(t.id) && (!t.done || touched.includes(t.id)))
     .sort((a, b) => (a.due || '9').localeCompare(b.due || '9') || a.title.localeCompare(b.title))
+  const left = shown.filter((t) => !t.done)
+  const toggle = (t: Todo) => {
+    if (!touched.includes(t.id)) setTouched([...touched, t.id])
+    toggleDone(t)
+  }
   /* 제목 앞의 과제·기관 이름은 이 창에서는 빼고 보여 준다 */
   const alt = (xs: (string | undefined)[]) => '(?:' + xs.filter(Boolean).map((x) => escapeRegExp(x!)).join('|') + ')'
   const pre = new RegExp('^\\s*(?:' + alt([projShort(projects, ev.project), ev.project]) + '\\s+)?' + alt([siteShort(ev.site), chipSite(ev.site)]) + '\\s+')
@@ -159,18 +167,19 @@ function VisitTodos({ ev }: { ev: CalEvent }) {
       <Label>
         남은 할 일 {left.length} · 전체 {ids.size}
       </Label>
-      {left.length ? (
+      {shown.length ? (
         <ul>
-          {left.map((t) => {
+          {shown.map((t) => {
             const d = t.due ? dLabel(t.due) : null
             const subs = t.subs?.length ? t.subs.filter((x) => t.checks?.includes(x)).length + '/' + t.subs.length : ''
             return (
-              <li key={t.id}>
-                <span>
+              <li key={t.id} className={cx(t.done && s.doneRow)}>
+                <RoundCheckbox checked={!!t.done} onToggle={() => toggle(t)} label="완료 표시" />
+                <span className={s.leftTitle}>
                   {t.title.replace(pre, '')}
                   {subs && <Sub>{' · 하위 ' + subs}</Sub>}
                 </span>
-                <span className={cx(s.due, d?.late && s.late)}>{t.due ? md(t.due) + ' · ' + d!.t : '마감 미정'}</span>
+                <span className={cx(s.due, !t.done && d?.late && s.late)}>{t.done ? '오늘 완료' : t.due ? md(t.due) + ' · ' + d!.t : '마감 미정'}</span>
               </li>
             )
           })}

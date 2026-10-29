@@ -20,8 +20,7 @@
 }
 .left li {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--space-3);
   padding: var(--space-1-5) 0;
   border-top: 1px dashed var(--color-line);
@@ -29,6 +28,15 @@
 }
 .left li:first-child {
   border-top: 0;
+}
+.leftTitle {
+  flex: 1;
+  min-width: 0;
+}
+/* 이 창에서 체크한 일 */
+.doneRow .leftTitle {
+  color: var(--color-faint);
+  text-decoration: line-through;
 }
 .due {
   flex: none;

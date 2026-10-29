@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, FUL_PACKS } from '../domain/constants.ts'
+import { nowIso } from '../domain/date.ts'
 import type { CalEvent, Rule } from '../types/domain.ts'
 import {
-  addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, withSubs,
+  addFul, addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, withSubs,
 } from './actions.ts'
 import { createMemoryRepository } from './localRepository.ts'
 import { getState } from './store.ts'
@@ -142,11 +143,29 @@ describe('할 일 추가', () => {
     const mv: CalEvent = { ...siv, id: 'ev3', type: 'MV', date: '2026-10-21' }
     await putEvent(mv)
     await syncEvent(mv)
-    expect(getState().fuls.get(memo.id)?.todoId).toBe('fu_' + memo.id)
-    expect(getState().todos.get('fu_' + memo.id)?.title).toContain('SIVR 인쇄')
+    expect(getState().fuls.get(memo.id)?.todoId).toBe('fu_ev3')
+    expect(getState().todos.get('fu_ev3')).toMatchObject({ title: '인하대병원 MV 전 FUL', subs: ['SIVR 인쇄'] })
     await toggleDone(getState().todos.get(send.id)!)
     expect(getState().fuls.has(memo.id)).toBe(false)
-    expect(getState().todos.has('fu_' + memo.id)).toBe(false)
+    expect(getState().todos.has('fu_ev3')).toBe(false)
+  })
+
+  it('FUL 메모는 외근 하나의 "{기관} {방문} 전 FUL" 하위 항목으로 모이고 (착수 = 등록일, 마감 = 방문 WD1 전), 나중 메모는 덧붙고 방문일이 바뀌면 마감도 따라간다', async () => {
+    await addFul({ project: 'P', site: '가나대병원', type: 'MV', text: 'ICF 인쇄', created: '2026-10-01T00:00:00.000Z' })
+    await addFul({ project: 'P', site: '가나대병원', type: '*', text: 'CV 받기', created: '2026-10-02T00:00:00.000Z' })
+    await addFul({ project: 'P', site: '다른병원', type: '*', text: '다른 기관', created: '2026-10-03T00:00:00.000Z' })
+    await putEvent(visit)
+    await syncEvent(visit)
+    expect(getState().todos.get('fu_ev1')).toMatchObject({
+      title: '가나대병원 MV 전 FUL', subs: ['ICF 인쇄', 'CV 받기'], start: '2026-10-12', due: '2026-10-20', project: 'P',
+    })
+    await addFul({ project: 'P', site: '09. 가나대병원(PI 홍길동)', type: '*', text: '바인더 정리', created: nowIso() })
+    expect(getState().todos.get('fu_ev1')!.subs).toEqual(['ICF 인쇄', 'CV 받기', '바인더 정리'])
+    const moved = { ...getState().events.get('ev1')!, date: '2026-10-23' }
+    await putEvent(moved)
+    await syncEvent(moved)
+    expect(getState().todos.get('fu_ev1')).toMatchObject({ due: '2026-10-22', subs: ['ICF 인쇄', 'CV 받기', '바인더 정리'] })
+    expect(todos().filter((t) => t.id.startsWith('fu_'))).toHaveLength(1)
   })
 
   it('하위 항목: 줄을 더하고 체크하고, 뺀 항목의 체크는 같이 지운다', async () => {

@@ -134,7 +134,7 @@ export function FulView() {
                     <span className={s.movedType}>→ 할 일</span>
                     <span className={s.moved}>
                       {f.text}
-                      <Sub>{' · ' + (t ? md(t.due || '') + ' 마감' + (t.done ? ' · 완료' : '') : '할 일 삭제됨')}</Sub>
+                      <Sub>{' · ' + (t ? md(t.due || '') + ' 마감' + (t.done || t.checks?.includes(f.text) ? ' · 완료' : '') : '할 일 삭제됨')}</Sub>
                     </span>
                     <IconButton variant="mini" label="기록 지우기" onClick={() => deleteFul(f.id)}>
                       ×

@@ -121,8 +121,8 @@ export async function dismissTodo(id: string) {
     if (ev && !(ev.skip || []).includes(base)) await putEvent({ ...ev, skip: [...(ev.skip || []), base] })
   }
   if (t && t.fulId) {
-    const f = S().fuls.get(t.fulId)
-    if (f && !f.done) await putFul({ ...f, done: true })
+    /* 하위 항목으로 모은 메모 모두 */
+    for (const f of [...S().fuls.values()].filter((f) => f.id === t.fulId || f.todoId === id)) if (!f.done) await putFul({ ...f, done: true })
   }
   await deleteTodo(id)
 }
@@ -220,13 +220,17 @@ async function fulsOnDone(t: Todo, only?: string) {
   }
 }
 
-/** 완료를 취소하면 남긴 메모도 지운다 (넘어간 할 일을 이미 끝냈으면 그대로) */
+/** 완료를 취소하면 남긴 메모도 지운다. 넘어간 할 일에서는 그 하위 항목만 빼고, 남은 항목이 없으면 할 일도 지운다 (이미 끝냈으면 그대로) */
 async function fulsUndo(t: Todo) {
   for (const f of FULS_ON_DONE) {
     const x = S().fuls.get(fulOnDoneId(t, f.id))
     const linked = x?.todoId ? S().todos.get(x.todoId) : undefined
-    if (!x || linked?.done) continue
-    if (linked) await deleteTodo(linked.id)
+    if (!x || linked?.done || linked?.checks?.includes(x.text)) continue
+    if (linked) {
+      const subs = (linked.subs || []).filter((s) => s !== x.text)
+      if (subs.length) await putTodo(withSubs(linked, subs))
+      else await deleteTodo(linked.id)
+    }
     await deleteFul(x.id)
   }
 }
@@ -332,26 +336,42 @@ async function linkEnfPrep(ev: CalEvent) {
   }
 }
 
-/** FUL 메모를 가장 가까운 다가오는 해당 외근의 할 일로 (착수 = 등록일, 마감 = 방문 전 영업일) */
+/**
+ * FUL 메모를 가장 가까운 다가오는 해당 외근의 "{기관} {방문} 전 FUL" 할 일 하나에 하위 항목으로 모은다
+ * (착수 = 외근 등록일, 마감 = 방문 WD1 전). 나중에 적은 메모는 그 할 일에 덧붙이고, 방문일이 바뀌면 마감도 따라간다
+ */
 async function applyFuls(ev: CalEvent) {
   if (kindOf(ev) !== 'visit' || !ev.date || ev.date < todayStr()) return
   const hol = S().holidays
   const earlier = (f: Ful) =>
     [...S().events.values()].some((o) => o.id !== ev.id && o.date && o.date >= todayStr() && o.date < ev.date && fulMatch(f, o))
-  for (const f of [...S().fuls.values()].filter((f) => !f.todoId && !f.done && fulMatch(f, ev) && !earlier(f))) {
-    const id = safeId('fu_' + f.id)
-    if (S().todos.has(id)) continue
-    const reg = nextWorkOrSame(ev.createdDate || todayStr(), hol)
-    let due = prevWork(ev.date, hol)
-    if (due < reg) due = reg
-    await putTodo({
-      id, title: projShort(S().projects, f.project) + ' ' + siteShort(ev.site) + ' ' + ev.type + ' FUL: ' + f.text,
-      project: f.project, start: reg, due, time: '', tbd: false, autoDue: false, done: false, fulId: f.id,
-      basis: 'FUL 메모(' + md(f.created.slice(0, 10)) + ') → ' + md(ev.date) + ' ' + ev.type + ' 등록 · 방문 WD1 전 = ' + md(due),
-      startBasis: '외근 등록한 날 착수', created: new Date().toISOString(),
-    })
-    await putFul({ ...f, todoId: id, eventId: ev.id, linkedAt: todayStr() })
+  const id = safeId('fu_' + ev.id)
+  const old = S().todos.get(id)
+  const fuls = [...S().fuls.values()]
+    .filter((f) => !f.done && (f.todoId === id || (!f.todoId && fulMatch(f, ev) && !earlier(f))))
+    .sort((a, b) => Date.parse(a.created) - Date.parse(b.created))
+  if (!fuls.length) return
+  const add = [...new Set(fuls.filter((f) => !old || !f.todoId).map((f) => f.text))].filter((x) => !(old?.subs || []).includes(x))
+  const reg = nextWorkOrSame(ev.createdDate || todayStr(), hol)
+  let due = prevWork(ev.date, hol)
+  if (due < reg) due = reg
+  const dates = {
+    start: reg, due,
+    basis: 'FUL 메모 → ' + md(ev.date) + ' ' + ev.type + ' 등록 · 방문 WD1 전 = ' + md(due),
+    startBasis: '외근 등록한 날 ' + md(reg) + ' 착수',
   }
+  if (!old) {
+    await putTodo({
+      id, title: siteShort(ev.site) + ' ' + ev.type + ' 전 FUL', project: ev.project, subs: add, ...dates,
+      time: '', tbd: false, autoDue: false, done: false, fulId: fuls[0].id, created: new Date().toISOString(),
+    })
+  } else {
+    const redate = !old.done && old.due !== due && !/직접 변경|Claude가 변경/.test(old.basis || '')
+    /* 끝낸 할 일에 새 메모가 붙으면 다시 연다 */
+    if (add.length || redate)
+      await putTodo({ ...withSubs(old, [...(old.subs || []), ...add]), ...(redate || old.done ? dates : {}), done: false, doneAt: null })
+  }
+  for (const f of fuls) if (!f.todoId) await putFul({ ...f, todoId: id, eventId: ev.id, linkedAt: todayStr() })
 }
 
 export async function applyFulsAll() {

@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { KINDS, TYPES, TYPE_LABEL, kindLabel, kindOf } from '@/domain/constants.ts'
-import { md, todayStr } from '@/domain/date.ts'
+import { localDay, md, todayStr } from '@/domain/date.ts'
 import { dLabel } from '@/domain/priority.ts'
 import { chipSite, escapeRegExp, projShort, safeId, siteShort } from '@/domain/project.ts'
 import { Button } from '@/components/ui/Button.tsx'
 import { Field, FormGrid, Input, Select, Textarea } from '@/components/ui/Field.tsx'
-import { ConfirmLine, Label, Sub } from '@/components/ui/Layout.tsx'
+import { ConfirmLine, Fold, Label, Sub } from '@/components/ui/Layout.tsx'
 import { cx } from '@/lib/cx.ts'
 import { Modal, ModalFoot } from '@/components/ui/Modal.tsx'
 import { SegmentedControl } from '@/components/ui/SegmentedControl.tsx'
@@ -134,11 +134,13 @@ export function EventModal({ event: ev, as }: { event: Partial<CalEvent>; as?: E
   )
 }
 
-/** 이 외근으로 생긴 할 일 (자동 할 일 · 전 FUL · 끝내면 이어지는 할 일) 중 남은 것을 마감 순으로. 여기서 체크하면 할 일도 지금 완료된다 */
+/**
+ * 이 외근으로 생긴 할 일 (자동 할 일 · 전 FUL · 끝내면 이어지는 할 일). 남은 것은 마감 순으로, 끝낸 것은 아래 "완료"에 접어 둔다.
+ * 여기서 체크하면 할 일도 지금 완료된다
+ */
 function VisitTodos({ ev }: { ev: CalEvent }) {
   const todos = useApp((st) => st.todos)
   const projects = useApp((st) => st.projects)
-  const [touched, setTouched] = useState<string[]>([])
   const all = [...todos.values()]
   const ids = new Set(all.filter((t) => t.eventId === ev.id || t.id === safeId('fu_' + ev.id)).map((t) => t.id))
   for (let grew = true; grew; ) {
@@ -150,42 +152,61 @@ function VisitTodos({ ev }: { ev: CalEvent }) {
     }
   }
   if (!ids.size) return null
-  /* 이 창에서 체크한 일은 창을 닫을 때까지 줄을 그어 남겨 둔다 (잘못 눌렀으면 다시 풀 수 있게) */
-  const shown = all
-    .filter((t) => ids.has(t.id) && (!t.done || touched.includes(t.id)))
-    .sort((a, b) => (a.due || '9').localeCompare(b.due || '9') || a.title.localeCompare(b.title))
-  const left = shown.filter((t) => !t.done)
-  const toggle = (t: Todo) => {
-    if (!touched.includes(t.id)) setTouched([...touched, t.id])
-    toggleDone(t)
-  }
+  const mine = all.filter((t) => ids.has(t.id))
+  const left = mine.filter((t) => !t.done).sort((a, b) => (a.due || '9').localeCompare(b.due || '9') || a.title.localeCompare(b.title))
+  /* 끝낸 일은 아래 "완료"에 최근에 끝낸 순으로 (할 일 목록의 완료와 같은 모양) */
+  const done = mine.filter((t) => t.done).sort((a, b) => (b.doneAt || '').localeCompare(a.doneAt || ''))
   /* 제목 앞의 과제·기관 이름은 이 창에서는 빼고 보여 준다 */
   const alt = (xs: (string | undefined)[]) => '(?:' + xs.filter(Boolean).map((x) => escapeRegExp(x!)).join('|') + ')'
   const pre = new RegExp('^\\s*(?:' + alt([projShort(projects, ev.project), ev.project]) + '\\s+)?' + alt([siteShort(ev.site), chipSite(ev.site)]) + '\\s+')
+  const title = (t: Todo) => {
+    const subs = t.subs?.length ? t.subs.filter((x) => t.checks?.includes(x)).length + '/' + t.subs.length : ''
+    return (
+      <span className={s.leftTitle}>
+        {t.title.replace(pre, '')}
+        {subs && <Sub>{' · 하위 ' + subs}</Sub>}
+      </span>
+    )
+  }
   return (
     <div className={s.left}>
       <Label>
         남은 할 일 {left.length} · 전체 {ids.size}
       </Label>
-      {shown.length ? (
+      {left.length ? (
         <ul>
-          {shown.map((t) => {
+          {left.map((t) => {
             const d = t.due ? dLabel(t.due) : null
-            const subs = t.subs?.length ? t.subs.filter((x) => t.checks?.includes(x)).length + '/' + t.subs.length : ''
             return (
-              <li key={t.id} className={cx(t.done && s.doneRow)}>
-                <RoundCheckbox checked={!!t.done} onToggle={() => toggle(t)} label="완료 표시" />
-                <span className={s.leftTitle}>
-                  {t.title.replace(pre, '')}
-                  {subs && <Sub>{' · 하위 ' + subs}</Sub>}
-                </span>
-                <span className={cx(s.due, !t.done && d?.late && s.late)}>{t.done ? '오늘 완료' : t.due ? md(t.due) + ' · ' + d!.t : '마감 미정'}</span>
+              <li key={t.id}>
+                <RoundCheckbox checked={false} onToggle={() => toggleDone(t)} label="완료 표시" />
+                {title(t)}
+                <span className={cx(s.due, d?.late && s.late)}>{t.due ? md(t.due) + ' · ' + d!.t : '마감 미정'}</span>
               </li>
             )
           })}
         </ul>
       ) : (
         <Sub>모두 끝냈어요</Sub>
+      )}
+      {done.length > 0 && (
+        <Fold id="visit-done" label={'완료 ' + done.length}>
+          <ul>
+            {done.map((t) => {
+              const dd = localDay(t.doneAt)
+              return (
+                <li key={t.id} className={s.doneRow}>
+                  <RoundCheckbox checked onToggle={() => toggleDone(t)} label="완료 취소" />
+                  {title(t)}
+                  <span className={s.doneAt}>
+                    {dd ? md(dd) : '—'}
+                    <span>{'완료' + (t.due && t.due !== dd ? ' · 마감 ' + md(t.due) : '')}</span>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </Fold>
       )}
     </div>
   )

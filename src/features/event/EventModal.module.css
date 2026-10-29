@@ -33,10 +33,30 @@
   flex: 1;
   min-width: 0;
 }
-/* 이 창에서 체크한 일 */
+/* 끝낸 일: 할 일 목록의 완료와 같은 모양 (줄 긋고, 오른쪽에 끝낸 날과 "완료 · 마감") */
 .doneRow .leftTitle {
   color: var(--color-faint);
   text-decoration: line-through;
+}
+.doneAt {
+  flex: none;
+  font-size: var(--text-sm);
+  text-align: right;
+  white-space: nowrap;
+}
+.doneAt span {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--text-2xs);
+  color: var(--color-faint);
+}
+/* 완료 접기 */
+.left details {
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--color-line);
+}
+.left details summary {
+  padding-bottom: var(--space-1);
 }
 .due {
   flex: none;

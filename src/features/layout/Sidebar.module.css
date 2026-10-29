@@ -106,7 +106,7 @@
   gap: var(--space-2);
 }
 
-/* 퇴근 시간표: 가운데 하트 아래 검정 테두리 상자에 한 줄씩. 사이드바 자리가 모자라면 상자만 줄어 안에서 스크롤 */
+/* 퇴근 시간표: 가운데 하트 아래 검정 테두리 상자에 한 줄씩 */
 .bus {
   display: flex;
   flex-direction: column;
@@ -119,27 +119,36 @@
   text-align: center;
   color: var(--color-fg);
 }
-/* 늘 3줄 (다음 차부터). 나머지는 상자 안에서 스크롤 */
-.bus ol {
+/* 검정 테두리 상자. 여백은 바깥 상자에 두어, 스크롤되는 목록이 여백 자리로 비쳐 보이지 않게 */
+.busBox {
   flex: none;
-  height: calc(3 * 1.6em + 2 * var(--space-2) + 2px);
-  font-size: var(--text-lg);
-  margin: 0;
   padding: var(--space-2) var(--space-3);
-  overflow-y: auto;
-  list-style: none;
   border: 1px solid var(--color-fg);
   border-radius: var(--radius-md);
   background: var(--color-bg);
   color: var(--color-fg);
+}
+/* 딱 3줄 (다음 차부터). 스크롤해도 줄 단위로 멈춘다 */
+.bus ol {
+  --bus-row: 26px;
+  height: calc(3 * var(--bus-row));
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  list-style: none;
+  font-size: var(--text-lg);
+  line-height: var(--bus-row);
   text-align: center;
-  /* 스크롤 막대가 둥근 테두리 오른쪽을 가리지 않게 숨긴다 (휠·손가락으로는 그대로 스크롤) */
-  scrollbar-width: none;
   font-variant-numeric: tabular-nums;
-  line-height: 1.6;
+  /* 스크롤 막대는 숨긴다 (휠·손가락으로는 그대로 스크롤) */
+  scrollbar-width: none;
 }
 .bus ol::-webkit-scrollbar {
   display: none;
+}
+.bus li {
+  scroll-snap-align: start;
 }
 .busPast {
   opacity: 0.45;
@@ -216,9 +225,11 @@
     order: 4;
     margin-top: 0;
   }
+  .busBox {
+    padding: var(--space-0-5) var(--space-2);
+  }
   .bus ol {
     height: auto;
-    padding: var(--space-0-5) var(--space-2);
     overflow: visible;
     font-size: var(--text-sm);
   }

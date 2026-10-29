@@ -12,8 +12,8 @@ const BUS: [string, string][] = [
 ]
 
 /**
- * Claude 열기 아래 검정 하트와 퇴근 시간표 (검정 상자에 한 줄씩). 지난 차는 흐리게, 다음 차는 굵게.
- * 사이드바 자리가 모자라면 상자 안에서 스크롤되고, 다음 차가 맨 위에 오게 맞춘다 (좁은 화면에서는 다음 차만)
+ * Claude 열기 아래 검정 하트와 퇴근 시간표 (검정 테두리 상자에 딱 3줄). 지난 차는 흐리게, 다음 차는 굵게.
+ * 나머지는 상자 안에서 스크롤하고, 다음 차가 맨 위에 오게 맞춘다 (좁은 화면에서는 다음 차만)
  */
 export function Commute() {
   const nowMs = useUi((u) => u.now)
@@ -26,7 +26,7 @@ export function Commute() {
     /* 상자 크기가 정해진 뒤에도(화면 크기 변경 등) 다시 맞춘다 */
     const toNext = () => {
       const li = el.children[next] as HTMLElement | undefined
-      if (li) el.scrollTop = li.offsetTop - el.offsetTop - parseFloat(getComputedStyle(el).paddingTop)
+      if (li) el.scrollTop = li.offsetTop - el.offsetTop
     }
     toNext()
     const ro = new ResizeObserver(toNext)
@@ -39,13 +39,15 @@ export function Commute() {
       <span className={s.heart} aria-label="퇴근 시간표">
         {'♥︎'}
       </span>
-      <ol ref={box}>
-        {BUS.map(([go, at], i) => (
-          <li key={go} className={cx((next < 0 || i < next) && s.busPast, i === next && s.busNext)}>
-            {go + ' → ' + at}
-          </li>
-        ))}
-      </ol>
+      <div className={s.busBox}>
+        <ol ref={box}>
+          {BUS.map(([go, at], i) => (
+            <li key={go} className={cx((next < 0 || i < next) && s.busPast, i === next && s.busNext)}>
+              {go + ' → ' + at}
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   )
 }

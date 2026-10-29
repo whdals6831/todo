@@ -141,11 +141,8 @@
   line-height: var(--bus-row);
   text-align: center;
   font-variant-numeric: tabular-nums;
-  /* 스크롤 막대는 숨긴다 (휠·손가락으로는 그대로 스크롤) */
-  scrollbar-width: none;
-}
-.bus ol::-webkit-scrollbar {
-  display: none;
+  /* 스크롤 막대(위아래 버튼)는 보이게. 반대쪽도 같은 폭을 비워 시간은 가운데 그대로 */
+  scrollbar-gutter: stable both-edges;
 }
 .bus li {
   scroll-snap-align: start;

@@ -12,7 +12,7 @@ const BUS: [string, string][] = [
 ]
 
 /**
- * Claude 열기 아래 검정 하트와 퇴근 시간표 (검정 테두리 상자에 딱 3줄). 지난 차는 흐리게, 다음 차는 굵게.
+ * Claude 열기 아래 검정 하트와 퇴근 시간표 (검정 테두리 상자에 딱 3줄). 지난 차는 흐리게, 다음 차는 굵게 앞에 ▶.
  * 나머지는 상자 안에서 스크롤하고, 다음 차가 맨 위에 오게 맞춘다 (좁은 화면에서는 다음 차만)
  */
 export function Commute() {
@@ -43,7 +43,7 @@ export function Commute() {
         <ol ref={box}>
           {BUS.map(([go, at], i) => (
             <li key={go} className={cx((next < 0 || i < next) && s.busPast, i === next && s.busNext)}>
-              {go + ' → ' + at}
+              <span>{go + ' → ' + at}</span>
             </li>
           ))}
         </ol>

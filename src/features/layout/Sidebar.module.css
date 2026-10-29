@@ -156,6 +156,18 @@
 .busNext {
   font-weight: var(--weight-semibold);
 }
+/* 다음 차 앞 검정 세모. 시간은 가운데 그대로 두고 세모만 왼쪽 바깥에 */
+.bus li span {
+  position: relative;
+}
+.busNext span::before {
+  content: "\25B6\FE0E";
+  position: absolute;
+  right: 100%;
+  margin-right: var(--space-1-5);
+  font-size: 0.6em;
+  color: var(--color-fg);
+}
 
 .settings {
   margin-top: auto;
@@ -235,5 +247,8 @@
   }
   .bus li:not(.busNext) {
     display: none;
+  }
+  .busNext span::before {
+    position: static;
   }
 }

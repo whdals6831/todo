@@ -130,6 +130,25 @@ describe('할 일 추가', () => {
     expect(getState().todos.has('f_' + other + '_sivr-send')).toBe(false)
   })
 
+  it('Imjudo SIVR 송부를 끝내면 FUL 메모에 MV 때 SIVR 인쇄가 남고, MV 를 등록하면 할 일로 넘어간다 (완료 취소하면 같이 지운다)', async () => {
+    const siv: CalEvent = { ...visit, id: 'ev2', type: 'SIV', project: 'AZ - Imjudo', site: '03. 인하대병원(PI 홍길동)', date: '2026-10-05' }
+    await putEvent(siv)
+    const ful = await addTodo({ title: '인하대병원 SIVR FUL', project: 'AZ - Imjudo', due: '2026-10-08', eventId: 'ev2', done: false })
+    await toggleDone(getState().todos.get(ful)!)
+    const send = getState().todos.get('f_' + ful + '_sivr-send')!
+    await toggleDone(send)
+    const memo = getState().fuls.get('u_' + send.id + '_sivr-print')!
+    expect(memo).toMatchObject({ project: 'AZ - Imjudo', site: '03. 인하대병원(PI 홍길동)', type: 'MV', text: 'SIVR 인쇄' })
+    const mv: CalEvent = { ...siv, id: 'ev3', type: 'MV', date: '2026-10-21' }
+    await putEvent(mv)
+    await syncEvent(mv)
+    expect(getState().fuls.get(memo.id)?.todoId).toBe('fu_' + memo.id)
+    expect(getState().todos.get('fu_' + memo.id)?.title).toContain('SIVR 인쇄')
+    await toggleDone(getState().todos.get(send.id)!)
+    expect(getState().fuls.has(memo.id)).toBe(false)
+    expect(getState().todos.has('fu_' + memo.id)).toBe(false)
+  })
+
   it('하위 항목: 줄을 더하고 체크하고, 뺀 항목의 체크는 같이 지운다', async () => {
     const id = await addTodo({ title: '분당 MV Preparation', due: '2026-10-19', subs: ['ISF 문서 인쇄'], done: false })
     await addSub(id, ' 바인더 정리 ')

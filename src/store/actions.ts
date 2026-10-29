@@ -2,10 +2,10 @@ import { BRZ, BRZ_PSV_FUL, ENF, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, SCAN_RU
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
-import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort } from '../domain/project.ts'
+import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort, stripProj } from '../domain/project.ts'
 import { genKey, manualTwin, normRule, planTodos, rulesFor } from '../domain/rules.ts'
 import {
-  FOLLOWUPS, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type FollowUp, type NewTodo,
+  FOLLOWUPS, FULS_ON_DONE, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type FollowUp, type NewTodo,
 } from '../domain/specials.ts'
 import { slotByTime } from '../domain/priority.ts'
 import type { CalEvent, Config, DateStr, Ful, NoteItem, NoteSection, Notes, Rule, Todo } from '../types/domain.ts'
@@ -80,8 +80,13 @@ export async function putTodo(t0: NewTodo): Promise<string> {
   if (t.done && !prev?.done) t = checkAllSubs(t)
   setTodo(t)
   await write(repo.putTodo(t))
-  if (t.done && !prev?.done) await followUpsOnDone(t)
-  else if (!t.done && prev?.done) await followUpsUndo(t)
+  if (t.done && !prev?.done) {
+    await followUpsOnDone(t)
+    await fulsOnDone(t)
+  } else if (!t.done && prev?.done) {
+    await followUpsUndo(t)
+    await fulsUndo(t)
+  }
   else if (t.done && prev?.done && localDay(t.doneAt) !== localDay(prev.doneAt)) await followUpsRedate(t)
   return t.id
 }
@@ -185,6 +190,44 @@ async function followUpsRedate(t: Todo) {
     const d = followDates(t, f)
     if (x.due === d.due && x.start === d.start) continue
     await putTodo({ ...x, ...d })
+  }
+}
+
+/* ---------- 완료하면 남기는 FUL 메모 ---------- */
+
+const fulOnDoneId = (t: Todo, fid: string) => safeId('u_' + t.id + '_' + fid)
+
+/** 이어진 할 일을 거슬러 올라가 외근의 기관을 찾고, 없으면 제목에서 (과제 목록의 기관 이름이 있으면 그것으로) */
+function siteOfTodo(t: Todo, fromTitle: (x: string) => string) {
+  for (let x: Todo | undefined = t, i = 0; x && i < 5; x = x.followOf ? S().todos.get(x.followOf) : undefined, i++) {
+    const ev = x.eventId ? S().events.get(x.eventId) : undefined
+    if (ev?.site) return ev.site
+  }
+  const name = fromTitle(stripProj(S().projects, t.title || '', t.project || '').replace(/\s+/g, ' ').trim())
+  const c = siteCore(name)
+  return S().projects.find((p) => p.name === t.project)?.sites.find((x) => sameSite(siteCore(x), c)) || name
+}
+
+/** 끝내면 그 기관 FUL 메모에 남긴다 (FULS_ON_DONE). 이미 잡아 둔 해당 외근이 있으면 바로 그 할 일로 넘어간다 */
+async function fulsOnDone(t: Todo, only?: string) {
+  for (const f of FULS_ON_DONE) {
+    if ((only && f.id !== only) || (f.project && t.project !== f.project) || !f.match(t.title || '')) continue
+    const id = fulOnDoneId(t, f.id)
+    const site = siteOfTodo(t, f.site)
+    if (S().fuls.has(id) || !site) continue
+    await putFul({ id, project: t.project || '', site, type: f.type, text: f.text, created: t.doneAt || nowIso() })
+    await applyFulsAll()
+  }
+}
+
+/** 완료를 취소하면 남긴 메모도 지운다 (넘어간 할 일을 이미 끝냈으면 그대로) */
+async function fulsUndo(t: Todo) {
+  for (const f of FULS_ON_DONE) {
+    const x = S().fuls.get(fulOnDoneId(t, f.id))
+    const linked = x?.todoId ? S().todos.get(x.todoId) : undefined
+    if (!x || linked?.done) continue
+    if (linked) await deleteTodo(linked.id)
+    await deleteFul(x.id)
   }
 }
 
@@ -802,6 +845,12 @@ async function migrate() {
       rules = [...rules.slice(0, i), off, ...rules.slice(i)]
     }
     appStore.setState({ rules, mig: [...s.mig, 'enflunch1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('sivrprint1')) {
+    /* SIVR 인쇄 FUL 메모: 이 기능이 생기기 전에 끝낸 SIVR 송부에도 남긴다 */
+    for (const t of [...S().todos.values()]) if (t.done && localDay(t.doneAt) >= '2026-10-28') await fulsOnDone(t, 'sivr-print')
+    appStore.setState({ mig: [...S().mig, 'sivrprint1'] })
     await putConfig()
   }
 }

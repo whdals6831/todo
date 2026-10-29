@@ -14,8 +14,12 @@ import s from './Ful.module.css'
 
 const TYPE_OPTIONS = [['*', '다음 방문'] as const, ...TYPES.filter((x) => x !== '기타').map((x) => [x, x] as const)]
 
-/** 입력 중인 메모 (다른 화면에 다녀와도 남는다) */
-const useDraft = create<{ project: string; site: string; type: string; text: string }>()(() => ({ project: '', site: '', type: '*', text: '' }))
+/** 입력 중인 메모와 고른 과제 칩 (다른 화면에 다녀와도 남는다) */
+const useDraft = create<{ project: string; site: string; type: string; text: string; filter: string }>()(() => ({
+  project: '', site: '', type: '*', text: '', filter: '전체',
+}))
+
+const newest = (a: Ful, b: Ful) => Date.parse(b.created) - Date.parse(a.created)
 
 /** FUL 메모: 기관의 다음 방문 때 챙길 일. 그 기관 외근을 등록하면 할 일로 넘어간다 */
 export function FulView() {
@@ -39,11 +43,11 @@ export function FulView() {
   }
 
   const all = [...fuls.values()]
-  const order = projects.map((p) => p.name)
-  /** 기관별로 묶는다 */
+  const shown = all.filter((f) => draft.filter === '전체' || f.project === draft.filter)
+  /** 기관별로 묶는다. 최근에 적은 메모가 맨 위 (묶음도 가장 최근 메모 순) */
   const bySite = (list: Ful[]) => {
     const groups = new Map<string, { project: string; site: string; items: Ful[] }>()
-    for (const f of list) {
+    for (const f of [...list].sort(newest)) {
       const k = f.project + '|' + siteCore(f.site)
       if (!groups.has(k)) {
         const known = projects.find((p) => p.name === f.project)?.sites.find((x) => siteCore(x) === siteCore(f.site))
@@ -51,11 +55,11 @@ export function FulView() {
       }
       groups.get(k)!.items.push(f)
     }
-    return [...groups.values()].sort((a, b) => order.indexOf(a.project) - order.indexOf(b.project) || a.site.localeCompare(b.site))
+    return [...groups.values()]
   }
   /* 대기 중인 메모만 위에, 할 일로 넘어간 메모는 맨 아래 "완료"에 접어 둔다 */
-  const pending = bySite(all.filter((f) => !f.todoId))
-  const moved = all.filter((f) => f.todoId)
+  const pending = bySite(shown.filter((f) => !f.todoId))
+  const moved = shown.filter((f) => f.todoId)
   const head = (g: { project: string; site: string }, sub: string) => (
     <div className={s.head}>
       <Tag className={s.proj}>{projShort(projects, g.project)}</Tag>
@@ -101,15 +105,21 @@ export function FulView() {
           추가
         </Button>
       </div>
+      <div className={s.filters}>
+        {['전체', ...projects.map((p) => p.name)].map((n) => (
+          <Button key={n} size="sm" pressed={draft.filter === n} onClick={() => useDraft.setState({ filter: n })}>
+            {n === '전체' ? '전체' : projShort(projects, n)}
+          </Button>
+        ))}
+      </div>
       {!all.length && <EmptyState>방문 때 기관에 요청·정정해야 할 사항을 적어 두면, 그 기관 외근을 등록할 때 할 일로 자동 추가돼요.</EmptyState>}
+      {!!all.length && !shown.length && <EmptyState>이 과제의 FUL 메모가 없어요.</EmptyState>}
       {pending.map((g) => (
         <section key={g.project + '|' + g.site} className={s.group}>
           {head(g, '대기 ' + g.items.length)}
-          {g.items
-            .sort((a, b) => a.created.localeCompare(b.created))
-            .map((f) => (
-              <PendingRow key={f.id} ful={f} />
-            ))}
+          {g.items.map((f) => (
+            <PendingRow key={f.id} ful={f} />
+          ))}
         </section>
       ))}
       {moved.length > 0 && (

@@ -194,3 +194,30 @@ export const FOLLOWUPS: FollowUp[] = [
     basis: '본인 기준: SAE IRB 제출 요청 후 WD2 내 제출 확인',
   },
 ]
+
+/** Imjudo SIVR 송부 */
+const SIVR_SEND = /(^|\s)SIVR 송부$/i
+
+/** 끝내면 그 기관 FUL 메모에 남길 일 (그 방문 때 챙기게) */
+export interface FulOnDone {
+  id: string
+  match: (x: string) => boolean
+  /** 이 과제의 할 일만 */
+  project?: string
+  /** 제목에서 기관 이름 (외근에 이어진 할 일이 아닐 때) */
+  site: (x: string) => string
+  /** 챙길 방문 종류 */
+  type: string
+  text: string
+}
+
+export const FULS_ON_DONE: FulOnDone[] = [
+  {
+    id: 'sivr-print',
+    match: (x) => SIVR_SEND.test(x.trim()),
+    project: IMJ,
+    site: (x) => x.trim().replace(SIVR_SEND, '').trim(),
+    type: 'MV',
+    text: 'SIVR 인쇄',
+  },
+]

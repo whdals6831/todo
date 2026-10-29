@@ -13,6 +13,14 @@
   }
 }
 
+/* 과제 칩 (전체 할 일과 같은 모양) */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+  margin-bottom: var(--space-4);
+}
+
 /* 기관별 묶음 */
 .group {
   margin-bottom: var(--space-3);

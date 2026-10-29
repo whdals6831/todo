@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { KINDS, TYPES, TYPE_LABEL, kindLabel, kindOf } from '@/domain/constants.ts'
 import { md, todayStr } from '@/domain/date.ts'
 import { dLabel } from '@/domain/priority.ts'
-import { chipSite, escapeRegExp, safeId, siteShort } from '@/domain/project.ts'
+import { chipSite, escapeRegExp, projShort, safeId, siteShort } from '@/domain/project.ts'
 import { Button } from '@/components/ui/Button.tsx'
 import { Field, FormGrid, Input, Select, Textarea } from '@/components/ui/Field.tsx'
 import { ConfirmLine, Label, Sub } from '@/components/ui/Layout.tsx'
@@ -136,6 +136,7 @@ export function EventModal({ event: ev, as }: { event: Partial<CalEvent>; as?: E
 /** 이 외근으로 생긴 할 일 (자동 할 일 · 전 FUL · 끝내면 이어지는 할 일) 중 남은 것을 마감 순으로 */
 function VisitTodos({ ev }: { ev: CalEvent }) {
   const todos = useApp((st) => st.todos)
+  const projects = useApp((st) => st.projects)
   const all = [...todos.values()]
   const ids = new Set(all.filter((t) => t.eventId === ev.id || t.id === safeId('fu_' + ev.id)).map((t) => t.id))
   for (let grew = true; grew; ) {
@@ -150,8 +151,9 @@ function VisitTodos({ ev }: { ev: CalEvent }) {
   const left = all
     .filter((t) => ids.has(t.id) && !t.done)
     .sort((a, b) => (a.due || '9').localeCompare(b.due || '9') || a.title.localeCompare(b.title))
-  /* 제목 앞의 기관 이름은 이 창에서는 빼고 보여 준다 */
-  const pre = new RegExp('^\\s*(' + [siteShort(ev.site), chipSite(ev.site)].filter(Boolean).map(escapeRegExp).join('|') + ')\\s+')
+  /* 제목 앞의 과제·기관 이름은 이 창에서는 빼고 보여 준다 */
+  const alt = (xs: (string | undefined)[]) => '(?:' + xs.filter(Boolean).map((x) => escapeRegExp(x!)).join('|') + ')'
+  const pre = new RegExp('^\\s*(?:' + alt([projShort(projects, ev.project), ev.project]) + '\\s+)?' + alt([siteShort(ev.site), chipSite(ev.site)]) + '\\s+')
   return (
     <div className={s.left}>
       <Label>

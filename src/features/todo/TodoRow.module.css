@@ -140,6 +140,18 @@
   font-size: var(--text-2xs);
   color: var(--color-muted);
 }
+/* 묶음 할 일(Preparation 등): 하위 항목 오른쪽에 그 항목 날짜 */
+.subList li {
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+}
+.subDue {
+  font-size: var(--text-2xs);
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.docOn .subDue {
+  color: var(--color-faint);
+}
 .docOn .docT {
   color: var(--color-faint);
   text-decoration: line-through;

@@ -1,8 +1,8 @@
 import { useRef, useState, type ReactNode } from 'react'
-import { localDay, md } from '@/domain/date.ts'
+import { localDay, md, todayStr } from '@/domain/date.ts'
 import { dLabel, isUrgent } from '@/domain/priority.ts'
 import { projShort } from '@/domain/project.ts'
-import { copyText } from '@/domain/rules.ts'
+import { copyText, partDues } from '@/domain/rules.ts'
 import { etmfDocsFor, signDocsFor } from '@/domain/signDocs.ts'
 import { Button } from '@/components/ui/Button.tsx'
 import { Highlight } from '@/components/ui/Highlight.tsx'
@@ -33,6 +33,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const notes = useApp((s) => s.notes)
   const events = useApp((s) => s.events)
   const rules = useApp((s) => s.rules)
+  const holidays = useApp((s) => s.holidays)
   const copy = t.done ? '' : copyText(t, { rules, events, projects })
   const [open, setOpen] = useState('')
   /** 이 줄을 골랐거나(과제 꼬리표 등을 누름) 하위 항목 입력칸에 쓰는 중 → 입력칸을 띄운다.
@@ -48,21 +49,25 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
     { key: 'etmf', name: 'eTMF 문서', pre: 'eTMF:', items: etmfDocsFor(t, events) },
   ].filter((l) => l.items.length)
   const shown = lists.find((l) => l.key === open)
-  const subs = (t.subs || []).map((x) => ({ t: x }))
+  /* 묶음 할 일(Preparation 등)은 하위 항목마다 그 일의 날짜를 오른쪽에 (지났으면 빨갛게) */
+  const dues = t.done ? {} : partDues(t, { rules, holidays, events, projects })
+  const today = todayStr()
+  const subs = (t.subs || []).map((x) => ({ t: x, due: dues[x], late: !!dues[x] && dues[x] < today && !checks.includes(x) }))
   const checked = (items: { t: string }[], pre: string) => items.filter((d) => checks.includes(pre + d.t)).length
 
   /** 하위 항목 맨 아래 입력칸에 바로 쓰게 한다 */
   const startSub = (body: HTMLElement) => body.querySelector<HTMLInputElement>('[data-sub-add]')?.focus()
 
   /* 체크해도 편집 창이 열리지 않게. 하위 항목(sub)은 글자를 눌러 고치고, 줄을 골랐으면 맨 아래에 입력칸 */
-  const checklist = (items: { t: string; w?: string }[], pre: string, sub = false) => (
-    <ol className={s.docs} onClick={(e) => e.stopPropagation()}>
+  const checklist = (items: { t: string; w?: string; due?: string; late?: boolean }[], pre: string, sub = false) => (
+    <ol className={cx(s.docs, sub && Object.keys(dues).length > 0 && s.subList)} onClick={(e) => e.stopPropagation()}>
       {items.map((d, i) => {
         const on = checks.includes(pre + d.t)
         return (
           <li key={i} className={cx(on && s.docOn)}>
             <RoundCheckbox checked={on} onToggle={() => toggleCheck(t.id, pre + d.t)} label={d.t + ' 체크'} />
             {sub ? <SubText id={t.id} text={d.t} /> : <span className={s.docT}>{d.t}</span>}
+            {d.due && <span className={cx(s.subDue, d.late && s.late)}>{md(d.due)}</span>}
             {d.w && <span className={s.docW}>{d.w}</span>}
           </li>
         )

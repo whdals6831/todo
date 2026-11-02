@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, ENF, FUL_PACKS, PRE_SIV, WID_RULE } from '../domain/constants.ts'
 import { nowIso } from '../domain/date.ts'
-import { genKey } from '../domain/rules.ts'
-import type { CalEvent, Rule } from '../types/domain.ts'
+import { genKey, partDues } from '../domain/rules.ts'
+import type { CalEvent, Rule, Todo } from '../types/domain.ts'
 import {
   addFul, addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, withSubs,
 } from './actions.ts'
@@ -173,11 +173,13 @@ describe('할 일 추가', () => {
     await putEvent(visit)
     await syncEvent(visit)
     await saveRules([...RULES, { ...WID_RULE }])
-    expect(getState().todos.has('a_ev1_r-wid')).toBe(false)
+    expect(getState().todos.get('a_ev1_g-prep')!.subs).toEqual(['CL'])
     const ev2: CalEvent = { ...visit, id: 'ev2', site: '다라병원', date: '2026-10-28', createdDate: '2026-10-12' }
     await putEvent(ev2)
     await syncEvent(ev2)
-    expect(getState().todos.get('a_ev2_r-wid')).toMatchObject({ title: '다라병원 MV WID 외근 일정 등록', start: '2026-10-12', due: '2026-10-15' })
+    const t = getState().todos.get('a_ev2_g-prep')!
+    expect(t).toMatchObject({ title: '다라병원 MV Preparation', subs: ['WID 외근 일정 등록', 'CL'], start: '2026-10-12' })
+    expect(partDues(t, getState())['WID 외근 일정 등록']).toBe('2026-10-15')
   })
 
   it('하위 항목: 줄을 더하고 체크하고, 뺀 항목의 체크는 같이 지운다', async () => {
@@ -269,7 +271,9 @@ describe('저장된 규칙 옮기기', () => {
     const ev = { ...visit, project: 'AZ - Imjudo' }
     await putEvent(ev)
     await syncEvent(ev)
-    expect(getState().todos.get('a_ev1_r-i-isf')).toMatchObject({ title: '가나대병원 MV ISF checklist 업데이트·CRA 서명', due: '2026-10-23', start: '2026-10-22' })
+    const t = getState().todos.get('a_ev1_g-post')!
+    expect(t).toMatchObject({ title: '가나대병원 MV 방문 후 정리', subs: ['ISF checklist 업데이트·CRA 서명', 'FUL'], start: '2026-10-22' })
+    expect(partDues(t, getState())['ISF checklist 업데이트·CRA 서명']).toBe('2026-10-23')
   })
 })
 
@@ -492,7 +496,7 @@ describe('SIV Pre-Checklist 하위 항목 (presiv1)', () => {
 })
 
 describe('엔플론시아 SIV 계약서·ICF Site specific 업데이트 (enfss1)', () => {
-  const MIG = ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1']
+  const MIG = ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'group1']
   const cl: Rule = { id: 'r-e-cl', key: 'CL', type: 'SIV', project: ENF, title: '{site} SIV CL', dir: 'before', n: 2, unit: 'ADD', send: false, verify: false, start: 'due', startN: 0 }
   const old: CalEvent = { ...visit, id: 'old', type: 'SIV', project: ENF, site: '제일산부인과', date: '2026-10-23', createdDate: '2026-10-08' }
 
@@ -506,7 +510,7 @@ describe('엔플론시아 SIV 계약서·ICF Site specific 업데이트 (enfss1)
     expect(todos().map((t) => [t.id, t.due])).toEqual([['a_old_r-e-cl', '2026-10-14']])
   })
 
-  it('새로 등록한 엔플론시아 SIV 에는 등록한 날 착수, 등록일 WD1 마감으로 제일 먼저 생긴다 (SIV 예정 준비 할 일은 넘겨받는다)', async () => {
+  it('새로 등록한 엔플론시아 SIV 에는 Preparation 맨 위에 등록 당일로 생긴다 (SIV 예정 준비 할 일은 넘겨받는다)', async () => {
     await replaceAll({
       events: [], fuls: [],
       todos: [{ id: 'prep', title: '엔플론시아 가나의원 ICF Site specific 업데이트', due: '2026-10-13', project: ENF, prepSite: '가나의원', prepKey: 'ICF', done: false }],
@@ -515,11 +519,67 @@ describe('엔플론시아 SIV 계약서·ICF Site specific 업데이트 (enfss1)
     const ev: CalEvent = { ...visit, id: 'new', type: 'SIV', project: ENF, site: '가나의원', date: '2026-10-21', createdDate: '2026-10-12' }
     await putEvent(ev)
     await syncEvent(ev)
-    const got = todos().map((t) => [t.title, t.start, t.due]).sort((a, b) => a[2]!.localeCompare(b[2]!))
-    expect(got).toEqual([
-      ['가나의원 SIV 계약서 Site specific 업데이트', '2026-10-12', '2026-10-13'],
-      ['가나의원 SIV ICF Site specific 업데이트', '2026-10-12', '2026-10-13'],
-      ['가나의원 SIV CL', '2026-10-14', '2026-10-14'],
-    ])
+    expect(todos().map((t) => t.id)).toEqual(['a_new_g-prep'])
+    const t = todos()[0]
+    expect(t).toMatchObject({ title: '가나의원 SIV Preparation', subs: ['계약서 Site specific 업데이트', 'ICF Site specific 업데이트', 'CL'], start: '2026-10-12', due: '2026-10-14' })
+    expect(partDues(t, getState())).toEqual({ '계약서 Site specific 업데이트': '2026-10-12', 'ICF Site specific 업데이트': '2026-10-12', CL: '2026-10-14' })
+  })
+})
+
+describe('방문 전·후 할 일 묶음 (group1)', () => {
+  const MIG = ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1']
+  const r = (id: string, title: string, dir: 'before' | 'after', n: number, more: Partial<Rule> = {}): Rule => ({
+    id, key: '', type: 'SIV', project: '*', title, dir, n, unit: 'WD', send: false, verify: false, start: 'due', startN: 0, ...more,
+  })
+  const rules = [
+    r('r-lunch', '{site} SIV 도시락 예약', 'before', 3),
+    r('r-print', '{proj} {site} SIV PPT 인쇄', 'before', 1),
+    r('r-edc', '{site} SIV EDC 계정 요청', 'before', 5),
+    r('r-pre', '{site} SIV Pre-Checklist', 'before', 2, { subs: ['작성', 'PM 승인 확인'] }),
+    r('r-sign', '{site} SIV 서명서류 재확인', 'before', 1),
+    r('r-letter', '{site} {type} Follow-up Letter 발송', 'after', 5),
+    r('r-pm', 'PM - {proj} {site} {type} (WD10)', 'after', 10),
+    r('r-wait', '[대기] {site} 승인 확인', 'after', 5),
+  ]
+  const ev: CalEvent = { ...visit, id: 'siv', type: 'SIV', site: '가나대병원', date: '2026-10-28', createdDate: '2026-10-12' }
+  const config = { rules, holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] }
+
+  it('방문 전 일은 Preparation, 방문 후 일은 방문 후 정리 하나에 마감 순 하위 항목으로. 체크 목록이 있는 일·[대기] 일은 따로', async () => {
+    await replaceAll({ events: [], todos: [], fuls: [], config: { ...config, mig: [...MIG, 'group1'] } })
+    await putEvent(ev)
+    await syncEvent(ev)
+    expect(todos().map((t) => t.id).sort()).toEqual(['a_siv_g-post', 'a_siv_g-prep', 'a_siv_r-pre', 'a_siv_r-sign', 'a_siv_r-wait'])
+    const prep = getState().todos.get('a_siv_g-prep')!
+    expect(prep).toMatchObject({ title: '가나대병원 SIV Preparation', subs: ['EDC 계정 요청', '도시락 예약', 'PPT 인쇄'], start: '2026-10-21', due: '2026-10-27' })
+    expect(partDues(prep, getState())).toEqual({ 'EDC 계정 요청': '2026-10-21', '도시락 예약': '2026-10-23', 'PPT 인쇄': '2026-10-27' })
+    expect(getState().todos.get('a_siv_g-post')).toMatchObject({ title: '가나대병원 SIV 방문 후 정리', subs: ['Follow-up Letter 발송', 'PM - SIV (WD10)'] })
+  })
+
+  it('예전 외근: 열린 낱개 할 일은 묶음 하위 항목으로 옮기고(메모도), 끝낸 것은 체크해 둔다. 지난 외근에 열린 일이 없으면 묶지 않는다', async () => {
+    const past: CalEvent = { ...ev, id: 'past', date: '2026-10-05', createdDate: '2026-09-20' }
+    const t = (e: string, rule: string, title: string, more: Partial<Todo> = {}): Todo => ({
+      id: 'a_' + e + '_' + rule, title, due: '2026-10-20', eventId: e, ruleId: rule, project: 'P', done: false, ...more,
+    })
+    await replaceAll({
+      events: [{ ...ev, genKey: genKey(ev, config) }, { ...past, genKey: genKey(past, config) }], fuls: [],
+      todos: [
+        t('siv', 'r-lunch', '가나대병원 SIV 도시락 예약', { note: '10명', subs: ['메뉴 확인', '영수증'], checks: ['메뉴 확인'], checkAt: { '메뉴 확인': '2026-10-11' } }),
+        t('siv', 'r-edc', '가나대병원 SIV EDC 계정 요청', { done: true, doneAt: '2026-10-10T01:00:00.000Z' }),
+        t('siv', 'r-sign', '가나대병원 SIV 서명서류 재확인', { due: '2026-10-19', checks: ['Delegation log'] }),
+        t('past', 'r-lunch', '가나대병원 SIV 도시락 예약', { done: true }),
+        t('past', 'r-print', '가나대병원 SIV PPT 인쇄', { done: true }),
+        t('past', 'r-letter', '가나대병원 SIV Follow-up Letter 발송', { done: true }),
+        t('past', 'r-pm', 'PM - Pj 가나대병원 SIV (WD10)', { done: true }),
+      ],
+      config,
+    })
+    const ids = todos().map((x) => x.id).sort()
+    expect(ids).toEqual(['a_past_r-letter', 'a_past_r-lunch', 'a_past_r-pm', 'a_past_r-print', 'a_siv_g-post', 'a_siv_g-prep', 'a_siv_r-edc', 'a_siv_r-sign'])
+    expect(getState().todos.get('a_siv_g-prep')).toMatchObject({
+      subs: ['EDC 계정 요청', '도시락 예약', '메뉴 확인', '영수증', 'PPT 인쇄'], checks: ['EDC 계정 요청', '메뉴 확인'],
+      checkAt: { 'EDC 계정 요청': '2026-10-10T01:00:00.000Z', '메뉴 확인': '2026-10-11' },
+      note: '가나대병원 SIV 도시락 예약: 10명', done: false,
+    })
+    expect(getState().todos.get('a_siv_r-sign')).toMatchObject({ due: '2026-10-19', checks: ['Delegation log'] })
   })
 })

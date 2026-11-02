@@ -3,7 +3,7 @@ import { DEFAULT_KEYMAP, DEFAULT_STARTMAP, START_WHY, URGENT_PROJECTS, coversDay
 import {
   addWorkdays, holidaysBetween, isWork, md, nextWork, nextWorkOrSame, prevWork, shift, todayStr,
 } from './date.ts'
-import { projShort, sameSite, siteCore, siteShort, stripProj } from './project.ts'
+import { escapeRegExp, projShort, sameSite, siteCore, siteShort, stripProj } from './project.ts'
 
 type RuleCtx = Pick<Data, 'rules' | 'holidays'>
 type PlanCtx = Pick<Data, 'rules' | 'holidays' | 'events' | 'projects'>
@@ -126,6 +126,16 @@ export function computeStart(ev: CalEvent, r: Rule, due: DateStr, { holidays: ho
   return { start: st, startBasis: parts.join(' · ') + ' [' + START_WHY[mode] + ']' }
 }
 
+/** 묶음 하나에 들어간 규칙 하나 (하위 항목 이름과 그 규칙대로의 날짜) */
+export interface PlannedPart {
+  ruleId: string
+  sub: string
+  due: DateStr
+  start: DateStr
+  /** 외근 등록한 날 착수 — 예전 외근에는 넣지 않는다 */
+  reg: boolean
+}
+
 export interface PlannedTodo {
   title: string
   due: DateStr
@@ -136,6 +146,26 @@ export interface PlannedTodo {
   verify: boolean
   time: string
   subs: string[]
+  /** 묶음 할 일이면 들어간 규칙들 */
+  parts?: PlannedPart[]
+}
+
+/**
+ * 외근 할 일 묶음: 방문 전 일은 "{type} Preparation", 방문 후 자잘한 일은 "{type} 방문 후 정리" 하나에 하위 항목으로.
+ * 체크 목록이 따로 있는 일(하위 항목이 있는 Pre-Checklist·FUL, 서명문서·eTMF 문서 목록), 리포트, [대기] 일은 따로 둔다.
+ * 둘 이상일 때만 묶는다
+ */
+export const GROUPS = {
+  prep: { id: 'g-prep', title: '{site} {type} Preparation', what: '방문 전 할 일' },
+  post: { id: 'g-post', title: '{site} {type} 방문 후 정리', what: '방문 후 할 일' },
+} as const
+
+export const isGroupRule = (id?: string | null) => id === GROUPS.prep.id || id === GROUPS.post.id
+
+export function groupOf(r: Rule): keyof typeof GROUPS | null {
+  if (r.subs?.length || r.key === 'OWN' || /^\s*\[대기\]|서명\s*(문서|서류)|etmf/i.test(r.title)) return null
+  if (r.dir === 'before' || r.unit === 'ADD') return 'prep'
+  return r.n > 0 ? 'post' : null
 }
 
 /**
@@ -170,15 +200,51 @@ export function copyText(t: Pick<Todo, 'ruleId' | 'eventId'>, { rules, events, p
   return r?.copy && ev ? filler(ev, projects)(r.copy) : ''
 }
 
-/** 외근 하나가 만들 자동 할 일 목록 */
+/** 외근 하나가 만들 자동 할 일 목록 (외근에서 지운 규칙은 빼고, 방문 전·후 자잘한 일은 묶어서) */
 export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
   const fill = filler(ev, ctx.projects)
-  return rulesFor(ev, ctx.rules).map((r) => {
+  const skip = new Set(ev.skip || [])
+  /* 묶음의 하위 항목 이름: 과제·기관과 맨 앞 방문 종류는 묶음 제목에 있으니 뺀다 */
+  const lead = new RegExp('^' + escapeRegExp(ev.type || '') + '\\s+', 'i')
+  const label = (r: Rule) => fill(r.title.replace(/\{(site|proj)\}/g, ' ')).replace(lead, '')
+  const rs = rulesFor(ev, ctx.rules).filter((r) => !skip.has(r.id))
+  const one = rs.map((r) => {
     const { due, basis } = computeDue(ev, r, ctx)
     const { start, startBasis } = computeStart(ev, r, due, ctx)
     const subs = [...new Set((r.subs || []).map(fill).filter(Boolean))]
     return { title: fill(r.title), due, basis, start, startBasis, ruleId: r.id, verify: !!r.verify, time: r.time || '', subs }
   })
+  const out: PlannedTodo[] = []
+  const bundled = new Set<number>()
+  for (const g of ['prep', 'post'] as const) {
+    const G = GROUPS[g]
+    if (skip.has(G.id)) continue
+    const idx = rs.map((r, i) => (groupOf(r) === g ? i : -1)).filter((i) => i >= 0)
+    if (idx.length < 2) continue
+    /* 마감 순, 같으면 규칙 순서대로. 이름이 겹치면 하나만 */
+    const parts = idx
+      .map((i) => ({ ruleId: rs[i].id, sub: label(rs[i]), due: one[i].due, start: one[i].start, reg: rs[i].start === 'reg', verify: one[i].verify, i }))
+      .sort((a, b) => a.due.localeCompare(b.due) || a.i - b.i)
+      .filter((x, k, xs) => xs.findIndex((y) => y.sub === x.sub) === k)
+    idx.forEach((i) => bundled.add(i))
+    const due = parts.reduce((m, x) => (x.due > m ? x.due : m), parts[0].due)
+    const start = parts.reduce((m, x) => (x.start < m ? x.start : m), parts[0].start)
+    out.push({
+      title: fill(G.title), due, start, ruleId: G.id, verify: parts.some((x) => x.verify), time: '',
+      basis: G.what + ' 묶음 · 마지막 항목 마감 ' + md(due) + ' (항목별 날짜는 하위 항목 옆에)',
+      startBasis: '가장 이른 항목 착수 ' + md(start),
+      subs: parts.map((x) => x.sub),
+      parts: parts.map(({ ruleId, sub, due, start, reg }) => ({ ruleId, sub, due, start, reg })),
+    })
+  }
+  return [...one.filter((_, i) => !bundled.has(i)), ...out]
+}
+
+/** 묶음 할 일의 하위 항목별 날짜 (지금 규칙·외근 날짜대로) */
+export function partDues(t: Pick<Todo, 'ruleId' | 'eventId'>, ctx: PlanCtx): Record<string, DateStr> {
+  const ev = t.eventId && isGroupRule(t.ruleId) ? ctx.events.get(t.eventId) : undefined
+  const p = ev ? planTodos(ev, ctx).find((x) => x.ruleId === t.ruleId) : undefined
+  return Object.fromEntries((p?.parts || []).map((x) => [x.sub, x.due]))
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[\s_-]/g, '')

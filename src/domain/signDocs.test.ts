@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BRZ } from './constants.ts'
-import { etmfDocsFor, signDocsFor } from './signDocs.ts'
+import { docListsFor, etmfDocsFor, signDocsFor } from './signDocs.ts'
 import type { CalEvent, Notes } from '../types/domain.ts'
 
 const notes: Notes = {
@@ -45,12 +45,14 @@ describe('eTMF 에 올릴 문서', () => {
   })
 })
 
-describe('외근 할 일 묶음의 문서 목록', () => {
-  it('Preparation·방문 후 정리 안에 서명문서·eTMF 일이 있으면 그 문서 목록을 붙인다 (다른 할 일의 하위 항목은 보지 않는다)', () => {
+describe('하위 항목의 문서 목록 (외근 할 일 묶음)', () => {
+  it('서명문서 준비 같은 하위 항목에는 그 외근의 서명문서, eTMF 업로드에는 eTMF 문서 목록이 붙는다', () => {
     const notes = { [BRZ]: [{ v: 'PSV', items: [], docs: [{ t: 'CV' }] }] }
-    const events = new Map([['e1', { id: 'e1', kind: 'visit', date: '2026-10-21', type: 'PSV', project: BRZ, site: '가나대병원' } as CalEvent]])
-    const prep = { title: '가나대병원 PSV Preparation', eventId: 'e1', ruleId: 'g-prep', subs: ['CL 발송', '서명문서 준비'] }
-    expect(signDocsFor(prep, notes, events).map((d) => d.t)).toEqual(['CV'])
-    expect(signDocsFor({ ...prep, ruleId: 'r-rpt-psv' }, notes, events)).toEqual([])
+    const events = new Map([['e1', { id: 'e1', kind: 'visit', date: '2026-10-21', type: 'SIV', project: 'Amgen - Tarlatamab', site: '가' } as CalEvent], ['e2', { id: 'e2', kind: 'visit', date: '2026-10-21', type: 'PSV', project: BRZ, site: '가' } as CalEvent]])
+    const prep = { title: '가나대병원 PSV Preparation', eventId: 'e2' }
+    expect(docListsFor('서명문서 준비', prep, notes, events).map((l) => [l.key, l.items.map((d) => d.t)])).toEqual([['docs', ['CV']]])
+    expect(docListsFor('Confirmation Letter 발송', prep, notes, events)).toEqual([])
+    const post = { title: '원주 SIV 방문 후 정리', eventId: 'e1' }
+    expect(docListsFor('서명문서 eTMF 업로드', post, notes, events).map((l) => l.key)).toEqual(['etmf'])
   })
 })

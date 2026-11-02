@@ -9,6 +9,7 @@ import { genKey, isGroupRule, manualTwin, normRule, planTodos, rulesFor, type Pl
 import {
   FOLLOWUPS, FULS_ON_DONE, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type FollowUp, type NewTodo,
 } from '../domain/specials.ts'
+import { ETMF_RE, SIGN_RE } from '../domain/signDocs.ts'
 import { slotByTime } from '../domain/priority.ts'
 import type { CalEvent, Config, DateStr, Ful, NoteItem, NoteSection, Notes, Rule, Todo } from '../types/domain.ts'
 import { createMemoryRepository } from './localRepository.ts'
@@ -253,6 +254,9 @@ async function fulsUndo(t: Todo) {
 const busy = new Set<string>()
 const synced = new Map<string, string>()
 
+/** 하위 항목 밑 문서 체크 이름 ("하위 항목 › 문서") */
+const DOC_SEP = ' › '
+
 /** 묶음 할 일의 지금 하위 항목·체크·메모 */
 interface BundleState {
   subs: string[]
@@ -289,7 +293,8 @@ function mergeBundle(cur: BundleState, parts: PlannedPart[], mine: Todo[]): Bund
     let at = subs.indexOf(x.sub) + 1
     for (const t of of.filter((t) => !t.done)) {
       for (const y of t.subs || []) if (!subs.includes(y)) subs.splice(at++, 0, y)
-      for (const c of t.checks || []) check(c, t.checkAt?.[c])
+      /* 하위 항목 체크는 그대로, 문서 체크(서명문서·eTMF)는 이 하위 항목 밑으로 */
+      for (const c of t.checks || []) check(t.subs?.includes(c) ? c : x.sub + DOC_SEP + c, t.checkAt?.[c])
       if (t.note?.trim()) notes.push(t.title + ': ' + t.note.trim())
     }
   })
@@ -599,10 +604,13 @@ export async function toggleCheck(id: string, name: string) {
   await putTodo({ ...t, checks: on ? cur.filter((x) => x !== name) : [...cur, name], checkAt })
 }
 
-/** 하위 항목을 고치면 지운 항목의 체크도 같이 지운다 */
+const underSub = (name: string, sub: string) => name === sub || name.startsWith(sub + DOC_SEP)
+
+/** 하위 항목을 고치면 지운 항목의 체크(그 밑 문서 체크 포함)도 같이 지운다 */
 export const withSubs = (t: Todo, subs: string[]): Todo => {
   const gone = (t.subs || []).filter((x) => !subs.includes(x))
-  return { ...t, subs, checks: (t.checks || []).filter((x) => !gone.includes(x)), checkAt: keepAt(t.checkAt, (x) => (gone.includes(x) ? null : x)) }
+  const keep = (x: string) => !gone.some((g) => underSub(x, g))
+  return { ...t, subs, checks: (t.checks || []).filter(keep), checkAt: keepAt(t.checkAt, (x) => (keep(x) ? x : null)) }
 }
 
 export async function addSub(id: string, text: string) {
@@ -619,7 +627,7 @@ export async function renameSub(id: string, from: string, to: string) {
   const cur = t?.subs || []
   if (!t || v === from || cur.includes(v)) return
   if (!v) return putTodo(withSubs(t, cur.filter((x) => x !== from)))
-  const ren = (x: string) => (x === from ? v : x)
+  const ren = (x: string) => (underSub(x, from) ? v + x.slice(from.length) : x)
   await putTodo({ ...t, subs: cur.map(ren), checks: (t.checks || []).map(ren), checkAt: keepAt(t.checkAt, ren) })
 }
 
@@ -1036,6 +1044,24 @@ async function migrate() {
     /* 서명문서·eTMF 할 일도 묶음에 (문서 체크 목록은 묶음에서 펼쳐 본다). 열린 낱개 할 일은 문서 체크째 묶음으로 옮긴다 */
     for (const ev of [...S().events.values()]) if (kindOf(ev) === 'visit' && ev.genKey) await syncBundles(ev)
     appStore.setState({ mig: [...S().mig, 'group2'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('docs1')) {
+    /* 묶음의 문서 체크를 그 하위 항목 밑으로: 서명문서는 첫 서명문서 일, eTMF 문서는 마지막 eTMF 일 밑 */
+    for (const t of [...S().todos.values()]) {
+      if (!isGroupRule(t.ruleId) || !t.checks?.length) continue
+      const subs = t.subs || []
+      const sign = subs.find((x) => SIGN_RE.test(x))
+      const etmf = [...subs].reverse().find((x) => ETMF_RE.test(x))
+      const ren = (x: string) => {
+        if (subs.includes(x) || x.includes(DOC_SEP)) return x
+        const to = x.startsWith('eTMF:') ? etmf : sign
+        return to ? to + DOC_SEP + x : x
+      }
+      const checks = t.checks.map(ren)
+      if (checks.some((x, i) => x !== t.checks![i])) await putTodo({ ...t, checks, checkAt: keepAt(t.checkAt, ren) })
+    }
+    appStore.setState({ mig: [...S().mig, 'docs1'] })
     await putConfig()
   }
 }

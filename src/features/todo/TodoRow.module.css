@@ -149,6 +149,10 @@
   color: var(--color-muted);
   white-space: nowrap;
 }
+/* 묶음의 하위 항목(서명문서 준비 등) 밑에 펼치는 문서 목록 */
+.subDocs {
+  grid-column: 2 / -1;
+}
 .docOn .subDue {
   color: var(--color-faint);
 }

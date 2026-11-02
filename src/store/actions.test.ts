@@ -576,7 +576,7 @@ describe('방문 전·후 할 일 묶음 (group1)', () => {
     const ids = todos().map((x) => x.id).sort()
     expect(ids).toEqual(['a_past_r-letter', 'a_past_r-lunch', 'a_past_r-pm', 'a_past_r-print', 'a_siv_g-post', 'a_siv_g-prep', 'a_siv_r-edc'])
     expect(getState().todos.get('a_siv_g-prep')).toMatchObject({
-      subs: ['EDC 계정 요청', '도시락 예약', '메뉴 확인', '영수증', 'PPT 인쇄', '서명서류 재확인'], checks: ['EDC 계정 요청', '메뉴 확인', 'Delegation log'],
+      subs: ['EDC 계정 요청', '도시락 예약', '메뉴 확인', '영수증', 'PPT 인쇄', '서명서류 재확인'], checks: ['EDC 계정 요청', '메뉴 확인', '서명서류 재확인 › Delegation log'],
       checkAt: { 'EDC 계정 요청': '2026-10-10T01:00:00.000Z', '메뉴 확인': '2026-10-11' },
       note: '가나대병원 SIV 도시락 예약: 10명', done: false,
     })
@@ -603,5 +603,26 @@ describe('외근 할 일 묶음 다시 맞추기 (group2)', () => {
     expect(getState().events.get('siv')!.skip).toEqual(['r-edc'])
     await saveRules([edc, lunch, print, r('r-usb', '{site} SIV USB', 1)])
     expect(getState().todos.get('a_siv_g-prep')!.subs).toEqual(['도시락 예약', 'PPT 인쇄', '메뉴 확인', 'USB'])
+  })
+})
+
+describe('묶음의 문서 체크는 하위 항목 밑으로 (docs1)', () => {
+  it('서명문서 체크는 첫 서명문서 일, eTMF 체크는 마지막 eTMF 일 밑으로 옮기고, 하위 항목 이름을 바꾸면 따라간다', async () => {
+    const MIG = ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2']
+    await replaceAll({
+      events: [], fuls: [],
+      todos: [{
+        id: 'b', title: '가 SIV 방문 후 정리', ruleId: 'g-post', done: false, subs: ['서명문서 스캔·eTMF 업로드', 'FUL', '서명문서 eTMF 업로드'],
+        checks: ['FUL', 'CV', 'eTMF:SIV Report'], checkAt: { CV: '2026-10-11' },
+      }],
+      config: { rules: [], holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [], companions: [] },
+    })
+    expect(getState().todos.get('b')).toMatchObject({
+      checks: ['FUL', '서명문서 스캔·eTMF 업로드 › CV', '서명문서 eTMF 업로드 › eTMF:SIV Report'], checkAt: { '서명문서 스캔·eTMF 업로드 › CV': '2026-10-11' },
+    })
+    await renameSub('b', '서명문서 스캔·eTMF 업로드', '스캔')
+    expect(getState().todos.get('b')!.checks).toEqual(['FUL', '스캔 › CV', '서명문서 eTMF 업로드 › eTMF:SIV Report'])
+    await renameSub('b', '스캔', '')
+    expect(getState().todos.get('b')!.checks).toEqual(['FUL', '서명문서 eTMF 업로드 › eTMF:SIV Report'])
   })
 })

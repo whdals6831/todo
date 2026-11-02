@@ -2,8 +2,8 @@ import { useRef, useState, type ReactNode } from 'react'
 import { localDay, md, todayStr } from '@/domain/date.ts'
 import { dLabel, isUrgent } from '@/domain/priority.ts'
 import { projShort } from '@/domain/project.ts'
-import { copyText, partDues } from '@/domain/rules.ts'
-import { etmfDocsFor, signDocsFor } from '@/domain/signDocs.ts'
+import { copyText, isGroupRule, partDues } from '@/domain/rules.ts'
+import { docListsFor } from '@/domain/signDocs.ts'
 import { Button } from '@/components/ui/Button.tsx'
 import { Highlight } from '@/components/ui/Highlight.tsx'
 import { ConfirmLine } from '@/components/ui/Layout.tsx'
@@ -42,24 +42,41 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const urgent = isUrgent(t)
   const dd = localDay(t.doneAt)
   const checks = t.checks || []
+  const group = isGroupRule(t.ruleId)
   /* 체크리스트. 체크는 앞말(pre)을 붙인 이름으로 남겨, 목록끼리 같은 이름이 있어도 따로 체크된다.
-     서명문서·eTMF 문서는 눌러서 펼쳐 보고, 직접 단 하위 항목은 늘 보인다 */
-  const lists = [
-    { key: 'docs', name: '서명문서', pre: '', items: signDocsFor(t, notes, events) },
-    { key: 'etmf', name: 'eTMF 문서', pre: 'eTMF:', items: etmfDocsFor(t, events) },
-  ].filter((l) => l.items.length)
+     서명문서·eTMF 문서는 눌러서 펼쳐 보고, 직접 단 하위 항목은 늘 보인다.
+     외근 할 일 묶음(Preparation 등)은 문서 목록을 그 하위 항목(서명문서 준비 등) 밑에 달고, 체크는 "하위 항목 › 문서" 이름으로 */
+  const lists = group ? [] : docListsFor(t.title, t, notes, events)
   const shown = lists.find((l) => l.key === open)
-  /* 묶음 할 일(Preparation 등)은 하위 항목마다 그 일의 날짜를 오른쪽에 (지났으면 빨갛게) */
+  /* 묶음 할 일은 하위 항목마다 그 일의 날짜를 오른쪽에 (지났으면 빨갛게) */
   const dues = t.done ? {} : partDues(t, { rules, holidays, events, projects })
   const today = todayStr()
-  const subs = (t.subs || []).map((x) => ({ t: x, due: dues[x], late: !!dues[x] && dues[x] < today && !checks.includes(x) }))
+  const subs = (t.subs || []).map((x) => ({
+    t: x, due: dues[x], late: !!dues[x] && dues[x] < today && !checks.includes(x), docs: group ? docListsFor(x, t, notes, events) : [],
+  }))
   const checked = (items: { t: string }[], pre: string) => items.filter((d) => checks.includes(pre + d.t)).length
 
   /** 하위 항목 맨 아래 입력칸에 바로 쓰게 한다 */
   const startSub = (body: HTMLElement) => body.querySelector<HTMLInputElement>('[data-sub-add]')?.focus()
 
+  /** 펼치는 문서 목록 단추 (다시 누르면 접힌다) */
+  const docsBtn = (key: string, name: string, n: number, of: number) => (
+    <button
+      key={key}
+      type="button"
+      className={s.docsBtn}
+      aria-expanded={open === key}
+      onClick={(e) => {
+        e.stopPropagation()
+        setOpen((o) => (o === key ? '' : key))
+      }}
+    >
+      {(open === key ? '▴ ' : '▾ ') + name + ' ' + n + '/' + of}
+    </button>
+  )
+
   /* 체크해도 편집 창이 열리지 않게. 하위 항목(sub)은 글자를 눌러 고치고, 줄을 골랐으면 맨 아래에 입력칸 */
-  const checklist = (items: { t: string; w?: string; due?: string; late?: boolean }[], pre: string, sub = false) => (
+  const checklist = (items: { t: string; w?: string; due?: string; late?: boolean; docs?: typeof lists }[], pre: string, sub = false) => (
     <ol className={cx(s.docs, sub && Object.keys(dues).length > 0 && s.subList)} onClick={(e) => e.stopPropagation()}>
       {items.map((d, i) => {
         const on = checks.includes(pre + d.t)
@@ -69,6 +86,16 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
             {sub ? <SubText id={t.id} text={d.t} /> : <span className={s.docT}>{d.t}</span>}
             {d.due && <span className={cx(s.subDue, d.late && s.late)}>{md(d.due)}</span>}
             {d.w && <span className={s.docW}>{d.w}</span>}
+            {d.docs?.map((l) => {
+              const key = d.t + '|' + l.key
+              const p = d.t + ' › ' + l.pre
+              return (
+                <div key={key} className={s.subDocs}>
+                  {docsBtn(key, l.name, checked(l.items, p), l.items.length)}
+                  {open === key && checklist(l.items, p)}
+                </div>
+              )
+            })}
           </li>
         )
       })}
@@ -170,20 +197,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
           )}
           {t.note && <span>{t.note}</span>}
           {subs.length > 0 && <span className={s.subCount}>{'하위 항목 ' + checked(subs, '') + '/' + subs.length}</span>}
-          {lists.map((l) => (
-            <button
-              key={l.key}
-              type="button"
-              className={s.docsBtn}
-              aria-expanded={open === l.key}
-              onClick={(e) => {
-                e.stopPropagation()
-                setOpen((o) => (o === l.key ? '' : l.key))
-              }}
-            >
-              {(open === l.key ? '▴ ' : '▾ ') + l.name + ' ' + checked(l.items, l.pre) + '/' + l.items.length}
-            </button>
-          ))}
+          {lists.map((l) => docsBtn(l.key, l.name, checked(l.items, l.pre), l.items.length))}
         </div>
         {copy && <CopyLine text={copy} />}
         {(subs.length > 0 || picked) && checklist(subs, '', true)}

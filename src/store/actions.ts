@@ -1,4 +1,6 @@
-import { BRZ, BRZ_PSV_FUL, ENF, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, SCAN_RULE, WID_RULE, brzPsvFulRule, fulPackRules, kindOf } from '../domain/constants.ts'
+import {
+  BRZ, BRZ_PSV_FUL, ENF, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, WID_RULE, brzPsvFulRule, fulPackRules, kindOf,
+} from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
@@ -883,6 +885,24 @@ async function migrate() {
     /* SIVR 인쇄 FUL 메모: 이 기능이 생기기 전에 끝낸 SIVR 송부에도 남긴다 */
     for (const t of [...S().todos.values()]) if (t.done && localDay(t.doneAt) >= '2026-10-28') await fulsOnDone(t, 'sivr-print')
     appStore.setState({ mig: [...S().mig, 'sivrprint1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('presiv1')) {
+    /* SIV Pre-Checklist 규칙을 짧은 제목·하위 항목으로 (엔플론시아는 결재 상신이라 그대로).
+       열린 할 일은 제목만 바꾸고 하위 항목은 없을 때만 단다. 다른 할 일의 날짜·제목은 건드리지 않게 외근을 다시 맞추지 않는다 */
+    const s = S()
+    const fresh = new Set([...s.events.values()].filter((e) => e.genKey === genKey(e, s)).map((e) => e.id))
+    const hit = (r: Rule) => r.type === 'SIV' && r.project !== ENF && /pre-?\s*check\s*list/i.test(r.title)
+    const ids = new Set(s.rules.filter(hit).map((r) => r.id))
+    appStore.setState({ rules: s.rules.map((r) => (hit(r) ? { ...r, title: PRE_SIV.title, subs: [...PRE_SIV.subs] } : r)) })
+    for (const t of [...S().todos.values()]) {
+      const ev = t.eventId ? S().events.get(t.eventId) : undefined
+      if (t.done || !ev || !ids.has(t.ruleId || '')) continue
+      const p = planTodos(ev, S()).find((x) => x.ruleId === t.ruleId)
+      if (p) await putTodo({ ...t, title: p.title, subs: t.subs?.length ? t.subs : p.subs })
+    }
+    for (const e of [...S().events.values()]) if (fresh.has(e.id) && e.genKey !== genKey(e, S())) await putEvent({ ...e, genKey: genKey(e, S()) })
+    appStore.setState({ mig: [...S().mig, 'presiv1'] })
     await putConfig()
   }
 }

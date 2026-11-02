@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, FUL_PACKS, WID_RULE } from '../domain/constants.ts'
+import { BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, ENF, FUL_PACKS, PRE_SIV, WID_RULE } from '../domain/constants.ts'
 import { nowIso } from '../domain/date.ts'
+import { genKey } from '../domain/rules.ts'
 import type { CalEvent, Rule } from '../types/domain.ts'
 import {
   addFul, addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, withSubs,
@@ -448,5 +449,44 @@ describe('WID 외근 일정 등록 (wid1)', () => {
     expect(s.rules.map((r) => r.id)).toEqual(['r-wid'])
     expect(s.notes!['MSD - 엔플론시아'][0].items.map((x) => x.t)).toEqual(['바인더 제작 요청'])
     expect(s.notes!['AZ - Breztri'][0].items.map((x) => x.t)).toEqual(['바인더 제작 요청', '도시락 예약'])
+  })
+})
+
+describe('SIV Pre-Checklist 하위 항목 (presiv1)', () => {
+  const MIG = ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1']
+  const pre: Rule = {
+    id: 'r-b-pre-siv', key: '', type: 'SIV', project: BRZ, title: '{site} SIV Pre-Checklist 작성·ISF와 함께 PM 승인', dir: 'before', n: 2, unit: 'WD', send: false, verify: false, start: 'lead', startN: 2,
+  }
+  const enf: Rule = { ...pre, id: 'r-e-pre', project: ENF, title: '{site} SIV Precheck list 결재 상신' }
+  const rules = [pre, enf, RULES[1]]
+  const ev: CalEvent = { ...visit, id: 'siv', type: 'SIV', project: BRZ, site: '강원대병원', date: '2026-11-06' }
+
+  it('규칙을 짧은 제목·하위 항목으로 바꾸고, 열린 할 일은 제목만 바꿔 하위 항목을 단다 (다른 할 일 날짜·엔플론시아 규칙은 그대로)', async () => {
+    await replaceAll({
+      events: [{ ...ev, genKey: genKey(ev, { rules, holidays: DEFAULT_HOLIDAYS }) }], fuls: [],
+      todos: [
+        { id: 'a_siv_r-b-pre-siv', title: '강원대병원 SIV Pre-Checklist 작성·ISF와 함께 PM 승인', due: '2026-11-04', eventId: 'siv', ruleId: 'r-b-pre-siv', project: BRZ, done: false },
+        { id: 'a_siv_r-cl', title: '강원대병원 SIV CL', due: '2026-10-30', basis: '드래그로 변경', eventId: 'siv', ruleId: 'r-cl', project: BRZ, done: false },
+      ],
+      config: { rules, holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [], companions: [] },
+    })
+    const s = getState()
+    expect(s.rules.find((r) => r.id === 'r-b-pre-siv')).toMatchObject({ title: PRE_SIV.title, subs: PRE_SIV.subs })
+    expect(s.rules.find((r) => r.id === 'r-e-pre')).toEqual(enf)
+    expect(s.todos.get('a_siv_r-b-pre-siv')).toMatchObject({ title: '강원대병원 SIV Pre-Checklist', subs: PRE_SIV.subs, due: '2026-11-04' })
+    expect(s.todos.get('a_siv_r-cl')).toMatchObject({ due: '2026-10-30', basis: '드래그로 변경' })
+  })
+
+  it('직접 단 하위 항목은 그대로 두고, 새로 등록한 SIV 에는 하위 항목이 붙어 생긴다', async () => {
+    await replaceAll({
+      events: [{ ...ev, genKey: genKey(ev, { rules, holidays: DEFAULT_HOLIDAYS }) }], fuls: [],
+      todos: [{ id: 'a_siv_r-b-pre-siv', title: '강원대병원 SIV Pre-Checklist', due: '2026-11-04', eventId: 'siv', ruleId: 'r-b-pre-siv', project: BRZ, subs: ['내가 단 것'], done: false }],
+      config: { rules, holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [], companions: [] },
+    })
+    expect(getState().todos.get('a_siv_r-b-pre-siv')!.subs).toEqual(['내가 단 것'])
+    const ev2: CalEvent = { ...ev, id: 'siv2', site: '울산대' }
+    await putEvent(ev2)
+    await syncEvent(ev2)
+    expect(getState().todos.get('a_siv2_r-b-pre-siv')).toMatchObject({ title: '울산대 SIV Pre-Checklist', subs: PRE_SIV.subs })
   })
 })

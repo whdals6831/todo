@@ -96,6 +96,12 @@ export const WID_RULE: Rule = {
   dir: 'after', n: 3, unit: 'ADD', send: false, verify: false, basis: '본인 기준: 외근 등록하면 WD3 내 WID 에 외근 일정 등록', start: 'reg', startN: 0,
 }
 
+/** SIV Pre-Checklist: 짧은 제목에 실제 진행 순서의 하위 항목 (엔플론시아는 결재 상신이라 따로) */
+export const PRE_SIV = {
+  title: '{site} SIV Pre-Checklist',
+  subs: ['SIV Pre-checklist 작성', '수정', 'PM 승인 확인', 'T-Sign 요청', 'WID에 T-Sign본 업로드'],
+}
+
 const RPT_RULE: Rule = {
   id: 'r-rpt', key: 'OWN', type: '*', project: '*', title: '{site} {type}R 작성', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, basis: '방문 리포트 본인 작성 기한 WD5', start: 'fresh', startN: 0,
 }

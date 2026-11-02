@@ -17,7 +17,7 @@ export function AllTodosView() {
   const { open, groups, done } = todoGroups(all, today)
 
   return (
-    <section>
+    <section data-view="all">
       <ViewHeader
         title="전체 할 일"
         end={

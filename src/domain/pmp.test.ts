@@ -79,3 +79,15 @@ describe('마감 줄로 보는 할 일', () => {
     expect(pmpOn('2026-10-28', data(visit({ date: '2026-12-01' }), list)).map((x) => x.chip)).toEqual(['10월 비용 청구', 'Monthly 업무 계획 보고', '암젠 eTMF QC'])
   })
 })
+
+describe('PMP 마감과 할 일 묶음', () => {
+  it('Preparation·방문 후 정리의 하위 항목을 체크했으면 그 체크한 날을 끝낸 날로 본다', () => {
+    const ev = visit()
+    const prep = todo('p', '가나대병원 MV Preparation', { ruleId: 'g-prep', subs: ['Confirmation Letter 발송', 'WID 외근 일정 등록'], checks: ['Confirmation Letter 발송'], checkAt: { 'Confirmation Letter 발송': '2026-10-05T01:00:00.000Z' } })
+    const post = todo('q', '가나대병원 MV 방문 후 정리', { ruleId: 'g-post', subs: ['Follow-up Letter 발송', 'PM - MV (WD10)'] })
+    const got = Object.fromEntries(pmpFor(ev, data(ev, [prep, post])).map((x) => [x.item, [x.doneDay, x.linked]]))
+    expect(got['Confirmation Letter']).toEqual(['2026-10-05', true])
+    expect(got['Follow-up Letter']).toEqual(['', true])
+    expect(got['PM 승인']).toEqual(['', true])
+  })
+})

@@ -29,9 +29,22 @@
 .left li:first-child {
   border-top: 0;
 }
+/* 제목: 누르면 그 할 일로 간다 */
 .leftTitle {
   flex: 1;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.leftTitle:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--color-faint);
 }
 /* 끝낸 일: 할 일 목록의 완료와 같은 모양 (줄 긋고, 오른쪽에 끝낸 날과 "완료 · 마감") */
 .doneRow .leftTitle {

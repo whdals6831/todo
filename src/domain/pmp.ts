@@ -2,6 +2,7 @@ import type { CalEvent, Data, DateStr, Holidays, RuleDir, Todo } from '../types/
 import { kindOf } from './constants.ts'
 import { addWorkdays, isWork, localDay, prevWork, shift } from './date.ts'
 import { chipSite, siteShort, stripProj } from './project.ts'
+import { isGroupRule } from './rules.ts'
 
 /** PMP 표의 기한 하나. 할 일의 마감(본인 기준일 수 있다)과 따로, PMP 원문 기한을 외근 날짜에서 센다 */
 interface PmpItem {
@@ -93,11 +94,19 @@ const chipItem = (item: string) =>
 export function pmpFor(ev: CalEvent, { todos, holidays }: Pick<Data, 'todos' | 'holidays'>): PmpDue[] {
   if (kindOf(ev) !== 'visit' || !ev.type || ev.type === '기타') return []
   const items = (PMP_DEADLINES[ev.project || ''] || []).filter((x) => !x.types || x.types.includes(ev.type || ''))
-  const mine = [...todos.values()].filter((t) => t.eventId === ev.id)
+  /* 끝냈는지 볼 일: 그 외근의 할 일, 묶음(Preparation·방문 후 정리)이면 그 하위 항목 하나하나 (체크한 날이 끝낸 날) */
+  const day = (at?: string) => (at && at.length === 10 ? at : localDay(at))
+  const mine = [...todos.values()]
+    .filter((t) => t.eventId === ev.id)
+    .flatMap((t) =>
+      isGroupRule(t.ruleId)
+        ? (t.subs || []).map((x) => ({ title: x, done: !!t.done || !!t.checks?.includes(x), day: day(t.checkAt?.[x]) || localDay(t.doneAt) }))
+        : [{ title: t.title, done: !!t.done, day: localDay(t.doneAt) }],
+    )
   const out: PmpDue[] = []
   items.forEach((x, i) => {
-    const linked: Todo[] = x.todo ? mine.filter((t) => x.todo!.test(t.title)) : []
-    const doneDay = linked.length && linked.every((t) => t.done) ? linked.map((t) => localDay(t.doneAt)).sort().at(-1) || '' : ''
+    const linked = x.todo ? mine.filter((t) => x.todo!.test(t.title)) : []
+    const doneDay = linked.length && linked.every((t) => t.done) ? linked.map((t) => t.day).sort().at(-1) || '' : ''
     const prev = x.from ? out.find((o) => o.item === x.from) : undefined
     const base = prev ? prev.doneDay || prev.date : ev.date
     out.push({

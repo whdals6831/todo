@@ -93,6 +93,29 @@ export function toggleFold(key: string, open: boolean) {
   setUi({ foldOpen: s })
 }
 
+/**
+ * 할 일로 가기: 창을 닫고 전체 할 일 화면에서 그 줄을 가운데로 보여 잠깐 강조한다.
+ * 과제 필터가 다르면 전체로, 끝낸 일이면 완료 묶음을 펼친다. 줄을 못 찾으면 편집 창을 연다
+ */
+export function goTodo(t: { id: string; project?: string; done?: boolean }) {
+  const f = ui().filter
+  setUi({ modal: null, popover: null, filter: f === '전체' || f === t.project ? f : '전체' })
+  if (t.done) toggleFold('all-done', true)
+  setView('all')
+  let tries = 0
+  const find = () => {
+    /* 화면이 바뀌기 전 캘린더 쪽 줄을 잡지 않게 전체 할 일 화면 안에서만 찾는다 */
+    const row = document.querySelector<HTMLElement>('[data-view="all"] [data-todo-id="' + CSS.escape(t.id) + '"]')
+    if (row) {
+      row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      row.setAttribute('data-flash', '')
+      setTimeout(() => row.removeAttribute('data-flash'), 2400)
+    } else if (++tries < 30) requestAnimationFrame(find)
+    else openModal({ kind: 'todoEdit', id: t.id })
+  }
+  requestAnimationFrame(find)
+}
+
 export function goToday() {
   const t = todayStr()
   setUi({ sel: t, month: [+t.slice(0, 4), +t.slice(5, 7)] })

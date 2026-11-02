@@ -11,7 +11,7 @@ import { Modal, ModalFoot } from '@/components/ui/Modal.tsx'
 import { SegmentedControl } from '@/components/ui/SegmentedControl.tsx'
 import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { deleteEventCascade, putEvent, syncEvent, toggleDone } from '@/store/actions.ts'
-import { closeModal, setUi, ui, useApp } from '@/store/ui.ts'
+import { closeModal, goTodo, setUi, ui, useApp } from '@/store/ui.ts'
 import type { CalEvent, EventKind, Todo } from '@/types/domain.ts'
 import s from './EventModal.module.css'
 
@@ -161,11 +161,12 @@ function VisitTodos({ ev }: { ev: CalEvent }) {
   const pre = new RegExp('^\\s*(?:' + alt([projShort(projects, ev.project), ev.project]) + '\\s+)?' + alt([siteShort(ev.site), chipSite(ev.site)]) + '\\s+')
   const title = (t: Todo) => {
     const subs = t.subs?.length ? t.subs.filter((x) => t.checks?.includes(x)).length + '/' + t.subs.length : ''
+    /* 누르면 창을 닫고 그 할 일로 간다 */
     return (
-      <span className={s.leftTitle}>
+      <button type="button" className={s.leftTitle} title="눌러서 이 할 일로 가기" onClick={() => goTodo(t)}>
         {t.title.replace(pre, '')}
         {subs && <Sub>{' · 하위 ' + subs}</Sub>}
-      </span>
+      </button>
     )
   }
   return (

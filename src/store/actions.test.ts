@@ -626,3 +626,28 @@ describe('묶음의 문서 체크는 하위 항목 밑으로 (docs1)', () => {
     expect(getState().todos.get('b')!.checks).toEqual(['FUL', '서명문서 eTMF 업로드 › eTMF:SIV Report'])
   })
 })
+
+describe('엔플론시아 Beta site 빼기 (enfbeta1)', () => {
+  it('엔플론시아 규칙·열린 묶음 하위 항목·업무 노트에서 Beta site 일을 뺀다 (다른 과제는 그대로)', async () => {
+    const MIG = ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2', 'docs1']
+    const beta: Rule = { id: 'r-e-beta', key: '', type: 'SIV', project: ENF, title: '{site} Beta site 안내용 예시 Case 작성 (PI 권한)', dir: 'before', n: 3, unit: 'WD', send: false, verify: false }
+    const pre: Rule = { ...beta, id: 'r-e-pre', title: '{site} SIV Precheck list 결재 상신' }
+    const sub = 'Beta site 안내용 예시 Case 작성 (PI 권한)'
+    await replaceAll({
+      events: [], fuls: [],
+      todos: [
+        { id: 'e', title: '가 SIV Preparation', project: ENF, ruleId: 'g-prep', done: false, subs: ['CL', sub], checks: [sub] },
+        { id: 'b', title: '나 SIV Preparation', project: BRZ, ruleId: 'g-prep', done: false, subs: ['CL', sub] },
+      ],
+      config: {
+        rules: [beta, pre], holidays: DEFAULT_HOLIDAYS, mig: MIG, projects: [], companions: [],
+        notes: { [ENF]: [{ v: 'SIV', items: [{ t: 'Beta site 예시 Case 작성 (PI 권한) · SIV Precheck list 결재 상신 (SIV Material · PPT)' }, { t: 'Beta site 안내' }, { t: '바인더' }] }] },
+      },
+    })
+    const s = getState()
+    expect(s.rules.map((r) => r.id)).toEqual(['r-e-pre'])
+    expect(s.todos.get('e')).toMatchObject({ subs: ['CL'], checks: [] })
+    expect(s.todos.get('b')!.subs).toEqual(['CL', sub])
+    expect(s.notes![ENF][0].items.map((x) => x.t)).toEqual(['SIV Precheck list 결재 상신 (SIV Material · PPT)', '바인더'])
+  })
+})

@@ -1064,6 +1064,25 @@ async function migrate() {
     appStore.setState({ mig: [...S().mig, 'docs1'] })
     await putConfig()
   }
+  if (!S().mig.includes('enfbeta1')) {
+    /* 엔플론시아는 Beta site 예시 Case 작성이 필요 없다: 규칙을 지우고, 열린 묶음의 하위 항목과 업무 노트에서도 뺀다 */
+    const fresh = inSync()
+    const beta = /beta\s*site/i
+    const s = S()
+    const secs = s.notes?.[ENF]
+    const cut = (t: string) => t.replace(/\s*beta\s*site[^·]*(·\s*|$)/i, '').trim()
+    const notes = s.notes && secs
+      ? { ...s.notes, [ENF]: secs.map((x) => ({ ...x, items: x.items.map((it) => ({ ...it, t: cut(it.t) })).filter((it) => it.t) })) }
+      : s.notes
+    appStore.setState({ rules: s.rules.filter((r) => !(r.project === ENF && beta.test(r.title))), notes })
+    for (const t of [...S().todos.values()]) {
+      if (t.done || t.project !== ENF || !isGroupRule(t.ruleId) || !t.subs?.some((x) => beta.test(x))) continue
+      await putTodo(withSubs(t, t.subs.filter((x) => !beta.test(x))))
+    }
+    await keepSynced(fresh)
+    appStore.setState({ mig: [...S().mig, 'enfbeta1'] })
+    await putConfig()
+  }
 }
 
 /**

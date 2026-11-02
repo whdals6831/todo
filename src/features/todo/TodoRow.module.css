@@ -149,6 +149,11 @@
   color: var(--color-muted);
   white-space: nowrap;
 }
+/* 날짜가 지났는데 아직 안 한 하위 항목은 글자까지 빨갛게 */
+.subLate > .docT {
+  color: var(--color-danger);
+  font-weight: var(--weight-semibold);
+}
 /* 묶음의 하위 항목(서명문서 준비 등) 밑에 펼치는 문서 목록 */
 .subDocs {
   grid-column: 2 / -1;

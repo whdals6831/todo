@@ -81,7 +81,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
       {items.map((d, i) => {
         const on = checks.includes(pre + d.t)
         return (
-          <li key={i} className={cx(on && s.docOn)}>
+          <li key={i} className={cx(on && s.docOn, d.late && s.subLate)}>
             <RoundCheckbox checked={on} onToggle={() => toggleCheck(t.id, pre + d.t)} label={d.t + ' 체크'} />
             {sub ? <SubText id={t.id} text={d.t} /> : <span className={s.docT}>{d.t}</span>}
             {d.due && <span className={cx(s.subDue, d.late && s.late)}>{md(d.due)}</span>}

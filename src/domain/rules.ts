@@ -152,8 +152,8 @@ export interface PlannedTodo {
 
 /**
  * 외근 할 일 묶음: 방문 전 일은 "{type} Preparation", 방문 후 자잘한 일은 "{type} 방문 후 정리" 하나에 하위 항목으로.
- * 체크 목록이 따로 있는 일(하위 항목이 있는 Pre-Checklist·FUL, 서명문서·eTMF 문서 목록), 리포트, [대기] 일은 따로 둔다.
- * 둘 이상일 때만 묶는다
+ * 하위 항목이 따로 있는 일(Pre-Checklist·FUL), 리포트, [대기] 일은 따로 둔다. 둘 이상일 때만 묶는다.
+ * 서명문서·eTMF 일이 들어가면 그 문서 체크 목록은 묶음에서 펼쳐 본다
  */
 export const GROUPS = {
   prep: { id: 'g-prep', title: '{site} {type} Preparation', what: '방문 전 할 일' },
@@ -163,7 +163,7 @@ export const GROUPS = {
 export const isGroupRule = (id?: string | null) => id === GROUPS.prep.id || id === GROUPS.post.id
 
 export function groupOf(r: Rule): keyof typeof GROUPS | null {
-  if (r.subs?.length || r.key === 'OWN' || /^\s*\[대기\]|서명\s*(문서|서류)|etmf/i.test(r.title)) return null
+  if (r.subs?.length || r.key === 'OWN' || /^\s*\[대기\]/.test(r.title)) return null
   if (r.dir === 'before' || r.unit === 'ADD') return 'prep'
   return r.n > 0 ? 'post' : null
 }
@@ -218,9 +218,13 @@ export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
   const bundled = new Set<number>()
   for (const g of ['prep', 'post'] as const) {
     const G = GROUPS[g]
-    if (skip.has(G.id)) continue
     const idx = rs.map((r, i) => (groupOf(r) === g ? i : -1)).filter((i) => i >= 0)
     if (idx.length < 2) continue
+    /* 묶음을 지웠으면 그 안의 일도 낱개로 되살리지 않는다 */
+    if (skip.has(G.id)) {
+      idx.forEach((i) => bundled.add(i))
+      continue
+    }
     /* 마감 순, 같으면 규칙 순서대로. 이름이 겹치면 하나만 */
     const parts = idx
       .map((i) => ({ ruleId: rs[i].id, sub: label(rs[i]), due: one[i].due, start: one[i].start, reg: rs[i].start === 'reg', verify: one[i].verify, i }))

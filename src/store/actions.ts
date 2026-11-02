@@ -5,7 +5,7 @@ import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr }
 import { fulMatch } from '../domain/ful.ts'
 import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort, stripProj } from '../domain/project.ts'
-import { genKey, manualTwin, normRule, planTodos, rulesFor, type PlannedPart } from '../domain/rules.ts'
+import { genKey, isGroupRule, manualTwin, normRule, planTodos, rulesFor, type PlannedPart, type PlannedTodo } from '../domain/rules.ts'
 import {
   FOLLOWUPS, FULS_ON_DONE, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type FollowUp, type NewTodo,
 } from '../domain/specials.ts'
@@ -90,7 +90,18 @@ export async function putTodo(t0: NewTodo): Promise<string> {
     await fulsUndo(t)
   }
   else if (t.done && prev?.done && localDay(t.doneAt) !== localDay(prev.doneAt)) await followUpsRedate(t)
+  if (prev && isGroupRule(t.ruleId)) await skipGoneParts(prev, t)
   return t.id
+}
+
+/** 외근 할 일 묶음에서 규칙대로의 하위 항목을 지우거나 이름을 바꾸면, 그 규칙을 외근의 skip 에 남겨 다시 끼우지 않는다 */
+async function skipGoneParts(prev: Todo, t: Todo) {
+  const gone = (prev.subs || []).filter((x) => !(t.subs || []).includes(x))
+  const ev = gone.length && t.eventId ? S().events.get(t.eventId) : undefined
+  if (!ev) return
+  const parts = planTodos(ev, S()).find((p) => p.ruleId === t.ruleId)?.parts || []
+  const add = parts.filter((x) => gone.includes(x.sub) && !(ev.skip || []).includes(x.ruleId)).map((x) => x.ruleId)
+  if (add.length) await putEvent({ ...ev, skip: [...(ev.skip || []), ...add] })
 }
 
 export async function deleteTodo(id: string) {
@@ -242,35 +253,83 @@ async function fulsUndo(t: Todo) {
 const busy = new Set<string>()
 const synced = new Map<string, string>()
 
+/** 묶음 할 일의 지금 하위 항목·체크·메모 */
+interface BundleState {
+  subs: string[]
+  checks: string[]
+  checkAt: Record<string, string>
+  note: string
+}
+
+const partOf = (x: PlannedPart, mine: Todo[]) => mine.filter((t) => t.ruleId === x.ruleId || t.ruleId === x.ruleId + '-manual')
+
 /**
- * 묶음 할 일의 하위 항목: 규칙대로의 항목마다, 그 낱개 할 일을 끝냈으면 체크하고,
- * 열린 낱개 할 일에 직접 단 하위 항목(체크 포함)은 바로 뒤에, 메모는 묶음 메모로 모은다
+ * 묶음 할 일의 하위 항목을 맞춘다. 직접 고친 하위 항목은 그대로 두고, 없는 규칙의 일은 제자리(규칙 순서)에 끼운다.
+ * 그 낱개 할 일을 끝냈으면 체크하고, 열린 낱개 할 일에 직접 단 하위 항목은 바로 뒤에, 체크(문서 체크 포함)는 그대로, 메모는 묶음 메모로
  */
-function bundleFrom(parts: PlannedPart[], mine: Todo[]) {
-  const subs: string[] = []
-  const checks: string[] = []
-  const checkAt: Record<string, string> = {}
-  const notes: string[] = []
-  const check = (x: string, at: string) => {
+function mergeBundle(cur: BundleState, parts: PlannedPart[], mine: Todo[]): BundleState {
+  const subs = [...cur.subs]
+  const checks = [...cur.checks]
+  const checkAt = { ...cur.checkAt }
+  const notes = cur.note ? [cur.note] : []
+  const check = (x: string, at?: string) => {
+    if (checks.includes(x)) return
     checks.push(x)
-    checkAt[x] = at
+    if (at) checkAt[x] = at
   }
-  for (const x of parts) {
-    if (subs.includes(x.sub)) continue
-    const of = mine.filter((t) => t.ruleId === x.ruleId || t.ruleId === x.ruleId + '-manual')
-    subs.push(x.sub)
+  const labels = parts.map((x) => x.sub)
+  parts.forEach((x, k) => {
+    if (!subs.includes(x.sub)) {
+      const next = labels.slice(k + 1).find((l) => subs.includes(l))
+      subs.splice(next ? subs.indexOf(next) : subs.length, 0, x.sub)
+    }
+    const of = partOf(x, mine)
     const done = of.find((t) => t.done)
     if (done) check(x.sub, done.doneAt || todayStr())
+    let at = subs.indexOf(x.sub) + 1
     for (const t of of.filter((t) => !t.done)) {
-      for (const y of t.subs || []) {
-        if (subs.includes(y)) continue
-        subs.push(y)
-        if (t.checks?.includes(y)) check(y, t.checkAt?.[y] || todayStr())
-      }
+      for (const y of t.subs || []) if (!subs.includes(y)) subs.splice(at++, 0, y)
+      for (const c of t.checks || []) check(c, t.checkAt?.[c])
       if (t.note?.trim()) notes.push(t.title + ': ' + t.note.trim())
     }
-  }
+  })
   return { subs, checks, checkAt, note: notes.join('\n') }
+}
+
+/**
+ * 외근 할 일 묶음 하나를 맞추고, 그 안에 든 열린 낱개 할 일은 지운다(아래 할 일은 묶음으로).
+ * 예전 외근에는 마감이 지난 일과 "외근 등록한 날 착수" 일은 새로 넣지 않는다 (낱개 할 일이 있던 것은 넣는다).
+ * 끝낸 묶음은 그대로 둔다 (열린 낱개 할 일이 남아 있으면 다시 연다)
+ */
+async function syncBundle(ev: CalEvent, p: PlannedTodo, mine: Todo[], regen: boolean) {
+  const id = safeId('a_' + ev.id + '_' + p.ruleId)
+  const old = S().todos.get(id)
+  const parts = p.parts || []
+  const open = parts.flatMap((x) => partOf(x, mine)).filter((t) => !t.done)
+  if (old?.done && !open.length) return
+  if (!old && mine.some((t) => t.done && t.ruleId === p.ruleId) && !open.length) return
+  const today = todayStr()
+  const regOnly = new Set(rulesFor(ev, S().rules).filter((r) => r.start === 'reg').map((r) => r.id))
+  const use = parts.filter((x) => partOf(x, mine).length || !regen || (!regOnly.has(x.ruleId) && x.due >= today))
+  const b = mergeBundle({ subs: old?.subs || [], checks: old?.checks || [], checkAt: old?.checkAt || {}, note: old?.note || '' }, use, mine)
+  if (!old && (!b.subs.length || b.subs.every((x) => b.checks.includes(x)))) return
+  await putTodo({
+    id, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis,
+    ruleId: p.ruleId, verify: p.verify, eventId: ev.id, project: ev.project || '', done: false, doneAt: null,
+    rank: old?.rank, note: b.note || undefined, subs: b.subs.length ? b.subs : undefined, checks: b.checks, checkAt: b.checkAt,
+    created: old?.created || new Date().toISOString(),
+  })
+  for (const t of open) {
+    if (!S().todos.has(t.id)) continue
+    for (const c of [...S().todos.values()].filter((x) => x.parentId === t.id)) await putTodo({ ...c, parentId: id })
+    await deleteTodo(t.id)
+  }
+}
+
+/** 외근의 할 일 묶음을 모두 맞춘다 (이미 맞춘 외근을 손볼 때) */
+async function syncBundles(ev: CalEvent) {
+  const mine = [...S().todos.values()].filter((t) => t.eventId === ev.id)
+  for (const p of planTodos(ev, S())) if (p.parts) await syncBundle(ev, p, mine, true)
 }
 
 /**
@@ -289,22 +348,28 @@ export async function syncEvent(ev: CalEvent, force = false) {
     const mine = [...S().todos.values()].filter((t) => t.eventId === ev.id)
     const plan = planTodos(ev, S())
     const want = new Set(plan.map((p) => detId(p.ruleId)))
+    /* 묶음에 들어갈 낱개 할 일은 묶음을 맞출 때 옮기고 지운다 */
+    const inBundle = new Set(plan.flatMap((p) => (p.parts || []).map((x) => x.ruleId)))
     /* "외근 등록한 날 착수" 규칙은 외근을 처음 등록할 때만 만든다 (규칙을 새로 넣어도 예전 외근에는 안 생긴다) */
     const regOnly = new Set(rulesFor(ev, S().rules).filter((r) => r.start === 'reg').map((r) => r.id))
     for (const t of mine) {
-      if (!t.done && t.ruleId && !t.ruleId.endsWith('-manual') && !want.has(t.id)) await deleteTodo(t.id)
+      if (!t.done && t.ruleId && !t.ruleId.endsWith('-manual') && !want.has(t.id) && !inBundle.has(t.ruleId)) await deleteTodo(t.id)
     }
     /* 이미 맞춘 외근을 다시 맞출 때(날짜·규칙·공휴일 변경): 완료한 할 일은 그대로, 열린 할 일은 날짜만 옮긴다.
        새로 생길 할 일의 마감이 이미 지났으면 손으로 처리한 일이라 보고 만들지 않는다 */
     const regen = !!ev.genKey
     const today = todayStr()
     for (const p of plan) {
+      if (p.parts) {
+        await syncBundle(ev, p, mine, regen)
+        continue
+      }
       const id = detId(p.ruleId)
       /* 이 외근에 이어 둔, 직접 만든 할 일 (자동 할 일과 id 가 다르다) */
       const linked = mine.find((t) => t.id !== id && t.ruleId === p.ruleId + '-manual')
       if (mine.some((t) => t !== linked && ((t.done && t.ruleId === p.ruleId) || t.ruleId === p.ruleId + '-manual'))) continue
       const old = S().todos.get(id)
-      const twin = p.parts ? undefined : (linked ?? manualTwin(ev, p.title, S().todos.values(), S().projects))
+      const twin = linked ?? manualTwin(ev, p.title, S().todos.values(), S().projects)
       if (twin?.done) {
         /* 같은 일을 직접 만들어 이미 끝냈으면 외근에 잇기만 하고 새로 만들지 않는다 */
         if (!linked) await putTodo({ ...twin, eventId: ev.id, ruleId: p.ruleId + '-manual' })
@@ -316,29 +381,11 @@ export async function syncEvent(ev: CalEvent, force = false) {
          날짜는 규칙대로 바뀌므로 예전 날짜를 설명하던 메모는 버리고, 순서·체크는 그대로 */
       const base = twin ?? old
       /* 하위 항목은 처음 만들 때만 규칙대로. 그 뒤로는 직접 고치고 지운 대로 둔다 */
-      let subs = base?.subs?.length ? base.subs : p.subs
-      let checks = base?.checks
-      let checkAt = base?.checkAt
-      let note = old?.note
-      if (p.parts && !old) {
-        /* 묶음을 새로 만들 때: 예전 외근이면 "외근 등록한 날 착수" 일은 넣지 않는다. 낱개 할 일(위에서 지움)의 체크·하위 항목·메모는 옮긴다 */
-        const b = bundleFrom(p.parts.filter((x) => !regen || !regOnly.has(x.ruleId)), mine)
-        if (!b.subs.length || b.subs.every((x) => b.checks.includes(x))) continue
-        ;({ subs, checks, checkAt } = b)
-        note = b.note || undefined
-      } else if (p.parts) {
-        /* 묶음이 있으면 하위 항목은 그대로, 낱개로 끝낸 일(SIV 예정 준비 할 일 등)만 체크해 둔다 */
-        const b = bundleFrom(p.parts, mine)
-        const add = b.checks.filter((x) => subs.includes(x) && !checks?.includes(x))
-        if (add.length) {
-          checks = [...(checks || []), ...add]
-          checkAt = { ...checkAt, ...Object.fromEntries(add.map((x) => [x, b.checkAt[x]])) }
-        }
-      }
+      const subs = base?.subs?.length ? base.subs : p.subs
       await putTodo({
         id, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis,
         ruleId: p.ruleId, verify: p.verify, eventId: ev.id, project: ev.project || '', done: false,
-        rank: base?.rank, note, subs: subs.length ? subs : undefined, checks, checkAt, created: base?.created || new Date().toISOString(),
+        rank: base?.rank, note: old?.note, subs: subs.length ? subs : undefined, checks: base?.checks, checkAt: base?.checkAt, created: base?.created || new Date().toISOString(),
       })
       if (twin) {
         for (const c of [...S().todos.values()].filter((x) => x.parentId === twin.id)) await putTodo({ ...c, parentId: id })
@@ -975,35 +1022,20 @@ async function migrate() {
   if (!S().mig.includes('group1')) {
     /* 방문 전 일은 "{type} Preparation", 방문 후 자잘한 일은 "{type} 방문 후 정리" 하나로 묶는다 (엔플론시아 계약서·ICF 는 등록 당일, 맨 위).
        열린 낱개 할 일은 묶음의 하위 항목으로 옮기고(메모는 묶음 메모에), 끝낸 것은 체크해 둔다.
-       지난 외근은 열린 일이 있을 때만, 다가오는 외근은 아직 없는 일도 넣는다 ("외근 등록한 날 착수" 일은 빼고) */
+       지난 외근은 열린 일이 있을 때만, 다가오는 외근은 아직 없는 일도 넣는다 ("외근 등록한 날 착수" 일은 빼고).
+       아직 한 번도 맞추지 않은 외근은 맞출 때 묶음이 생긴다 */
     const fresh = inSync()
     const ss = new Map(ENF_SS_RULES.map((r) => [r.id, r]))
     appStore.setState({ rules: S().rules.map((r) => (ss.has(r.id) ? { ...r, n: ss.get(r.id)!.n, basis: ss.get(r.id)!.basis } : r)) })
-    const today = todayStr()
-    for (const ev of [...S().events.values()]) {
-      /* 아직 한 번도 맞추지 않은 외근은 맞출 때 묶음이 생긴다 */
-      if (kindOf(ev) !== 'visit' || !ev.genKey) continue
-      const mine = [...S().todos.values()].filter((t) => t.eventId === ev.id)
-      for (const p of planTodos(ev, S())) {
-        const id = safeId('a_' + ev.id + '_' + p.ruleId)
-        if (!p.parts || S().todos.has(id)) continue
-        const of = (x: PlannedPart) => mine.filter((t) => t.ruleId === x.ruleId || t.ruleId === x.ruleId + '-manual')
-        const parts = p.parts.filter((x) => of(x).length || (!x.reg && x.due >= today))
-        const open = parts.flatMap(of).filter((t) => !t.done)
-        if (!open.length && parts.every((x) => of(x).length)) continue
-        const b = bundleFrom(parts, mine)
-        await putTodo({
-          id, title: p.title, due: p.due, time: '', basis: p.basis, start: p.start, startBasis: p.startBasis, ruleId: p.ruleId, verify: p.verify,
-          eventId: ev.id, project: ev.project || '', done: false, subs: b.subs, note: b.note || undefined, checks: b.checks, checkAt: b.checkAt, created: nowIso(),
-        })
-        for (const t of open) {
-          for (const c of [...S().todos.values()].filter((x) => x.parentId === t.id)) await putTodo({ ...c, parentId: id })
-          await deleteTodo(t.id)
-        }
-      }
-    }
+    for (const ev of [...S().events.values()]) if (kindOf(ev) === 'visit' && ev.genKey) await syncBundles(ev)
     await keepSynced(fresh)
     appStore.setState({ mig: [...S().mig, 'group1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('group2')) {
+    /* 서명문서·eTMF 할 일도 묶음에 (문서 체크 목록은 묶음에서 펼쳐 본다). 열린 낱개 할 일은 문서 체크째 묶음으로 옮긴다 */
+    for (const ev of [...S().events.values()]) if (kindOf(ev) === 'visit' && ev.genKey) await syncBundles(ev)
+    appStore.setState({ mig: [...S().mig, 'group2'] })
     await putConfig()
   }
 }

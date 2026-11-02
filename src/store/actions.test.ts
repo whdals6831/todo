@@ -496,7 +496,7 @@ describe('SIV Pre-Checklist 하위 항목 (presiv1)', () => {
 })
 
 describe('엔플론시아 SIV 계약서·ICF Site specific 업데이트 (enfss1)', () => {
-  const MIG = ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'group1']
+  const MIG = ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'group1', 'group2']
   const cl: Rule = { id: 'r-e-cl', key: 'CL', type: 'SIV', project: ENF, title: '{site} SIV CL', dir: 'before', n: 2, unit: 'ADD', send: false, verify: false, start: 'due', startN: 0 }
   const old: CalEvent = { ...visit, id: 'old', type: 'SIV', project: ENF, site: '제일산부인과', date: '2026-10-23', createdDate: '2026-10-08' }
 
@@ -544,14 +544,14 @@ describe('방문 전·후 할 일 묶음 (group1)', () => {
   const ev: CalEvent = { ...visit, id: 'siv', type: 'SIV', site: '가나대병원', date: '2026-10-28', createdDate: '2026-10-12' }
   const config = { rules, holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] }
 
-  it('방문 전 일은 Preparation, 방문 후 일은 방문 후 정리 하나에 마감 순 하위 항목으로. 체크 목록이 있는 일·[대기] 일은 따로', async () => {
-    await replaceAll({ events: [], todos: [], fuls: [], config: { ...config, mig: [...MIG, 'group1'] } })
+  it('방문 전 일은 Preparation, 방문 후 일은 방문 후 정리 하나에 마감 순 하위 항목으로. 하위 항목이 있는 일·[대기] 일은 따로', async () => {
+    await replaceAll({ events: [], todos: [], fuls: [], config: { ...config, mig: [...MIG, 'group1', 'group2'] } })
     await putEvent(ev)
     await syncEvent(ev)
-    expect(todos().map((t) => t.id).sort()).toEqual(['a_siv_g-post', 'a_siv_g-prep', 'a_siv_r-pre', 'a_siv_r-sign', 'a_siv_r-wait'])
+    expect(todos().map((t) => t.id).sort()).toEqual(['a_siv_g-post', 'a_siv_g-prep', 'a_siv_r-pre', 'a_siv_r-wait'])
     const prep = getState().todos.get('a_siv_g-prep')!
-    expect(prep).toMatchObject({ title: '가나대병원 SIV Preparation', subs: ['EDC 계정 요청', '도시락 예약', 'PPT 인쇄'], start: '2026-10-21', due: '2026-10-27' })
-    expect(partDues(prep, getState())).toEqual({ 'EDC 계정 요청': '2026-10-21', '도시락 예약': '2026-10-23', 'PPT 인쇄': '2026-10-27' })
+    expect(prep).toMatchObject({ title: '가나대병원 SIV Preparation', subs: ['EDC 계정 요청', '도시락 예약', 'PPT 인쇄', '서명서류 재확인'], start: '2026-10-21', due: '2026-10-27' })
+    expect(partDues(prep, getState())).toEqual({ 'EDC 계정 요청': '2026-10-21', '도시락 예약': '2026-10-23', 'PPT 인쇄': '2026-10-27', '서명서류 재확인': '2026-10-27' })
     expect(getState().todos.get('a_siv_g-post')).toMatchObject({ title: '가나대병원 SIV 방문 후 정리', subs: ['Follow-up Letter 발송', 'PM - SIV (WD10)'] })
   })
 
@@ -574,12 +574,34 @@ describe('방문 전·후 할 일 묶음 (group1)', () => {
       config,
     })
     const ids = todos().map((x) => x.id).sort()
-    expect(ids).toEqual(['a_past_r-letter', 'a_past_r-lunch', 'a_past_r-pm', 'a_past_r-print', 'a_siv_g-post', 'a_siv_g-prep', 'a_siv_r-edc', 'a_siv_r-sign'])
+    expect(ids).toEqual(['a_past_r-letter', 'a_past_r-lunch', 'a_past_r-pm', 'a_past_r-print', 'a_siv_g-post', 'a_siv_g-prep', 'a_siv_r-edc'])
     expect(getState().todos.get('a_siv_g-prep')).toMatchObject({
-      subs: ['EDC 계정 요청', '도시락 예약', '메뉴 확인', '영수증', 'PPT 인쇄'], checks: ['EDC 계정 요청', '메뉴 확인'],
+      subs: ['EDC 계정 요청', '도시락 예약', '메뉴 확인', '영수증', 'PPT 인쇄', '서명서류 재확인'], checks: ['EDC 계정 요청', '메뉴 확인', 'Delegation log'],
       checkAt: { 'EDC 계정 요청': '2026-10-10T01:00:00.000Z', '메뉴 확인': '2026-10-11' },
       note: '가나대병원 SIV 도시락 예약: 10명', done: false,
     })
-    expect(getState().todos.get('a_siv_r-sign')).toMatchObject({ due: '2026-10-19', checks: ['Delegation log'] })
+  })
+})
+
+describe('외근 할 일 묶음 다시 맞추기 (group2)', () => {
+  const MIG = ['scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2']
+  const r = (id: string, title: string, n: number): Rule => ({ id, key: '', type: 'SIV', project: '*', title, dir: 'before', n, unit: 'WD', send: false, verify: false, start: 'due', startN: 0 })
+  const lunch = r('r-lunch', '{site} SIV 도시락 예약', 3)
+  const print = r('r-print', '{site} SIV PPT 인쇄', 1)
+  const edc = r('r-edc', '{site} SIV EDC 계정 요청', 5)
+  const ev: CalEvent = { ...visit, id: 'siv', type: 'SIV', site: '가나대병원', date: '2026-10-28', createdDate: '2026-10-12' }
+
+  it('규칙이 늘면 이미 있는 묶음의 제자리에 끼우고(직접 단 항목·체크 그대로), 묶음에서 지운 규칙의 일은 다시 끼우지 않는다', async () => {
+    await replaceAll({ events: [], todos: [], fuls: [], config: { rules: [lunch, print], holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [], companions: [] } })
+    await putEvent(ev)
+    await syncEvent(ev)
+    await addSub('a_siv_g-prep', '메뉴 확인')
+    await toggleCheck('a_siv_g-prep', '도시락 예약')
+    await saveRules([edc, lunch, print])
+    expect(getState().todos.get('a_siv_g-prep')).toMatchObject({ subs: ['EDC 계정 요청', '도시락 예약', 'PPT 인쇄', '메뉴 확인'], checks: ['도시락 예약'] })
+    await renameSub('a_siv_g-prep', 'EDC 계정 요청', '')
+    expect(getState().events.get('siv')!.skip).toEqual(['r-edc'])
+    await saveRules([edc, lunch, print, r('r-usb', '{site} SIV USB', 1)])
+    expect(getState().todos.get('a_siv_g-prep')!.subs).toEqual(['도시락 예약', 'PPT 인쇄', '메뉴 확인', 'USB'])
   })
 })

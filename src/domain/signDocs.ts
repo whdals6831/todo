@@ -1,7 +1,13 @@
 import type { CalEvent, NoteItem, Notes, Todo } from '../types/domain.ts'
+import { isGroupRule } from './rules.ts'
 
 /** 제목에 "서명문서"·"서명 서류" 같은 말이 든 할 일에 서명문서 체크리스트를 붙인다 */
 const SIGN_RE = /서명\s*(문서|서류)/
+
+type DocTodo = Pick<Todo, 'title' | 'project' | 'eventId'> & Partial<Pick<Todo, 'ruleId' | 'subs'>>
+
+/** 제목, 또는 외근 할 일 묶음(Preparation 등)이면 그 안의 하위 항목에 이 말이 있는지 */
+const mentions = (t: DocTodo, re: RegExp) => re.test(t.title) || (isGroupRule(t.ruleId) && !!t.subs?.some((x) => re.test(x)))
 /** 제목에서 방문 종류 (PSVR·SIVR 같은 보고서 이름은 빼고) */
 const TYPE_RE = /(?:^|[^a-z])(psv|siv|mv|cov|add-?on)(?![a-z])/i
 
@@ -19,8 +25,8 @@ export const sortDocs = (arr: NoteItem[]) =>
   arr.map((it, i) => [it, i] as const).sort((a, b) => docGroup(a[0]) - docGroup(b[0]) || a[1] - b[1]).map((x) => x[0])
 
 /** 할 일의 서명문서 목록: 업무 노트에서 그 과제·방문 종류의 서명 문서. 없으면 [] */
-export function signDocsFor(t: Pick<Todo, 'title' | 'project' | 'eventId'>, notes: Notes | null, events: Map<string, CalEvent>): NoteItem[] {
-  if (!SIGN_RE.test(t.title)) return []
+export function signDocsFor(t: DocTodo, notes: Notes | null, events: Map<string, CalEvent>): NoteItem[] {
+  if (!mentions(t, SIGN_RE)) return []
   const { project, type } = visitOf(t, events)
   const secs = (project && notes?.[project]) || []
   if (!type || !secs.length) return []
@@ -46,8 +52,8 @@ const ETMF_DOCS: Record<string, Record<string, string[]>> = {
 }
 
 /** 제목에 eTMF 가 든 할 일의 올릴 문서 목록. 그 과제·방문 종류 목록이 없으면 [] */
-export function etmfDocsFor(t: Pick<Todo, 'title' | 'project' | 'eventId'>, events: Map<string, CalEvent>): NoteItem[] {
-  if (!/etmf/i.test(t.title)) return []
+export function etmfDocsFor(t: DocTodo, events: Map<string, CalEvent>): NoteItem[] {
+  if (!mentions(t, /etmf/i)) return []
   const { project, type } = visitOf(t, events)
   return (ETMF_DOCS[project]?.[type.toUpperCase()] || []).map((x) => ({ t: x }))
 }

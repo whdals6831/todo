@@ -1,5 +1,5 @@
 import {
-  BRZ, BRZ_PSV_FUL, ENF, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, WID_RULE, brzPsvFulRule, fulPackRules, kindOf,
+  BRZ, BRZ_PSV_FUL, ENF, ENF_SS_RULES, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, WID_RULE, brzPsvFulRule, fulPackRules, kindOf,
 } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
@@ -887,11 +887,16 @@ async function migrate() {
     appStore.setState({ mig: [...S().mig, 'sivrprint1'] })
     await putConfig()
   }
+  /* 규칙을 고쳐도 이미 맞춘 외근은 다시 맞추지 않는다 (열린 할 일의 날짜·제목을 직접 바꾼 것이 되돌아가지 않게) */
+  const inSync = () => new Set([...S().events.values()].filter((e) => e.genKey === genKey(e, S())).map((e) => e.id))
+  const keepSynced = async (fresh: Set<string>) => {
+    for (const e of [...S().events.values()]) if (fresh.has(e.id) && e.genKey !== genKey(e, S())) await putEvent({ ...e, genKey: genKey(e, S()) })
+  }
   if (!S().mig.includes('presiv1')) {
     /* SIV Pre-Checklist 규칙을 짧은 제목·하위 항목으로 (엔플론시아는 결재 상신이라 그대로).
-       열린 할 일은 제목만 바꾸고 하위 항목은 없을 때만 단다. 다른 할 일의 날짜·제목은 건드리지 않게 외근을 다시 맞추지 않는다 */
+       열린 할 일은 제목만 바꾸고 하위 항목은 없을 때만 단다 */
     const s = S()
-    const fresh = new Set([...s.events.values()].filter((e) => e.genKey === genKey(e, s)).map((e) => e.id))
+    const fresh = inSync()
     const hit = (r: Rule) => r.type === 'SIV' && r.project !== ENF && /pre-?\s*check\s*list/i.test(r.title)
     const ids = new Set(s.rules.filter(hit).map((r) => r.id))
     appStore.setState({ rules: s.rules.map((r) => (hit(r) ? { ...r, title: PRE_SIV.title, subs: [...PRE_SIV.subs] } : r)) })
@@ -901,8 +906,22 @@ async function migrate() {
       const p = planTodos(ev, S()).find((x) => x.ruleId === t.ruleId)
       if (p) await putTodo({ ...t, title: p.title, subs: t.subs?.length ? t.subs : p.subs })
     }
-    for (const e of [...S().events.values()]) if (fresh.has(e.id) && e.genKey !== genKey(e, S())) await putEvent({ ...e, genKey: genKey(e, S()) })
+    await keepSynced(fresh)
     appStore.setState({ mig: [...S().mig, 'presiv1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('enfss1')) {
+    /* 엔플론시아 SIV 를 등록하면 제일 먼저 계약서·ICF Site specific 업데이트 (앞으로 등록하는 외근부터). 규칙 목록에서는 엔플론시아 CL 앞에 */
+    const fresh = inSync()
+    let rules = S().rules
+    const add = ENF_SS_RULES.filter((r) => !rules.some((x) => x.id === r.id)).map((r) => ({ ...r }))
+    if (add.length) {
+      const i = rules.findIndex((r) => r.project === ENF && r.key === 'CL')
+      rules = i < 0 ? [...rules, ...add] : [...rules.slice(0, i), ...add, ...rules.slice(i)]
+    }
+    appStore.setState({ rules })
+    await keepSynced(fresh)
+    appStore.setState({ mig: [...S().mig, 'enfss1'] })
     await putConfig()
   }
 }

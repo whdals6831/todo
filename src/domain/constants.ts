@@ -102,6 +102,16 @@ export const PRE_SIV = {
   subs: ['SIV Pre-checklist 작성', '수정', 'PM 승인 확인', 'T-Sign 요청', 'WID에 T-Sign본 업로드'],
 }
 
+/** 엔플론시아 SIV 를 등록하면 제일 먼저: 계약서·ICF Site specific 업데이트 (등록한 날 착수, 등록일 WD1 마감).
+    key 가 "SIV 예정" 준비 할 일과 같아서, 준비 할 일이 있으면 그것을 넘겨받는다 */
+export const ENF_SS_RULES: Rule[] = [
+  ['CONTRACT', 'r-e-sscontract', '계약서'],
+  ['ICF', 'r-e-ssicf', 'ICF'],
+].map(([key, id, what]) => ({
+  id, key, type: 'SIV', project: ENF, title: '{site} SIV ' + what + ' Site specific 업데이트',
+  dir: 'after', n: 1, unit: 'ADD', send: false, verify: false, basis: '본인 기준: Non-IRB 기관 급한 개시 → 계약서·ICF 먼저, 등록일 WD1 내', start: 'reg', startN: 0,
+}))
+
 const RPT_RULE: Rule = {
   id: 'r-rpt', key: 'OWN', type: '*', project: '*', title: '{site} {type}R 작성', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, basis: '방문 리포트 본인 작성 기한 WD5', start: 'fresh', startN: 0,
 }

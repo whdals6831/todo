@@ -5,7 +5,7 @@ import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr }
 import { fulMatch } from '../domain/ful.ts'
 import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort, stripProj } from '../domain/project.ts'
-import { genKey, isGroupRule, manualTwin, normRule, planTodos, rulesFor, type PlannedPart, type PlannedTodo } from '../domain/rules.ts'
+import { GROUPS, genKey, isGroupRule, manualTwin, normRule, planTodos, rulesFor, type PlannedPart, type PlannedTodo } from '../domain/rules.ts'
 import {
   FOLLOWUPS, FULS_ON_DONE, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type FollowUp, type NewTodo,
 } from '../domain/specials.ts'
@@ -1095,6 +1095,22 @@ async function migrate() {
     appStore.setState({ rules })
     await keepSynced(fresh)
     appStore.setState({ mig: [...S().mig, 'ktx1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('ktx2')) {
+    /* 이미 등록한 지방 외근도 오늘 이후 것은 Preparation 에 KTX 예매를 제자리(날짜 순)에 넣는다 */
+    const today = todayStr()
+    for (const ev of [...S().events.values()]) {
+      if (kindOf(ev) !== 'visit' || ev.date < today) continue
+      const p = planTodos(ev, S()).find((x) => x.ruleId === GROUPS.prep.id)
+      const old = p && S().todos.get(safeId('a_' + ev.id + '_' + p.ruleId))
+      const ktx = p?.parts?.find((x) => x.ruleId === KTX_RULE.id)
+      if (!p || !old || old.done || !ktx || old.subs?.includes(ktx.sub)) continue
+      const cur = { subs: old.subs || [], checks: old.checks || [], checkAt: old.checkAt || {}, note: old.note || '' }
+      const b = mergeBundle(cur, (p.parts || []).filter((x) => x === ktx || cur.subs.includes(x.sub)), [])
+      await putTodo({ ...old, subs: b.subs })
+    }
+    appStore.setState({ mig: [...S().mig, 'ktx2'] })
     await putConfig()
   }
 }

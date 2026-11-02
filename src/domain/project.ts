@@ -3,6 +3,13 @@ import { BRZ, BUILTIN_ALIASES } from './constants.ts'
 
 export const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+/** 지방(서울·경기·인천 밖) 지역·병원 이름. 서울아산·순천향(서울·부천)처럼 이름만 겹치는 곳은 빼고 본다 */
+const FAR_RE =
+  /부산|대구|광주|대전|울산|세종|강원|춘천|원주|강릉|청주|천안|충남|충북|전남|전북|경남|경북|제주|전주|익산|원광|목포|여수|순천(?!향)|포항|안동|창원|마산|진주|김해|양산|구미|고신|계명|영남|동아대|조선대|건양|칠곡|해운대/
+
+/** 지방 기관인가 (KTX 예매 등). PI 이름은 보지 않는다 */
+export const isFarSite = (site?: string) => FAR_RE.test(String(site || '').replace(/\(\s*PI[^)]*\)/g, ''))
+
 /** "014. 전남대병원(PI 홍길동)" → "전남대병원" (제목·칩에 쓰는 기관 이름) */
 export const siteShort = (x?: string | null) =>
   String(x || '')

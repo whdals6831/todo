@@ -142,6 +142,8 @@ export interface Rule {
   subs?: string[]
   /** 할 일에 띄워 눌러서 복사하는 결재 상신 제목 (자리표시자를 쓸 수 있다) */
   copy?: string
+  /** 지방 기관(서울·경기·인천 밖) 외근에만 */
+  far?: boolean
 }
 
 export type NormRule = Rule & { key: string; start: StartMode; startN: number }

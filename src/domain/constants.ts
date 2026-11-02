@@ -96,6 +96,12 @@ export const WID_RULE: Rule = {
   dir: 'after', n: 3, unit: 'ADD', send: false, verify: false, basis: '본인 기준: 외근 등록하면 WD3 내 WID 에 외근 일정 등록', start: 'reg', startN: 0,
 }
 
+/** 지방 기관 외근을 등록하면 KTX 예매 (등록한 날 착수, 등록일 WD1 마감 → Preparation 에 들어간다) */
+export const KTX_RULE: Rule = {
+  id: 'r-ktx', key: 'KTX', type: '*', project: '*', title: '{site} {type} KTX 예매', far: true,
+  dir: 'after', n: 1, unit: 'ADD', send: false, verify: false, basis: '본인 기준: 지방 기관 외근은 등록하면 바로 KTX 예매 (등록일 WD1 내)', start: 'reg', startN: 0,
+}
+
 /** SIV Pre-Checklist: 짧은 제목에 실제 진행 순서의 하위 항목 (엔플론시아는 결재 상신이라 따로) */
 export const PRE_SIV = {
   title: '{site} SIV Pre-Checklist',
@@ -150,6 +156,7 @@ export const DEFAULT_RULES: Rule[] = [
   { ...ISF_RULE },
   { ...MV_SITE_RULE },
   { ...WID_RULE },
+  { ...KTX_RULE },
   ...PREP_RULES.map((r) => ({ ...r })),
   { id: 'r-cl', key: 'CL', type: '*', project: '*', title: '{site} {type} Confirmation Letter 발송', dir: 'before', n: 3, unit: 'WD', send: true, verify: true, basis: 'PMP 확인 필요 (임시값)', start: 'lead', startN: 2 },
   { ...RPT_RULE },

@@ -3,7 +3,7 @@ import { DEFAULT_KEYMAP, DEFAULT_STARTMAP, START_WHY, URGENT_PROJECTS, coversDay
 import {
   addWorkdays, holidaysBetween, isWork, md, nextWork, nextWorkOrSame, prevWork, shift, todayStr,
 } from './date.ts'
-import { escapeRegExp, projShort, sameSite, siteCore, siteShort, stripProj } from './project.ts'
+import { escapeRegExp, isFarSite, projShort, sameSite, siteCore, siteShort, stripProj } from './project.ts'
 
 type RuleCtx = Pick<Data, 'rules' | 'holidays'>
 type PlanCtx = Pick<Data, 'rules' | 'holidays' | 'events' | 'projects'>
@@ -29,7 +29,7 @@ export function rulesFor(ev: CalEvent, rules: Rule[]): NormRule[] {
   if (kindOf(ev) !== 'visit' || !ev.type || ev.type === '기타') return []
   const m = rules
     .map(normRule)
-    .filter((r) => (r.type === '*' || r.type === ev.type) && (r.project === '*' || r.project === ev.project))
+    .filter((r) => (r.type === '*' || r.type === ev.type) && (r.project === '*' || r.project === ev.project) && (!r.far || isFarSite(ev.site)))
   if (m.some((r) => r.key === 'SKIP')) return []
   const score = (r: NormRule) => (r.project !== '*' ? 2 : 0) + (r.type !== '*' ? 1 : 0)
   const best: Record<string, NormRule> = {}

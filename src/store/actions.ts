@@ -1,5 +1,5 @@
 import {
-  BRZ, BRZ_PSV_FUL, ENF, ENF_SS_RULES, IMJ, ISF_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, WID_RULE, brzPsvFulRule, fulPackRules, kindOf,
+  BRZ, BRZ_PSV_FUL, ENF, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, WID_RULE, brzPsvFulRule, fulPackRules, kindOf,
 } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
@@ -1081,6 +1081,20 @@ async function migrate() {
     }
     await keepSynced(fresh)
     appStore.setState({ mig: [...S().mig, 'enfbeta1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('ktx1')) {
+    /* 지방 기관 외근을 등록하면 KTX 예매 (앞으로 등록하는 외근부터, WID 규칙 다음에) */
+    const fresh = inSync()
+    const s = S()
+    let rules = s.rules
+    if (!rules.some((r) => r.id === KTX_RULE.id)) {
+      const i = rules.findIndex((r) => r.id === WID_RULE.id)
+      rules = i < 0 ? [...rules, { ...KTX_RULE }] : [...rules.slice(0, i + 1), { ...KTX_RULE }, ...rules.slice(i + 1)]
+    }
+    appStore.setState({ rules })
+    await keepSynced(fresh)
+    appStore.setState({ mig: [...S().mig, 'ktx1'] })
     await putConfig()
   }
 }

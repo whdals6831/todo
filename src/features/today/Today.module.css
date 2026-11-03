@@ -92,6 +92,10 @@
   font-size: var(--text-xs);
   color: var(--color-muted);
 }
+/* 하위 항목 이름은 할 일 제목보다 안쪽으로 들여 쓴다 */
+.subN {
+  padding-left: var(--space-6);
+}
 /* 하위 항목 줄의 할 일 제목 */
 .subOf {
   color: var(--color-muted);

@@ -5,6 +5,8 @@ import { briefData, dayComplete, daySet, eventsOn, todayBuckets } from '@/domain
 import { byPriority } from '@/domain/priority.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Fold, Group, Sub, ViewHeader } from '@/components/ui/Layout.tsx'
+import { Tag } from '@/components/ui/Tag.tsx'
+import { projShort } from '@/domain/project.ts'
 import { cx } from '@/lib/cx.ts'
 import { setUi, useApp, useUi } from '@/store/ui.ts'
 import type { DateStr, Todo } from '@/types/domain.ts'
@@ -161,14 +163,17 @@ function BriefCard({ d }: { d: DateStr }) {
   const nowMs = useUi((u) => u.now)
   const todos = useApp((st) => st.todos)
   const holidays = useApp((st) => st.holidays)
+  const projects = useApp((st) => st.projects)
   const now = new Date(nowMs)
   const b = briefData(d, now, { todos, holidays })
   if (!b) return null
   /* 끝낸 할 일과 체크한 하위 항목을 시간 순으로. 시각을 모르는 체크는 맨 뒤 */
   const log = [
-    ...b.done.map((x) => ({ key: x.id, at: x.doneAt || '', title: x.title, sub: '', todo: x })),
-    ...b.subs.map((x) => ({ key: x.key, at: x.at, title: x.title, sub: x.name, todo: undefined })),
+    ...b.done.map((x) => ({ key: x.id, at: x.doneAt || '', title: x.title, project: x.project || '', sub: '', todo: x })),
+    ...b.subs.map((x) => ({ key: x.key, at: x.at, title: x.title, project: x.project, sub: x.name, todo: undefined })),
   ].sort((p, q) => (p.at.length === 10 ? '~' : p.at).localeCompare(q.at.length === 10 ? '~' : q.at))
+  /* 제목 앞 과제 약칭 (할 일 줄의 과제 꼬리표와 같은 이름) */
+  const proj = (p?: string) => (p ? <Tag className={s.bProj}>{projShort(projects, p)}</Tag> : null)
   return (
     <section className={s.brief} aria-label="오늘 브리핑">
       <h3>
@@ -191,11 +196,15 @@ function BriefCard({ d }: { d: DateStr }) {
                 <span>{x.at.length > 10 ? localHM(x.at) : '—'}</span>
                 {x.sub ? (
                   <span>
+                    {proj(x.project)}
                     <span className={s.subOf}>{x.title + ' › '}</span>
                     {x.sub}
                   </span>
                 ) : (
-                  <span>{x.title}</span>
+                  <span>
+                    {proj(x.project)}
+                    {x.title}
+                  </span>
                 )}
                 {x.todo && <SubRows t={x.todo} d={d} />}
               </li>
@@ -210,7 +219,10 @@ function BriefCard({ d }: { d: DateStr }) {
             {b.left.map((x) => (
               <li key={x.id}>
                 <span>{x.due ? md(x.due) : 'TBD'}</span>
-                <span>{x.title}</span>
+                <span>
+                  {proj(x.project)}
+                  {x.title}
+                </span>
               </li>
             ))}
           </ul>

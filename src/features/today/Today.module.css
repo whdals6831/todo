@@ -96,6 +96,11 @@
 .subOf {
   color: var(--color-muted);
 }
+/* 제목 앞 과제 약칭 */
+.bProj {
+  margin-right: var(--space-1-5);
+  vertical-align: 1px;
+}
 .lbl {
   margin-top: var(--space-1-5);
   font-size: var(--text-xs);

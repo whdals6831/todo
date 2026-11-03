@@ -124,7 +124,7 @@ export function checkedOn(d: DateStr, todos: Data['todos'], skip: Set<string>) {
     .flatMap((x) =>
       Object.entries(x.checkAt || {})
         .filter(([name, at]) => (x.checks || []).includes(name) && atDay(at) === d)
-        .map(([name, at]) => ({ key: x.id + '|' + name, title: x.title, name: name.replace(/^eTMF:/, ''), at })),
+        .map(([name, at]) => ({ key: x.id + '|' + name, title: x.title, project: x.project || '', name: name.replace(/^eTMF:/, ''), at })),
     )
 }
 

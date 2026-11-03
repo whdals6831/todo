@@ -126,6 +126,7 @@ function MonthGrid() {
             >
               <span className={s.dnum}>
                 <b>{parse(d).getUTCDate()}</b>
+                {d === today && <span className={s.todayTag}>오늘</span>}
                 {inMonth && dayComplete(d, todos) && <img className={s.yay} src={bunny} alt="이날 할 일 모두 완료" title="이날 할 일 모두 완료" />}
                 {hol && <span className={s.hname}>{hol}</span>}
               </span>
@@ -270,6 +271,10 @@ function DayPanel() {
         </Button>
         <Button size="sm" onClick={() => openModal({ kind: 'todoAdd', due: ui().sel })}>
           + 할 일
+        </Button>
+        {/* 오늘로 돌아가기: 바로 추가 단추 위, 눈에 띄게 */}
+        <Button size="sm" variant="solid" className={s.dayToday} onClick={goToday}>
+          오늘
         </Button>
       </div>
       <QuickAdd placeholder="이날 마감인 할 일 바로 추가" label="할 일 제목" defaultDue={d} autoDue={false} style={{ marginTop: 'var(--space-1)' }} />

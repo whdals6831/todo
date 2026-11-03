@@ -126,7 +126,6 @@ function MonthGrid() {
             >
               <span className={s.dnum}>
                 <b>{parse(d).getUTCDate()}</b>
-                {d === today && <span className={s.todayTag}>오늘</span>}
                 {inMonth && dayComplete(d, todos) && <img className={s.yay} src={bunny} alt="이날 할 일 모두 완료" title="이날 할 일 모두 완료" />}
                 {hol && <span className={s.hname}>{hol}</span>}
               </span>

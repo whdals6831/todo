@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BRZ, DEFAULT_HOLIDAYS as holidays, ENF } from './constants.ts'
+import { BRZ, DEFAULT_HOLIDAYS as holidays, ENF, TARL } from './constants.ts'
 import { detectProject, siteCore, siteShort } from './project.ts'
 import { specialFor } from './specials.ts'
 
 const projects = [
   { name: BRZ, short: 'Breztri', sites: ['09. 가나대병원(PI 홍길동)'], aliases: ['브레즈트리'] },
   { name: ENF, short: '엔플론시아', sites: [] },
+  { name: TARL, short: 'Tarlatamab', sites: ['01. 원주세브란스(PI 김)'], aliases: ['탈라타맙'] },
   { name: '기타', short: '기타', sites: [] },
 ]
 const ctx = { projects, holidays }
@@ -38,6 +39,17 @@ describe('특수 키워드 흐름', () => {
       ['사아병원 1st contact mail·PSV 일정 문의', '2026-10-12'],
       ['사아병원 PSV Confidentiality Agreement(CA) 작성·서명 요청', '2026-10-14'],
     ])
+  })
+
+  it('탈라타맙 새 기관 메일도 같은 흐름 (과제는 Tarlatamab, 근거는 본인 기준)', () => {
+    const sp = specialFor({ title: '탈라타맙 고신대 메일' }, ctx)
+    expect(sp?.kind).toBe('mail')
+    expect(sp?.items.map((x) => [x.title, x.due, x.project])).toEqual([
+      ['고신대 1st contact mail·PSV 일정 문의', '2026-10-12', TARL],
+      ['고신대 PSV Confidentiality Agreement(CA) 작성·서명 요청', '2026-10-14', TARL],
+    ])
+    expect(sp?.items[0].basis?.endsWith(' [본인 기준]')).toBe(true)
+    expect(specialFor({ title: '탈라타맙 원주세브란스 메일' }, ctx)).toBeNull()
   })
 
   it('이미 배정된 기관이나 업무 문장이면 흐름을 쓰지 않는다', () => {

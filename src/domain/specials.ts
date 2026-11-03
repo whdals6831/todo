@@ -1,11 +1,11 @@
 import type { Data, Todo } from '../types/domain.ts'
-import { BRZ, ENF, ENF_SS_RULES, IMJ } from './constants.ts'
+import { BRZ, ENF, ENF_SS_RULES, IMJ, TARL } from './constants.ts'
 import { addWorkdays, md, todayStr } from './date.ts'
 import { detectProject, sameSite, siteCore, stripProj } from './project.ts'
 
 /*
  * 할 일 제목의 키워드로 동작하는 과제별 특수 흐름 (원본 그대로 과제 이름에 묶여 있다).
- *   "브레즈트리 <새 기관> 메일"        → 1st contact mail·PSV 일정 문의(WD1) + CA(WD3)
+ *   "브레즈트리 <새 기관> 메일"        → 1st contact mail·PSV 일정 문의(WD1) + CA(WD3) (탈라타맙도 같게)
  *   "브레즈트리 <기관> 의뢰사 승인됨"   → Site Selection CL 발송(WD1), 대기 중인 선정 확인 할 일 완료
  *   "엔플론시아 <기관> SIV 예정"       → SIV Preparation 하나 (계약서·ICF 먼저, PPT·서명서류·바인더·CL·EDC)
  */
@@ -21,12 +21,21 @@ const NEWSITE_TASKWORDS =
 
 const looksLikeSite = (rest: string) => !!rest && rest.split(' ').length <= 3 && !NEWSITE_TASKWORDS.test(rest)
 
-/** Breztri 신규 배정 기관 첫 연락 메일 → [메일 할 일, CA 할 일] */
+/** 신규 배정 기관 첫 연락 메일 흐름을 쓰는 과제 → 기한 근거에 덧붙일 PMP 원문 (없으면 본인 기준만) */
+const NEWSITE_MAIL: Record<string, { mail: string; ca: string }> = {
+  [BRZ]: { mail: 'Breztri PMP 13.1: site list 수령 후 WD5 이내 기관 연락·방문 일정 논의', ca: 'Breztri PMP 13.1: 기관 방문 전 CA 서명 완료되도록 진행' },
+  [TARL]: { mail: '', ca: '' },
+}
+const mine = (pmp: string) => ' [본인 기준' + (pmp ? '. ' + pmp : '') + ']'
+
+/** Breztri·Tarlatamab 신규 배정 기관 첫 연락 메일 → [메일 할 일, CA 할 일] */
 export function newSiteMail(t: NewTodo, ctx: Ctx): { main: NewTodo; ca: NewTodo } | null {
-  if (t.parentId || detectProject(ctx.projects, t.title) !== BRZ) return null
-  if (!/메일|mail/i.test(t.title)) return null
-  const proj = ctx.projects.find((p) => p.name === BRZ) ?? { sites: [] as string[] }
-  const rest = stripProj(ctx.projects, t.title, BRZ)
+  if (t.parentId) return null
+  const pj = detectProject(ctx.projects, t.title)
+  const src = NEWSITE_MAIL[pj]
+  if (!src || !/메일|mail/i.test(t.title)) return null
+  const proj = ctx.projects.find((p) => p.name === pj) ?? { sites: [] as string[] }
+  const rest = stripProj(ctx.projects, t.title, pj)
     .replace(/1st\s*contact|first\s*contact|메일|mail|보내기|새\s*기관|신규\s*기관|신규|새로|배정|기관(?=\s)|[·,:-]/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -39,15 +48,15 @@ export function newSiteMail(t: NewTodo, ctx: Ctx): { main: NewTodo; ca: NewTodo 
   const caDue = addWorkdays(today, 3, ctx.holidays)
   return {
     ca: {
-      title: rest + ' PSV Confidentiality Agreement(CA) 작성·서명 요청', project: BRZ, start: today, due: caDue, time: '', tbd: false, autoDue: false, done: false,
+      title: rest + ' PSV Confidentiality Agreement(CA) 작성·서명 요청', project: pj, start: today, due: caDue, time: '', tbd: false, autoDue: false, done: false,
       created: new Date().toISOString(),
-      basis: '신규 배정 기관 · 추가일 ' + md(today) + ' 후 WD3 = ' + md(caDue) + ' [본인 기준. Breztri PMP 13.1: 기관 방문 전 CA 서명 완료되도록 진행]',
+      basis: '신규 배정 기관 · 추가일 ' + md(today) + ' 후 WD3 = ' + md(caDue) + mine(src.ca),
       startBasis: '추가한 당일 착수',
     },
     main: {
       ...t,
-      title: rest + ' 1st contact mail·PSV 일정 문의', project: BRZ, start: today, due, time: '', tbd: false, autoDue: false,
-      basis: '신규 배정 기관 · 추가일 ' + md(today) + ' 후 WD1 = ' + md(due) + ' [본인 기준. Breztri PMP 13.1: site list 수령 후 WD5 이내 기관 연락·방문 일정 논의]',
+      title: rest + ' 1st contact mail·PSV 일정 문의', project: pj, start: today, due, time: '', tbd: false, autoDue: false,
+      basis: '신규 배정 기관 · 추가일 ' + md(today) + ' 후 WD1 = ' + md(due) + mine(src.mail),
       startBasis: '추가한 당일 착수',
     },
   }
@@ -125,6 +134,7 @@ export function specialFor(t: NewTodo, ctx: Ctx): Special | null {
 /** 입력창이 비어 있을 때 보여 주는 키워드 예시 */
 export const QUICK = [
   { t: '브레즈트리 기관명 메일', d: '신규 배정 기관 → 1st contact mail·PSV 일정 문의(WD1) + CA(WD3)' },
+  { t: '탈라타맙 기관명 메일', d: '신규 배정 기관 → 1st contact mail·PSV 일정 문의(WD1) + CA(WD3)' },
   { t: '브레즈트리 기관명 의뢰사 승인됨', d: '→ Site Selection CL 발송(당일 착수, WD1)' },
   { t: '엔플론시아 기관명 SIV 예정', d: '→ SIV Preparation 하나 (계약서·ICF 먼저, PPT·서명서류·바인더·CL·EDC)' },
 ]

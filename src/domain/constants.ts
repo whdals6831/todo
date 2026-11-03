@@ -4,6 +4,7 @@ import type { CalEvent, Companion, DateStr, EventKind, Holidays, Project, Rule, 
 export const BRZ = 'AZ - Breztri'
 export const IMJ = 'AZ - Imjudo'
 export const ENF = 'MSD - 엔플론시아'
+export const TARL = 'Amgen - Tarlatamab'
 
 export const TYPES = ['PSV', 'SIV', 'MV', 'Add-on', 'COV', '기타'] as const
 
@@ -62,7 +63,7 @@ export const SCAN_RULE: Rule = {
 }
 
 /** Tarlatamab SIV 는 eTMF 업로드가 따로 있으니 스캔만 (같은 key 로 덮어쓴다) */
-export const TARL_SIV_SCAN = { id: 'r-scan-t-siv', project: 'Amgen - Tarlatamab', type: 'SIV', title: '{site} {type} 서명문서 스캔' }
+export const TARL_SIV_SCAN = { id: 'r-scan-t-siv', project: TARL, type: 'SIV', title: '{site} {type} 서명문서 스캔' }
 
 /** 방문 전 서명문서 준비·인쇄 규칙 */
 export const PREP_RULES: Rule[] = [

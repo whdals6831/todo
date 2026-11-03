@@ -1,11 +1,12 @@
 import {
-  BRZ, BRZ_PSV_FUL, ENF, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, WID_RULE, brzPsvFulRule, fulPackRules, kindOf,
+  BRZ, BRZ_PSV_FUL, ENF, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, TARL_SIV_SCAN, WID_RULE, brzPsvFulRule,
+  fulPackRules, kindOf,
 } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
 import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort, stripProj } from '../domain/project.ts'
-import { GROUPS, genKey, isGroupRule, manualTwin, normRule, planTodos, rulesFor, type PlannedPart, type PlannedTodo } from '../domain/rules.ts'
+import { GROUPS, genKey, isGroupRule, manualTwin, normRule, planTodos, rulesFor, subLabel, type PlannedPart, type PlannedTodo } from '../domain/rules.ts'
 import {
   FOLLOWUPS, FULS_ON_DONE, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type FollowUp, type NewTodo,
 } from '../domain/specials.ts'
@@ -1111,6 +1112,54 @@ async function migrate() {
       await putTodo({ ...old, subs: b.subs })
     }
     appStore.setState({ mig: [...S().mig, 'ktx2'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('etmfsolo1')) {
+    /* 서명문서 eTMF 업로드는 다시 따로: 방문 후 정리에 들어간 것을 낱개 할 일로 되돌린다 (끝냈으면 끝낸 채로, 문서 체크째) */
+    for (const ev of [...S().events.values()]) {
+      const id = safeId('a_' + ev.id + '_' + GROUPS.post.id)
+      if (kindOf(ev) !== 'visit' || !S().todos.get(id)?.subs?.length) continue
+      for (const r of rulesFor(ev, S().rules).filter((x) => x.key === 'ETMF')) {
+        const b = S().todos.get(id)!
+        const label = subLabel(ev, r.title, S().projects)
+        if (!b.subs?.includes(label)) continue
+        const pre = label + DOC_SEP
+        const own = (k: string) => (k.startsWith(pre) ? k.slice(pre.length) : null)
+        const tid = safeId('a_' + ev.id + '_' + r.id)
+        const p = planTodos(ev, S()).find((x) => x.ruleId === r.id)
+        if (p && !S().todos.has(tid)) {
+          const done = !!b.done || !!b.checks?.includes(label)
+          await putTodo({
+            id: tid, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis, ruleId: r.id, verify: p.verify,
+            eventId: ev.id, project: ev.project || '', done, doneAt: done ? b.checkAt?.[label] || b.doneAt || nowIso() : null,
+            checks: (b.checks || []).map(own).filter((x): x is string => x != null), checkAt: keepAt(b.checkAt, own), created: nowIso(),
+          })
+        }
+        await putTodo(withSubs(b, b.subs.filter((x) => x !== label)))
+      }
+    }
+    appStore.setState({ mig: [...S().mig, 'etmfsolo1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('scant1')) {
+    /* Tarlatamab SIV 는 eTMF 업로드가 따로 있으니 "서명문서 스캔"만. 열린 방문 후 정리의 하위 항목 이름도 바꾼다 (체크·문서 체크는 따라간다) */
+    const fresh = inSync()
+    const base = S().rules.find((r) => r.id === SCAN_RULE.id) ?? SCAN_RULE
+    let rules = S().rules
+    if (!rules.some((r) => r.id === TARL_SIV_SCAN.id)) {
+      const i = rules.indexOf(base)
+      const add = { ...base, ...TARL_SIV_SCAN }
+      rules = i < 0 ? [...rules, add] : [...rules.slice(0, i + 1), add, ...rules.slice(i + 1)]
+    }
+    appStore.setState({ rules })
+    for (const ev of [...S().events.values()]) {
+      if (kindOf(ev) !== 'visit' || ev.project !== TARL_SIV_SCAN.project || ev.type !== TARL_SIV_SCAN.type) continue
+      const b = S().todos.get(safeId('a_' + ev.id + '_' + GROUPS.post.id))
+      const from = subLabel(ev, base.title, S().projects)
+      if (b && !b.done && b.subs?.includes(from)) await renameSub(b.id, from, subLabel(ev, TARL_SIV_SCAN.title, S().projects))
+    }
+    await keepSynced(fresh)
+    appStore.setState({ mig: [...S().mig, 'scant1'] })
     await putConfig()
   }
 }

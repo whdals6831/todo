@@ -152,7 +152,7 @@ export interface PlannedTodo {
 
 /**
  * 외근 할 일 묶음: 방문 전 일은 "{type} Preparation", 방문 후 자잘한 일은 "{type} 방문 후 정리" 하나에 하위 항목으로.
- * 하위 항목이 따로 있는 일(Pre-Checklist·FUL), 리포트, [대기] 일은 따로 둔다. 둘 이상일 때만 묶는다.
+ * 하위 항목이 따로 있는 일(Pre-Checklist·FUL), 리포트, 서명문서 eTMF 업로드, [대기] 일은 따로 둔다. 둘 이상일 때만 묶는다.
  * 서명문서·eTMF 일이 들어가면 그 문서 체크 목록은 묶음에서 펼쳐 본다
  */
 export const GROUPS = {
@@ -163,7 +163,8 @@ export const GROUPS = {
 export const isGroupRule = (id?: string | null) => id === GROUPS.prep.id || id === GROUPS.post.id
 
 export function groupOf(r: Rule): keyof typeof GROUPS | null {
-  if (r.subs?.length || r.key === 'OWN' || /^\s*\[대기\]/.test(r.title)) return null
+  /* 서명문서 eTMF 업로드(key ETMF)는 따로 빼 달라고 한 일이라 묶지 않는다 */
+  if (r.subs?.length || r.key === 'OWN' || r.key === 'ETMF' || /^\s*\[대기\]/.test(r.title)) return null
   if (r.dir === 'before' || r.unit === 'ADD') return 'prep'
   return r.n > 0 ? 'post' : null
 }
@@ -200,13 +201,17 @@ export function copyText(t: Pick<Todo, 'ruleId' | 'eventId'>, { rules, events, p
   return r?.copy && ev ? filler(ev, projects)(r.copy) : ''
 }
 
+/** 묶음의 하위 항목 이름: 규칙 글에서 과제·기관과 맨 앞 방문 종류를 뺀다 (묶음 제목에 있으니) */
+export function subLabel(ev: CalEvent, title: string, projects: Project[]) {
+  const lead = new RegExp('^' + escapeRegExp(ev.type || '') + '\\s+', 'i')
+  return filler(ev, projects)(title.replace(/\{(site|proj)\}/g, ' ')).replace(lead, '')
+}
+
 /** 외근 하나가 만들 자동 할 일 목록 (외근에서 지운 규칙은 빼고, 방문 전·후 자잘한 일은 묶어서) */
 export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
   const fill = filler(ev, ctx.projects)
   const skip = new Set(ev.skip || [])
-  /* 묶음의 하위 항목 이름: 과제·기관과 맨 앞 방문 종류는 묶음 제목에 있으니 뺀다 */
-  const lead = new RegExp('^' + escapeRegExp(ev.type || '') + '\\s+', 'i')
-  const label = (r: Rule) => fill(r.title.replace(/\{(site|proj)\}/g, ' ')).replace(lead, '')
+  const label = (r: Rule) => subLabel(ev, r.title, ctx.projects)
   const rs = rulesFor(ev, ctx.rules).filter((r) => !skip.has(r.id))
   const one = rs.map((r) => {
     const { due, basis } = computeDue(ev, r, ctx)

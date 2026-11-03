@@ -61,6 +61,9 @@ export const SCAN_RULE: Rule = {
   basis: '본인 기준: 방문 때 받아 온 서명문서는 다음 영업일(WD1)에 스캔·eTMF 업로드', start: 'due', startN: 0,
 }
 
+/** Tarlatamab SIV 는 eTMF 업로드가 따로 있으니 스캔만 (같은 key 로 덮어쓴다) */
+export const TARL_SIV_SCAN = { id: 'r-scan-t-siv', project: 'Amgen - Tarlatamab', type: 'SIV', title: '{site} {type} 서명문서 스캔' }
+
 /** 방문 전 서명문서 준비·인쇄 규칙 */
 export const PREP_RULES: Rule[] = [
   {

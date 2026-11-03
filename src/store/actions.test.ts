@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, ENF, FUL_PACKS, PRE_SIV, WID_RULE } from '../domain/constants.ts'
+import { BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, ENF, FUL_PACKS, PRE_SIV, SCAN_RULE, WID_RULE } from '../domain/constants.ts'
 import { nowIso } from '../domain/date.ts'
 import { isFarSite } from '../domain/project.ts'
-import { genKey, partDues } from '../domain/rules.ts'
+import { genKey, partDues, planTodos } from '../domain/rules.ts'
 import type { CalEvent, Rule, Todo } from '../types/domain.ts'
 import {
   addFul, addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, withSubs,
@@ -24,7 +24,7 @@ beforeEach(async () => {
   await replaceAll({
     events: [], todos: [], fuls: [],
     config: {
-      rules: RULES, holidays: DEFAULT_HOLIDAYS, mig: ['ktx2', 'ktx1', 'enfss1', 'scan1', 'ful5', 'fulpack3', 'wid1'], notes: null,
+      rules: RULES, holidays: DEFAULT_HOLIDAYS, mig: ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'ful5', 'fulpack3', 'wid1'], notes: null,
       projects: [{ name: 'P', short: 'Pj', sites: [] }],
       companions: [{ project: 'P', keyword: 'OMF', items: ['로그 업데이트', '마일스톤 작성'] }],
     },
@@ -227,7 +227,7 @@ describe('저장된 규칙 옮기기', () => {
         { v: 'SIV', items: [], docs: [{ t: 'Delegation log', w: '' }] },
       ],
     }
-    const config = { rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10'], notes, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] }
+    const config = { rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10'], notes, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] }
     await replaceAll({ events: [], todos: [], fuls: [], config })
     const brz = () => getState().notes!['AZ - Breztri'].map((x) => (x.docs || []).map((d) => d.t))
     expect(brz()).toEqual([['Signed CV', 'Study Summary'], ['Delegation log']])
@@ -250,7 +250,7 @@ describe('저장된 규칙 옮기기', () => {
         },
       ],
     }
-    const config = { rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3'], notes, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] }
+    const config = { rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3'], notes, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] }
     await replaceAll({ events: [], todos: [], fuls: [], config })
     const mv = () => getState().notes!['AZ - Imjudo'][1].items
     const want = [
@@ -287,7 +287,7 @@ describe('방문 종류별 FUL (fulpack1)', () => {
       todos: [{ id: 'a_ev1_r-rpt', title: '가나대병원 PSVR 작성', due: '2026-10-28', eventId: 'ev1', ruleId: 'r-rpt', project: 'P', done: false }],
       fuls: [],
       config: {
-        rules: [rpt], holidays: DEFAULT_HOLIDAYS, mig: ['ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1'], notes: null,
+        rules: [rpt], holidays: DEFAULT_HOLIDAYS, mig: ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1'], notes: null,
         projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
       },
     })
@@ -311,7 +311,7 @@ describe('결재 상신 고치기 (fulpack2)', () => {
       ],
       config: {
         rules: [pack('r-rpt-psv', 'PSV', ['PSVR 작성', 'PSV 결재상신']), pack('r-rpt-mv', 'MV', ['MVR 작성'])],
-        holidays: DEFAULT_HOLIDAYS, mig: ['ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack3', 'brzful1', 'wid1'], notes: null,
+        holidays: DEFAULT_HOLIDAYS, mig: ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack3', 'brzful1', 'wid1'], notes: null,
         projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
       },
     })
@@ -333,7 +333,7 @@ describe('끝낸 할 일 정리 (rptfix1)', () => {
         { id: 'c', title: '가나대병원 SIV FUL', due: '2026-10-28', eventId: 'ev1', done: true, doneAt: '2026-10-27T05:00:00.000Z' },
       ],
       config: {
-        rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1'], notes: null,
+        rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1'], notes: null,
         projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
       },
     })
@@ -356,7 +356,7 @@ describe('끝낸 할 일 정리 (rptfix1)', () => {
         { id: 'f_b_rpt-fix', title: '나다병원 MVR FUL', followOf: 'b', basis: '직접 변경', ...follow },
       ],
       config: {
-        rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1'], notes: null,
+        rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1'], notes: null,
         projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
       },
     })
@@ -378,7 +378,7 @@ describe('Breztri PSV FUL (brzful1)', () => {
         { id: 'a_ev1_r-rpt-psv', title: '대구가톨릭대학교병원 PSV FUL', due: '2026-10-28', eventId: 'ev1', ruleId: 'r-rpt-psv', project: 'AZ - Breztri', subs: ['PSVR 작성', '내가 단 것', 'PSVR 결재 상신'], checks: ['PSVR 작성'], note: '메모', done: false },
       ],
       config: {
-        rules: [psv], holidays: DEFAULT_HOLIDAYS, mig: ['ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'wid1'], notes: null,
+        rules: [psv], holidays: DEFAULT_HOLIDAYS, mig: ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'wid1'], notes: null,
         projects: [{ name: 'AZ - Breztri', short: 'Breztri', sites: ['022. 대구가톨릭대학교병원(PI 김은진)'] }], companions: [],
       },
     })
@@ -405,7 +405,7 @@ describe('MV FUL 에 ISF Checklist·ICF Tracking Log, MV 당일 현장에서 써
         { id: 'b', title: '다른병원 MV FUL', due: '2026-10-01', ruleId: 'r-rpt-mv', subs: ['MVR 작성'], done: true },
       ],
       config: {
-        rules: [mv], holidays: DEFAULT_HOLIDAYS, mig: ['ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'wid1'], notes: null,
+        rules: [mv], holidays: DEFAULT_HOLIDAYS, mig: ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'wid1'], notes: null,
         projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [],
       },
     })
@@ -429,7 +429,7 @@ describe('엔플론시아는 SIV 도시락 예약 없음 (enflunch1)', () => {
         { id: 'a_e2_r-siv-lunch', title: '가나대병원 SIV 도시락 예약', due: '2026-11-10', eventId: 'e2', ruleId: 'r-siv-lunch', done: false },
       ],
       config: {
-        rules: [lunch], holidays: DEFAULT_HOLIDAYS, mig: ['ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'wid1'], notes: null,
+        rules: [lunch], holidays: DEFAULT_HOLIDAYS, mig: ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'wid1'], notes: null,
         projects: [], companions: [],
       },
     })
@@ -446,7 +446,7 @@ describe('WID 외근 일정 등록 (wid1)', () => {
     await replaceAll({
       events: [], fuls: [], todos: [],
       config: {
-        rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'enflunch1'],
+        rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'enflunch1'],
         notes: { 'MSD - 엔플론시아': sec(), 'AZ - Breztri': sec() }, projects: [], companions: [],
       },
     })
@@ -458,7 +458,7 @@ describe('WID 외근 일정 등록 (wid1)', () => {
 })
 
 describe('SIV Pre-Checklist 하위 항목 (presiv1)', () => {
-  const MIG = ['ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1']
+  const MIG = ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1']
   const pre: Rule = {
     id: 'r-b-pre-siv', key: '', type: 'SIV', project: BRZ, title: '{site} SIV Pre-Checklist 작성·ISF와 함께 PM 승인', dir: 'before', n: 2, unit: 'WD', send: false, verify: false, start: 'lead', startN: 2,
   }
@@ -497,7 +497,7 @@ describe('SIV Pre-Checklist 하위 항목 (presiv1)', () => {
 })
 
 describe('엔플론시아 SIV 계약서·ICF Site specific 업데이트 (enfss1)', () => {
-  const MIG = ['ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'group1', 'group2']
+  const MIG = ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'group1', 'group2']
   const cl: Rule = { id: 'r-e-cl', key: 'CL', type: 'SIV', project: ENF, title: '{site} SIV CL', dir: 'before', n: 2, unit: 'ADD', send: false, verify: false, start: 'due', startN: 0 }
   const old: CalEvent = { ...visit, id: 'old', type: 'SIV', project: ENF, site: '제일산부인과', date: '2026-10-23', createdDate: '2026-10-08' }
 
@@ -528,7 +528,7 @@ describe('엔플론시아 SIV 계약서·ICF Site specific 업데이트 (enfss1)
 })
 
 describe('방문 전·후 할 일 묶음 (group1)', () => {
-  const MIG = ['ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1']
+  const MIG = ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1']
   const r = (id: string, title: string, dir: 'before' | 'after', n: number, more: Partial<Rule> = {}): Rule => ({
     id, key: '', type: 'SIV', project: '*', title, dir, n, unit: 'WD', send: false, verify: false, start: 'due', startN: 0, ...more,
   })
@@ -585,7 +585,7 @@ describe('방문 전·후 할 일 묶음 (group1)', () => {
 })
 
 describe('외근 할 일 묶음 다시 맞추기 (group2)', () => {
-  const MIG = ['ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2']
+  const MIG = ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2']
   const r = (id: string, title: string, n: number): Rule => ({ id, key: '', type: 'SIV', project: '*', title, dir: 'before', n, unit: 'WD', send: false, verify: false, start: 'due', startN: 0 })
   const lunch = r('r-lunch', '{site} SIV 도시락 예약', 3)
   const print = r('r-print', '{site} SIV PPT 인쇄', 1)
@@ -609,7 +609,7 @@ describe('외근 할 일 묶음 다시 맞추기 (group2)', () => {
 
 describe('묶음의 문서 체크는 하위 항목 밑으로 (docs1)', () => {
   it('서명문서 체크는 첫 서명문서 일, eTMF 체크는 마지막 eTMF 일 밑으로 옮기고, 하위 항목 이름을 바꾸면 따라간다', async () => {
-    const MIG = ['ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2']
+    const MIG = ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2']
     await replaceAll({
       events: [], fuls: [],
       todos: [{
@@ -630,7 +630,7 @@ describe('묶음의 문서 체크는 하위 항목 밑으로 (docs1)', () => {
 
 describe('엔플론시아 Beta site 빼기 (enfbeta1)', () => {
   it('엔플론시아 규칙·열린 묶음 하위 항목·업무 노트에서 Beta site 일을 뺀다 (다른 과제는 그대로)', async () => {
-    const MIG = ['ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2', 'docs1']
+    const MIG = ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2', 'docs1']
     const beta: Rule = { id: 'r-e-beta', key: '', type: 'SIV', project: ENF, title: '{site} Beta site 안내용 예시 Case 작성 (PI 권한)', dir: 'before', n: 3, unit: 'WD', send: false, verify: false }
     const pre: Rule = { ...beta, id: 'r-e-pre', title: '{site} SIV Precheck list 결재 상신' }
     const sub = 'Beta site 안내용 예시 Case 작성 (PI 권한)'
@@ -696,5 +696,35 @@ describe('이미 등록한 지방 외근에 KTX 예매 (ktx2)', () => {
     expect(getState().todos.get('a_far_g-prep')).toMatchObject({ subs: ['KTX 예매', 'WID 외근 일정 등록', '내가 단 것', 'CL'], checks: ['CL'] })
     expect(getState().todos.get('a_past_g-prep')!.subs).toEqual(['WID 외근 일정 등록', '내가 단 것', 'CL'])
     expect(getState().todos.get('a_near_g-prep')!.subs).toEqual(['WID 외근 일정 등록', '내가 단 것', 'CL'])
+  })
+})
+
+describe('서명문서 eTMF 업로드는 따로 · Tarlatamab SIV 는 서명문서 스캔 (etmfsolo1, scant1)', () => {
+  const TARL = 'Amgen - Tarlatamab'
+  const MIG = ['ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2', 'docs1', 'enfbeta1']
+  const after = (id: string, key: string, title: string, n: number, project = '*'): Rule => ({ id, key, type: '*', project, title, dir: 'after', n, unit: 'WD', send: false, verify: false, start: 'due', startN: 0 })
+  const rules = [
+    { ...SCAN_RULE },
+    after('r-letter', 'FUL', '{site} {type} Follow-up Letter 발송', 5),
+    after('r-etmf-t', 'ETMF', '{site} {type} 서명문서 eTMF 업로드', 10, TARL),
+  ]
+  const ev: CalEvent = { ...visit, id: 'w', type: 'SIV', project: TARL, site: '원주세브란스', date: '2026-10-15', createdDate: '2026-10-01' }
+  const scan = '서명문서 스캔·eTMF 업로드'
+  const etmf = '서명문서 eTMF 업로드'
+
+  it('방문 후 정리에 들어간 eTMF 업로드를 낱개 할 일로 되돌리고(문서 체크째), 스캔은 "서명문서 스캔"으로 이름을 바꾼다', async () => {
+    await replaceAll({
+      events: [{ ...ev, genKey: genKey(ev, { rules, holidays: DEFAULT_HOLIDAYS }) }], fuls: [],
+      todos: [{
+        id: 'a_w_g-post', title: '원주세브란스 SIV 방문 후 정리', eventId: 'w', ruleId: 'g-post', project: TARL, done: false,
+        subs: [scan, 'Follow-up Letter 발송', etmf], checks: [scan, scan + ' › CV', etmf + ' › eTMF:SIV Report'], checkAt: { [etmf + ' › eTMF:SIV Report']: '2026-10-20' },
+      }],
+      config: { rules, holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [], companions: [] },
+    })
+    const s = getState()
+    expect(s.rules.map((r) => r.id)).toEqual(['r-scan', 'r-scan-t-siv', 'r-letter', 'r-etmf-t'])
+    expect(s.todos.get('a_w_r-etmf-t')).toMatchObject({ title: '원주세브란스 SIV 서명문서 eTMF 업로드', done: false, checks: ['eTMF:SIV Report'], checkAt: { 'eTMF:SIV Report': '2026-10-20' } })
+    expect(s.todos.get('a_w_g-post')).toMatchObject({ subs: ['서명문서 스캔', 'Follow-up Letter 발송'], checks: ['서명문서 스캔', '서명문서 스캔 › CV'] })
+    expect(planTodos(s.events.get('w')!, s).find((p) => p.ruleId === 'g-post')!.subs).toEqual(['서명문서 스캔', 'Follow-up Letter 발송'])
   })
 })

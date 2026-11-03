@@ -156,7 +156,7 @@ function OtherDayBody({ d, today }: { d: DateStr; today: DateStr }) {
   )
 }
 
-/** 완료율과 남은 일. 오늘은 17:50 이후에, 지난 날은 언제나 */
+/** 완료율과 남은 일 (오늘도 하루 종일 보인다) */
 function BriefCard({ d }: { d: DateStr }) {
   const nowMs = useUi((u) => u.now)
   const todos = useApp((st) => st.todos)
@@ -205,7 +205,7 @@ function BriefCard({ d }: { d: DateStr }) {
       )}
       {b.left.length > 0 ? (
         <>
-          <div className={s.lbl}>{b.past ? '못 끝낸 일' : '남은 일 · 내일(' + md(b.next) + ')로 넘길지 확인'}</div>
+          <div className={s.lbl}>{b.past ? '못 끝낸 일' : b.evening ? '남은 일 · 내일(' + md(b.next) + ')로 넘길지 확인' : '남은 일'}</div>
           <ul>
             {b.left.map((x) => (
               <li key={x.id}>

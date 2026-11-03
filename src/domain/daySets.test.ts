@@ -44,3 +44,17 @@ describe('브리핑의 하위 항목', () => {
     expect(b.subs.map((x) => [x.name, x.at])).toEqual([['SIVR 수정', '2026-10-28'], ['T-Sign', '2026-10-28T07:00:00.000Z']])
   })
 })
+
+describe('오늘 브리핑은 하루 종일', () => {
+  const todos = map([
+    { id: 'a', title: '끝낸 일', due: '2026-10-28', done: true, doneAt: '2026-10-28T01:00:00.000Z' },
+    { id: 'b', title: '남은 일', due: '2026-10-28' },
+  ])
+
+  it('오전에도 보이고, 퇴근 무렵(17:50 이후)에만 내일로 넘길지 묻는다', () => {
+    vi.setSystemTime(new Date('2026-10-28T10:00:00+09:00'))
+    expect(briefData('2026-10-28', new Date(), { todos, holidays: {} })).toMatchObject({ rate: 50, evening: false })
+    vi.setSystemTime(new Date('2026-10-28T17:55:00+09:00'))
+    expect(briefData('2026-10-28', new Date(), { todos, holidays: {} })).toMatchObject({ evening: true })
+  })
+})

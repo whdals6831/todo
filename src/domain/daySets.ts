@@ -119,13 +119,13 @@ export function checkedOn(d: DateStr, todos: Data['todos'], skip: Set<string>) {
     )
 }
 
-/** 브리핑을 보여 주는 시각 (17:50 이후, 또는 지난 날) */
+/** 퇴근 무렵 (17:50 이후): 오늘 브리핑의 남은 일에 "내일로 넘길지 확인"을 붙인다 */
 export const BRIEF_FROM_MIN = 17 * 60 + 50
 
-/** 브리핑 카드 내용. 오늘은 17:50 전이면 보이지 않는다 */
+/** 브리핑 카드 내용. 오늘도 하루 종일 보인다 (퇴근 무렵이면 evening) */
 export function briefData(t: DateStr, now: Date, data: Pick<Data, 'todos' | 'holidays'>) {
   const past = t < todayStr()
-  if (!past && now.getHours() * 60 + now.getMinutes() < BRIEF_FROM_MIN) return null
+  const evening = !past && now.getHours() * 60 + now.getMinutes() >= BRIEF_FROM_MIN
   let done: Todo[]
   let left: Todo[]
   if (past) {
@@ -142,6 +142,7 @@ export function briefData(t: DateStr, now: Date, data: Pick<Data, 'todos' | 'hol
   if (!goal) return null
   return {
     past,
+    evening,
     rate: Math.round((done.length / goal) * 100),
     goal,
     done: [...done].sort((a, b) => (a.doneAt || '').localeCompare(b.doneAt || '')),

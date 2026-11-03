@@ -556,7 +556,7 @@ describe('방문 전·후 할 일 묶음 (group1)', () => {
     expect(getState().todos.get('a_siv_g-post')).toMatchObject({ title: '가나대병원 SIV 방문 후 정리', subs: ['Follow-up Letter 발송', 'PM - SIV (WD10)'] })
   })
 
-  it('예전 외근: 열린 낱개 할 일은 묶음 하위 항목으로 옮기고(메모도), 끝낸 것은 체크해 둔다. 지난 외근에 열린 일이 없으면 묶지 않는다', async () => {
+  it('예전 외근: 열린 낱개 할 일은 묶음 하위 항목으로 옮기고(메모도), 끝낸 것은 체크만 남기고 지운다. 지난 외근에 열린 일이 없으면 묶지 않는다', async () => {
     const past: CalEvent = { ...ev, id: 'past', date: '2026-10-05', createdDate: '2026-09-20' }
     const t = (e: string, rule: string, title: string, more: Partial<Todo> = {}): Todo => ({
       id: 'a_' + e + '_' + rule, title, due: '2026-10-20', eventId: e, ruleId: rule, project: 'P', done: false, ...more,
@@ -575,12 +575,59 @@ describe('방문 전·후 할 일 묶음 (group1)', () => {
       config,
     })
     const ids = todos().map((x) => x.id).sort()
-    expect(ids).toEqual(['a_past_r-letter', 'a_past_r-lunch', 'a_past_r-pm', 'a_past_r-print', 'a_siv_g-post', 'a_siv_g-prep', 'a_siv_r-edc'])
+    expect(ids).toEqual(['a_past_r-letter', 'a_past_r-lunch', 'a_past_r-pm', 'a_past_r-print', 'a_siv_g-post', 'a_siv_g-prep'])
     expect(getState().todos.get('a_siv_g-prep')).toMatchObject({
       subs: ['EDC 계정 요청', '도시락 예약', '메뉴 확인', '영수증', 'PPT 인쇄', '서명서류 재확인'], checks: ['EDC 계정 요청', '메뉴 확인', '서명서류 재확인 › Delegation log'],
       checkAt: { 'EDC 계정 요청': '2026-10-10T01:00:00.000Z', '메뉴 확인': '2026-10-11' },
       note: '가나대병원 SIV 도시락 예약: 10명', done: false,
     })
+  })
+})
+
+describe('묶음에 체크된 끝낸 낱개 할 일 지우기 (dedup1)', () => {
+  const MIG = ['enfprep2', 'subdone1', 'enfsteps1', 'scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2', 'docs1', 'enfbeta1']
+  const r = (id: string, title: string, dir: 'before' | 'after', n: number): Rule => ({
+    id, key: '', type: 'SIV', project: '*', title, dir, n, unit: 'WD', send: false, verify: false, start: 'due', startN: 0,
+  })
+  const rules = [
+    r('r-cl', '{site} {type} Confirmation Letter 발송', 'before', 1),
+    r('r-print', '{site} SIV PPT 인쇄', 'before', 1),
+    r('r-letter', '{site} {type} Follow-up Letter 발송', 'after', 5),
+    r('r-pm', 'PM - {proj} {site} {type} (WD10)', 'after', 10),
+  ]
+  const config = { rules, holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] }
+  const ev: CalEvent = { ...visit, id: 'siv', type: 'SIV', site: '가나대병원', date: '2026-10-28', createdDate: '2026-10-12' }
+  const t = (id: string, rule: string, title: string, more: Partial<Todo> = {}): Todo => ({
+    id, title, due: '2026-10-20', eventId: 'siv', ruleId: rule, project: 'P', done: true, doneAt: '2026-10-10T01:00:00.000Z', ...more,
+  })
+
+  it('같은 제목의 끝낸 낱개 할 일은 지우고(메모·문서 체크는 묶음으로), 제목을 바꾼 일·이어진 할 일이 있는 일·체크 안 된 일은 둔다', async () => {
+    await replaceAll({
+      events: [{ ...ev, genKey: genKey(ev, config) }], fuls: [],
+      todos: [
+        t('a_siv_g-prep', 'g-prep', '가나대병원 SIV Preparation', {
+          done: false, doneAt: null, subs: ['Confirmation Letter 발송', 'PPT 인쇄'], checks: ['Confirmation Letter 발송', 'PPT 인쇄'],
+          checkAt: { 'Confirmation Letter 발송': '2026-10-10T01:00:00.000Z', 'PPT 인쇄': '2026-10-10T01:00:00.000Z' },
+        }),
+        t('a_siv_g-post', 'g-post', '가나대병원 SIV 방문 후 정리', {
+          done: false, doneAt: null, subs: ['Follow-up Letter 발송', 'PM - SIV (WD10)'], checks: ['PM - SIV (WD10)'],
+        }),
+        t('a_siv_r-cl', 'r-cl', '가나대병원 SIV Confirmation Letter 발송', { note: '메일로', checks: ['서명 페이지'], checkAt: { '서명 페이지': '2026-10-09' } }),
+        t('ss', 'r-cl-manual', '가나대병원 Site Selection Confirmation Letter 발송'),
+        t('a_siv_r-print', 'r-print', '가나대병원 SIV PPT 인쇄'),
+        { id: 'next', title: 'PPT 파일 보관', due: '2026-10-21', project: 'P', done: false, followOf: 'a_siv_r-print' },
+        t('a_siv_r-pm', 'r-pm', 'PM - Pj 가나대병원 SIV (WD10)'),
+        t('a_siv_r-letter', 'r-letter', '가나대병원 SIV Follow-up Letter 발송'),
+      ],
+      config,
+    })
+    const ids = new Set(todos().map((x) => x.id))
+    expect(['a_siv_r-cl', 'a_siv_r-pm'].filter((x) => ids.has(x))).toEqual([])
+    expect(['ss', 'a_siv_r-print', 'next', 'a_siv_r-letter'].filter((x) => ids.has(x))).toEqual(['ss', 'a_siv_r-print', 'next', 'a_siv_r-letter'])
+    expect(getState().todos.get('a_siv_g-prep')).toMatchObject({
+      checks: ['Confirmation Letter 발송', 'PPT 인쇄', 'Confirmation Letter 발송 › 서명 페이지'], note: '가나대병원 SIV Confirmation Letter 발송: 메일로',
+    })
+    expect(getState().mig).toContain('dedup1')
   })
 })
 

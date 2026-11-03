@@ -136,6 +136,8 @@ export interface PlannedPart {
   reg: boolean
   /** 이 일 밑에 보이는 단계 (규칙의 steps) */
   steps: string[]
+  /** 낱개 할 일이었다면 붙었을 제목 (따로 남은 예전 낱개 할 일과 같은 일인지 볼 때) */
+  title: string
 }
 
 export interface PlannedTodo {
@@ -235,7 +237,7 @@ export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
     /* 마감 순, 같으면 규칙 순서대로. 이름이 겹치면 하나만 */
     const parts = idx
       .map((i) => ({
-        ruleId: rs[i].id, sub: label(rs[i]), due: one[i].due, start: one[i].start, reg: rs[i].start === 'reg', verify: one[i].verify, i,
+        ruleId: rs[i].id, sub: label(rs[i]), due: one[i].due, start: one[i].start, reg: rs[i].start === 'reg', verify: one[i].verify, i, title: one[i].title,
         steps: [...new Set((rs[i].steps || []).map(fill).filter(Boolean))],
       }))
       .sort((a, b) => a.due.localeCompare(b.due) || a.i - b.i)
@@ -248,7 +250,7 @@ export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
       basis: G.what + ' 묶음 · 마지막 항목 마감 ' + md(due) + ' (항목별 날짜는 하위 항목 옆에)',
       startBasis: '가장 이른 항목 착수 ' + md(start),
       subs: parts.map((x) => x.sub),
-      parts: parts.map(({ ruleId, sub, due, start, reg, steps }) => ({ ruleId, sub, due, start, reg, steps })),
+      parts: parts.map(({ ruleId, sub, due, start, reg, steps, title }) => ({ ruleId, sub, due, start, reg, steps, title })),
     })
   }
   return [...one.filter((_, i) => !bundled.has(i)), ...out]

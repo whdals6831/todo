@@ -330,6 +330,35 @@ async function syncBundle(ev: CalEvent, p: PlannedTodo, mine: Todo[], regen: boo
     for (const c of [...S().todos.values()].filter((x) => x.parentId === t.id)) await putTodo({ ...c, parentId: id })
     await deleteTodo(t.id)
   }
+  await dropDoneParts(ev, p)
+}
+
+const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim()
+
+/**
+ * 묶음 하위 항목으로 이미 체크된, 따로 남은 끝낸 낱개 할 일을 지운다 (브리핑·외근 편집에 같은 일이 두 번 보이지 않게).
+ * 제목을 손으로 바꾼 일(다른 일일 수 있다)·하위 항목이 있는 일·이어진 할 일이 있는 일은 그대로 둔다. 메모와 문서 체크는 묶음으로 옮긴다
+ */
+async function dropDoneParts(ev: CalEvent, p: PlannedTodo) {
+  const id = safeId('a_' + ev.id + '_' + p.ruleId)
+  const b0 = S().todos.get(id)
+  if (!b0 || !p.parts) return
+  const all = [...S().todos.values()]
+  const mine = all.filter((t) => t.eventId === ev.id)
+  let b = b0
+  const drop: Todo[] = []
+  for (const x of p.parts) {
+    if (!b.subs?.includes(x.sub) || !b.checks?.includes(x.sub)) continue
+    for (const t of partOf(x, mine)) {
+      if (!t.done || t.subs?.length || oneLine(t.title) !== oneLine(x.title) || all.some((c) => c.parentId === t.id || c.followOf === t.id)) continue
+      for (const c of t.checks || []) b = checkWith(b, x.sub + DOC_SEP + c, t.checkAt?.[c])
+      const note = t.note?.trim()
+      if (note && !(b.note || '').includes(note)) b = { ...b, note: [b.note, t.title + ': ' + note].filter(Boolean).join('\n') }
+      drop.push(t)
+    }
+  }
+  if (b !== b0) await putTodo(b)
+  for (const t of drop) await deleteTodo(t.id)
 }
 
 /** 외근의 할 일 묶음을 모두 맞춘다 (이미 맞춘 외근을 손볼 때) */
@@ -1299,6 +1328,15 @@ async function migrate() {
     }
     await keepSynced(fresh)
     appStore.setState({ mig: [...S().mig, 'enfprep2'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('dedup1')) {
+    /* 묶음 하위 항목으로 체크까지 옮겨졌는데 따로 남아 있던 끝낸 낱개 할 일을 지운다 */
+    for (const ev of [...S().events.values()]) {
+      if (kindOf(ev) !== 'visit' || !ev.genKey) continue
+      for (const p of planTodos(ev, S())) if (p.parts) await dropDoneParts(ev, p)
+    }
+    appStore.setState({ mig: [...S().mig, 'dedup1'] })
     await putConfig()
   }
 }

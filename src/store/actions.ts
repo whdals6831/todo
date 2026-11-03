@@ -593,16 +593,40 @@ export async function toggleDone(t: Todo) {
   await putTodo({ ...t, done: !t.done, doneAt: !t.done ? new Date().toISOString() : null })
 }
 
-/** 서명문서 체크리스트에서 문서 하나를 체크하거나 푼다 */
-/** 체크리스트(서명문서·하위 항목) 한 줄 체크·해제 */
+/** 체크 하나를 켜거나 끈다 (켤 때 시각을 남긴다) */
+const setCheck = (t: Todo, name: string, on: boolean): Todo => {
+  const cur = t.checks || []
+  if (cur.includes(name) === on) return t
+  const checkAt = keepAt(t.checkAt, (x) => (x === name ? null : x)) || {}
+  if (on) checkAt[name] = nowIso()
+  return { ...t, checks: on ? [...cur, name] : cur.filter((x) => x !== name), checkAt }
+}
+
+/** 하위 항목을 다 체크하면 할 일도 끝낸 것으로, 끝낸 할 일의 하위 항목을 풀면 다시 연다 */
+const settleDone = (t: Todo): Todo => {
+  const subs = t.subs || []
+  if (!subs.length) return t
+  const all = subs.every((x) => t.checks?.includes(x))
+  if (all && !t.done) return { ...t, done: true, doneAt: nowIso() }
+  if (!all && t.done) return { ...t, done: false, doneAt: null }
+  return t
+}
+
+/** 체크리스트(서명문서·하위 항목) 한 줄 체크·해제. 하위 항목이면 할 일 완료도 따라간다 */
 export async function toggleCheck(id: string, name: string) {
   const t = S().todos.get(id)
   if (!t) return
-  const cur = t.checks || []
-  const on = cur.includes(name)
-  const checkAt = keepAt(t.checkAt, (x) => (x === name ? null : x)) || {}
-  if (!on) checkAt[name] = nowIso()
-  await putTodo({ ...t, checks: on ? cur.filter((x) => x !== name) : [...cur, name], checkAt })
+  const n = setCheck(t, name, !(t.checks || []).includes(name))
+  await putTodo((t.subs || []).includes(name) ? settleDone(n) : n)
+}
+
+/** 묶음 하위 항목 밑 단계 체크: 단계를 다 체크하면 그 하위 항목도 체크, 하나라도 풀면 하위 항목도 푼다 */
+export async function toggleStep(id: string, sub: string, step: string, steps: string[]) {
+  const t = S().todos.get(id)
+  if (!t) return
+  const key = (x: string) => sub + DOC_SEP + x
+  const n = setCheck(t, key(step), !(t.checks || []).includes(key(step)))
+  await putTodo(settleDone(setCheck(n, sub, steps.every((x) => n.checks?.includes(key(x))))))
 }
 
 const underSub = (name: string, sub: string) => name === sub || name.startsWith(sub + DOC_SEP)
@@ -1160,6 +1184,38 @@ async function migrate() {
     }
     await keepSynced(fresh)
     appStore.setState({ mig: [...S().mig, 'scant1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('enfsteps1')) {
+    /* 엔플론시아 계약서·ICF Site specific 업데이트에 단계 (Preparation 에서 그 항목 밑에 보인다).
+       오늘 이후 엔플론시아 SIV 의 열린 Preparation 에 없으면 맨 위(날짜 순 자리)에 넣는다 */
+    const fresh = inSync()
+    const ss = new Map(ENF_SS_RULES.map((r) => [r.id, r]))
+    appStore.setState({ rules: S().rules.map((r) => (ss.has(r.id) ? { ...r, steps: [...(ss.get(r.id)!.steps || [])] } : r)) })
+    const today = todayStr()
+    for (const ev of [...S().events.values()]) {
+      if (kindOf(ev) !== 'visit' || ev.project !== ENF || ev.type !== 'SIV' || ev.date < today) continue
+      if (ev.skip?.some((x) => ss.has(x))) await putEvent({ ...ev, skip: ev.skip.filter((x) => !ss.has(x)) })
+      const p = planTodos(S().events.get(ev.id)!, S()).find((x) => x.ruleId === GROUPS.prep.id)
+      const old = p && S().todos.get(safeId('a_' + ev.id + '_' + p.ruleId))
+      const add = (p?.parts || []).filter((x) => ss.has(x.ruleId) && !old?.subs?.includes(x.sub))
+      if (!p || !old || old.done || !add.length) continue
+      const cur = { subs: old.subs || [], checks: old.checks || [], checkAt: old.checkAt || {}, note: old.note || '' }
+      const b = mergeBundle(cur, (p.parts || []).filter((x) => add.includes(x) || cur.subs.includes(x.sub)), [])
+      await putTodo({ ...old, subs: b.subs })
+    }
+    await keepSynced(fresh)
+    appStore.setState({ mig: [...S().mig, 'enfsteps1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('subdone1')) {
+    /* 하위 항목을 다 체크한 열린 묶음은 끝낸 것으로 (끝낸 시각은 마지막 체크) */
+    for (const t of [...S().todos.values()]) {
+      if (t.done || !isGroupRule(t.ruleId) || !t.subs?.length || !t.subs.every((x) => t.checks?.includes(x))) continue
+      const last = t.subs.map((x) => t.checkAt?.[x] || '').sort().at(-1)
+      await putTodo({ ...t, done: true, doneAt: last && last.length > 10 ? last : last ? last + 'T09:00:00+09:00' : nowIso() })
+    }
+    appStore.setState({ mig: [...S().mig, 'subdone1'] })
     await putConfig()
   }
 }

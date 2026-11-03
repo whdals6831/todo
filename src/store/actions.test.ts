@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, ENF, FUL_PACKS, PRE_SIV, SCAN_RULE, WID_RULE } from '../domain/constants.ts'
+import { BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, ENF, ENF_SS_RULES, FUL_PACKS, PRE_SIV, SCAN_RULE, WID_RULE } from '../domain/constants.ts'
 import { nowIso } from '../domain/date.ts'
 import { isFarSite } from '../domain/project.ts'
-import { genKey, partDues, planTodos } from '../domain/rules.ts'
+import { bundleParts, genKey, partDues, planTodos } from '../domain/rules.ts'
 import type { CalEvent, Rule, Todo } from '../types/domain.ts'
 import {
-  addFul, addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, withSubs,
+  addFul, addSub, addTodo, dismissTodo, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, toggleStep, withSubs,
 } from './actions.ts'
 import { createMemoryRepository } from './localRepository.ts'
 import { getState } from './store.ts'
@@ -726,5 +726,52 @@ describe('서명문서 eTMF 업로드는 따로 · Tarlatamab SIV 는 서명문�
     expect(s.todos.get('a_w_r-etmf-t')).toMatchObject({ title: '원주세브란스 SIV 서명문서 eTMF 업로드', done: false, checks: ['eTMF:SIV Report'], checkAt: { 'eTMF:SIV Report': '2026-10-20' } })
     expect(s.todos.get('a_w_g-post')).toMatchObject({ subs: ['서명문서 스캔', 'Follow-up Letter 발송'], checks: ['서명문서 스캔', '서명문서 스캔 › CV'] })
     expect(planTodos(s.events.get('w')!, s).find((p) => p.ruleId === 'g-post')!.subs).toEqual(['서명문서 스캔', 'Follow-up Letter 발송'])
+  })
+})
+
+describe('하위 항목을 다 체크하면 완료 · 단계 (enfsteps1, subdone1)', () => {
+  it('하위 항목을 다 체크하면 할 일이 끝나고, 하나를 풀면 다시 열린다 (문서 체크는 상관없다)', async () => {
+    const id = await addTodo({ title: '가 SIV Preparation', due: '2026-10-19', subs: ['A', 'B'], done: false })
+    await toggleCheck(id, 'A')
+    await toggleCheck(id, 'A › CV')
+    expect(getState().todos.get(id)!.done).toBe(false)
+    await toggleCheck(id, 'B')
+    expect(getState().todos.get(id)).toMatchObject({ done: true })
+    await toggleCheck(id, 'A')
+    expect(getState().todos.get(id)).toMatchObject({ done: false, doneAt: null })
+  })
+
+  it('단계를 다 체크하면 그 하위 항목도 체크되고, 단계 하나를 풀면 하위 항목도 풀린다', async () => {
+    const id = await addTodo({ title: '가 SIV Preparation', due: '2026-10-19', subs: ['계약서', 'CL'], checks: ['CL'], done: false })
+    const steps = ['작성', 'PM 승인 확인']
+    await toggleStep(id, '계약서', '작성', steps)
+    expect(getState().todos.get(id)).toMatchObject({ checks: ['CL', '계약서 › 작성'], done: false })
+    await toggleStep(id, '계약서', 'PM 승인 확인', steps)
+    expect(getState().todos.get(id)).toMatchObject({ done: true })
+    expect(getState().todos.get(id)!.checks).toContain('계약서')
+    await toggleStep(id, '계약서', '작성', steps)
+    expect(getState().todos.get(id)).toMatchObject({ done: false })
+    expect(getState().todos.get(id)!.checks).not.toContain('계약서')
+  })
+
+  it('엔플론시아 계약서·ICF 규칙에 단계를 달고, 오늘 이후 엔플론시아 SIV Preparation 에 없으면 맨 위에 넣는다. 다 체크한 열린 묶음은 끝낸다', async () => {
+    const MIG = ['scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2', 'docs1', 'enfbeta1']
+    const cl: Rule = { id: 'r-e-cl', key: 'CL', type: 'SIV', project: ENF, title: '{site} SIV CL', dir: 'before', n: 2, unit: 'ADD', send: false, verify: false, start: 'due', startN: 0 }
+    const rules = [...ENF_SS_RULES.map((r) => ({ ...r, steps: undefined })), cl]
+    const ev: CalEvent = { ...visit, id: 'sc', type: 'SIV', project: ENF, site: 'SC제일산부인과', date: '2026-10-21', createdDate: '2026-10-05' }
+    await replaceAll({
+      events: [{ ...ev, genKey: genKey(ev, { rules, holidays: DEFAULT_HOLIDAYS }), skip: ['r-e-sscontract'] }], fuls: [],
+      todos: [
+        { id: 'a_sc_g-prep', title: 'SC제일산부인과 SIV Preparation', eventId: 'sc', ruleId: 'g-prep', project: ENF, done: false, subs: ['CL', '내 할 일'], checks: ['CL'] },
+        { id: 'full', title: '다 한 묶음', ruleId: 'g-post', done: false, subs: ['X', 'Y'], checks: ['X', 'Y'], checkAt: { X: '2026-10-08T01:00:00.000Z', Y: '2026-10-09T02:00:00.000Z' } },
+      ],
+      config: { rules, holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [], companions: [] },
+    })
+    const s = getState()
+    expect(s.rules.find((r) => r.id === 'r-e-ssicf')!.steps).toEqual(['작성', 'ASF 작성', 'WID 상신', 'PM 결재 확인', 'T-sign 요청', 'WID에 T-sign 본 업로드'])
+    expect(s.events.get('sc')!.skip).toEqual([])
+    expect(s.todos.get('a_sc_g-prep')!.subs).toEqual(['계약서 Site specific 업데이트', 'ICF Site specific 업데이트', 'CL', '내 할 일'])
+    expect(bundleParts(s.todos.get('a_sc_g-prep')!, s)['계약서 Site specific 업데이트'].steps).toEqual(['작성', 'WID 결재 상신', 'PM 승인 확인'])
+    expect(s.todos.get('full')).toMatchObject({ done: true, doneAt: '2026-10-09T02:00:00.000Z' })
   })
 })

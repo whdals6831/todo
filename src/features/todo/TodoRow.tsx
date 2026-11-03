@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { localDay, md, todayStr } from '@/domain/date.ts'
 import { dLabel, isUrgent } from '@/domain/priority.ts'
 import { projShort } from '@/domain/project.ts'
-import { copyText, isGroupRule, partDues } from '@/domain/rules.ts'
+import { bundleParts, copyText, isGroupRule } from '@/domain/rules.ts'
 import { docListsFor } from '@/domain/signDocs.ts'
 import { Button } from '@/components/ui/Button.tsx'
 import { Highlight } from '@/components/ui/Highlight.tsx'
@@ -10,7 +10,7 @@ import { ConfirmLine } from '@/components/ui/Layout.tsx'
 import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
-import { addSub, dismissTodo, renameSub, rollOver, toSomeday, toggleCheck, toggleDone } from '@/store/actions.ts'
+import { addSub, dismissTodo, renameSub, rollOver, toSomeday, toggleCheck, toggleDone, toggleStep } from '@/store/actions.ts'
 import { openModal, openPopover, useApp } from '@/store/ui.ts'
 import type { Todo } from '@/types/domain.ts'
 import { startDrag, wasJustDropped } from '../drag/drag.ts'
@@ -48,11 +48,13 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
      외근 할 일 묶음(Preparation 등)은 문서 목록을 그 하위 항목(서명문서 준비 등) 밑에 달고, 체크는 "하위 항목 › 문서" 이름으로 */
   const lists = group ? [] : docListsFor(t.title, t, notes, events)
   const shown = lists.find((l) => l.key === open)
-  /* 묶음 할 일은 하위 항목마다 그 일의 날짜를 오른쪽에 (지났으면 빨갛게) */
-  const dues = t.done ? {} : partDues(t, { rules, holidays, events, projects })
+  /* 묶음 할 일은 하위 항목마다 그 일의 날짜를 오른쪽에 (지났으면 빨갛게), 단계가 있는 일(엔플론시아 계약서·ICF)은 밑에 단계를 */
+  const parts = t.done ? {} : bundleParts(t, { rules, holidays, events, projects })
+  const dues = Object.fromEntries(Object.entries(parts).map(([k, x]) => [k, x.due]))
   const today = todayStr()
   const subs = (t.subs || []).map((x) => ({
     t: x, due: dues[x], late: !!dues[x] && dues[x] < today && !checks.includes(x), docs: group ? docListsFor(x, t, notes, events) : [],
+    steps: parts[x]?.steps,
   }))
   const checked = (items: { t: string }[], pre: string) => items.filter((d) => checks.includes(pre + d.t)).length
 
@@ -76,13 +78,18 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   )
 
   /* 체크해도 편집 창이 열리지 않게. 하위 항목(sub)은 글자를 눌러 고치고, 줄을 골랐으면 맨 아래에 입력칸 */
-  const checklist = (items: { t: string; w?: string; due?: string; late?: boolean; docs?: typeof lists }[], pre: string, sub = false) => (
+  const checklist = (
+    items: { t: string; w?: string; due?: string; late?: boolean; docs?: typeof lists; steps?: string[] }[],
+    pre: string,
+    sub = false,
+    toggle = (name: string) => toggleCheck(t.id, pre + name),
+  ) => (
     <ol className={cx(s.docs, sub && Object.keys(dues).length > 0 && s.subList)} onClick={(e) => e.stopPropagation()}>
       {items.map((d, i) => {
         const on = checks.includes(pre + d.t)
         return (
           <li key={i} className={cx(on && s.docOn, d.late && s.subLate)}>
-            <RoundCheckbox checked={on} onToggle={() => toggleCheck(t.id, pre + d.t)} label={d.t + ' 체크'} />
+            <RoundCheckbox checked={on} onToggle={() => toggle(d.t)} label={d.t + ' 체크'} />
             {sub ? <SubText id={t.id} text={d.t} /> : <span className={s.docT}>{d.t}</span>}
             {d.due && <span className={cx(s.subDue, d.late && s.late)}>{md(d.due)}</span>}
             {d.w && <span className={s.docW}>{d.w}</span>}
@@ -96,6 +103,12 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
                 </div>
               )
             })}
+            {/* 단계: 다 체크하면 이 하위 항목도 체크된다 (끝낸 하위 항목이면 접어 둔다) */}
+            {!on && !!d.steps?.length && (
+              <div className={s.subDocs}>
+                {checklist(d.steps.map((x) => ({ t: x })), d.t + ' › ', false, (x) => toggleStep(t.id, d.t, x, d.steps!))}
+              </div>
+            )}
           </li>
         )
       })}

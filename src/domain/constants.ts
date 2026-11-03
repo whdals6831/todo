@@ -113,11 +113,13 @@ export const PRE_SIV = {
 
 /** 엔플론시아 SIV 를 등록하면 제일 먼저: 계약서·ICF Site specific 업데이트 (등록한 날 착수·마감 → Preparation 맨 위).
     key 가 "SIV 예정" 준비 할 일과 같아서, 준비 할 일이 있으면 그것을 넘겨받는다 */
-export const ENF_SS_RULES: Rule[] = [
-  ['CONTRACT', 'r-e-sscontract', '계약서'],
-  ['ICF', 'r-e-ssicf', 'ICF'],
-].map(([key, id, what]) => ({
-  id, key, type: 'SIV', project: ENF, title: '{site} SIV ' + what + ' Site specific 업데이트',
+export const ENF_SS_RULES: Rule[] = (
+  [
+    ['CONTRACT', 'r-e-sscontract', '계약서', ['작성', 'WID 결재 상신', 'PM 승인 확인']],
+    ['ICF', 'r-e-ssicf', 'ICF', ['작성', 'ASF 작성', 'WID 상신', 'PM 결재 확인', 'T-sign 요청', 'WID에 T-sign 본 업로드']],
+  ] as const
+).map(([key, id, what, steps]) => ({
+  id, key, type: 'SIV', project: ENF, title: '{site} SIV ' + what + ' Site specific 업데이트', steps: [...steps],
   dir: 'after', n: 0, unit: 'ADD', send: false, verify: false, basis: '본인 기준: Non-IRB 기관 급한 개시 → 계약서·ICF 가 가장 먼저 (등록 당일)', start: 'reg', startN: 0,
 }))
 

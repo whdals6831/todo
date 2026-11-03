@@ -134,6 +134,8 @@ export interface PlannedPart {
   start: DateStr
   /** 외근 등록한 날 착수 — 예전 외근에는 넣지 않는다 */
   reg: boolean
+  /** 이 일 밑에 보이는 단계 (규칙의 steps) */
+  steps: string[]
 }
 
 export interface PlannedTodo {
@@ -232,7 +234,10 @@ export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
     }
     /* 마감 순, 같으면 규칙 순서대로. 이름이 겹치면 하나만 */
     const parts = idx
-      .map((i) => ({ ruleId: rs[i].id, sub: label(rs[i]), due: one[i].due, start: one[i].start, reg: rs[i].start === 'reg', verify: one[i].verify, i }))
+      .map((i) => ({
+        ruleId: rs[i].id, sub: label(rs[i]), due: one[i].due, start: one[i].start, reg: rs[i].start === 'reg', verify: one[i].verify, i,
+        steps: [...new Set((rs[i].steps || []).map(fill).filter(Boolean))],
+      }))
       .sort((a, b) => a.due.localeCompare(b.due) || a.i - b.i)
       .filter((x, k, xs) => xs.findIndex((y) => y.sub === x.sub) === k)
     idx.forEach((i) => bundled.add(i))
@@ -243,7 +248,7 @@ export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
       basis: G.what + ' 묶음 · 마지막 항목 마감 ' + md(due) + ' (항목별 날짜는 하위 항목 옆에)',
       startBasis: '가장 이른 항목 착수 ' + md(start),
       subs: parts.map((x) => x.sub),
-      parts: parts.map(({ ruleId, sub, due, start, reg }) => ({ ruleId, sub, due, start, reg })),
+      parts: parts.map(({ ruleId, sub, due, start, reg, steps }) => ({ ruleId, sub, due, start, reg, steps })),
     })
   }
   return [...one.filter((_, i) => !bundled.has(i)), ...out]
@@ -251,9 +256,14 @@ export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
 
 /** 묶음 할 일의 하위 항목별 날짜 (지금 규칙·외근 날짜대로) */
 export function partDues(t: Pick<Todo, 'ruleId' | 'eventId'>, ctx: PlanCtx): Record<string, DateStr> {
+  return Object.fromEntries(Object.entries(bundleParts(t, ctx)).map(([k, x]) => [k, x.due]))
+}
+
+/** 묶음 할 일의 하위 항목 이름 → 그 규칙의 일 (날짜·단계) */
+export function bundleParts(t: Pick<Todo, 'ruleId' | 'eventId'>, ctx: PlanCtx): Record<string, PlannedPart> {
   const ev = t.eventId && isGroupRule(t.ruleId) ? ctx.events.get(t.eventId) : undefined
   const p = ev ? planTodos(ev, ctx).find((x) => x.ruleId === t.ruleId) : undefined
-  return Object.fromEntries((p?.parts || []).map((x) => [x.sub, x.due]))
+  return Object.fromEntries((p?.parts || []).map((x) => [x.sub, x]))
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[\s_-]/g, '')

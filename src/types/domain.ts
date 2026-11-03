@@ -144,6 +144,8 @@ export interface Rule {
   copy?: string
   /** 지방 기관(서울·경기·인천 밖) 외근에만 */
   far?: boolean
+  /** 묶음(Preparation 등) 안에서 이 일 밑에 보이는 단계. 체크는 "하위 항목 › 단계" 이름으로 */
+  steps?: string[]
 }
 
 export type NormRule = Rule & { key: string; start: StartMode; startN: number }

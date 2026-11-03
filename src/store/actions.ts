@@ -8,7 +8,7 @@ import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort, stripProj } from '../domain/project.ts'
 import { GROUPS, genKey, isGroupRule, manualTwin, normRule, planTodos, rulesFor, subLabel, type PlannedPart, type PlannedTodo } from '../domain/rules.ts'
 import {
-  FOLLOWUPS, FULS_ON_DONE, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type FollowUp, type NewTodo,
+  ENF_PREP, FOLLOWUPS, FULS_ON_DONE, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type FollowUp, type NewTodo,
 } from '../domain/specials.ts'
 import { ETMF_RE, SIGN_RE } from '../domain/signDocs.ts'
 import { slotByTime } from '../domain/priority.ts'
@@ -348,7 +348,6 @@ export async function syncEvent(ev: CalEvent, force = false) {
   if (busy.has(ev.id)) return
   busy.add(ev.id)
   try {
-    await linkEnfPrep(ev)
     await applyFuls(ev)
     const detId = (r: string) => safeId('a_' + ev.id + '_' + r)
     const mine = [...S().todos.values()].filter((t) => t.eventId === ev.id)
@@ -398,6 +397,8 @@ export async function syncEvent(ev: CalEvent, force = false) {
         await deleteTodo(twin.id)
       }
     }
+    /* 엔플론시아: "SIV 예정"으로 미리 만든 준비 할 일은 이 외근의 Preparation 으로 */
+    await absorbEnfPrep(ev)
     synced.set(ev.id, key)
     await putEvent({ ...(S().events.get(ev.id) ?? ev), genKey: key })
   } finally {
@@ -425,19 +426,54 @@ export async function syncAll(force = false) {
   for (const ev of [...S().events.values()]) await syncEvent(ev, force)
 }
 
-/** 엔플론시아 SIV 외근이 등록되면 준비 할 일의 CL·EDC(와 완료한 것)는 외근 규칙에 넘긴다 */
-async function linkEnfPrep(ev: CalEvent) {
-  if (ev.project !== 'MSD - 엔플론시아' || ev.type !== 'SIV') return
+/** "SIV 예정"에 적은 기관이 이 외근의 기관인가 (앞 낱말만 맞아도: "금천 원장님께 …" → 금천연세로이…) */
+const enfSiteOf = (prepSite: string, c: string) => {
+  const k = siteCoreRaw(prepSite)
+  const w = siteCoreRaw(prepSite.trim().split(/\s+/)[0])
+  return (k.length >= 2 && (k.includes(c) || c.includes(k))) || (w.length >= 2 && c.includes(w))
+}
+
+/** 체크 하나를 그 시각으로 켠다 (이미 켜져 있으면 그대로) */
+const checkWith = (t: Todo, name: string, at?: string | null): Todo =>
+  t.checks?.includes(name) ? t : { ...t, checks: [...(t.checks || []), name], checkAt: { ...t.checkAt, [name]: at || nowIso() } }
+
+/**
+ * 엔플론시아 SIV 외근의 Preparation 에 "SIV 예정"으로 미리 만든 준비 할 일(Preparation 하나, 또는 예전 낱개)을 합친다.
+ * 외근 규칙에 같은 일(key)이 있으면 그 하위 항목으로 체크·단계 체크를 옮기고, 없으면 하위 항목으로 덧붙인다. 메모도 옮기고 준비 할 일은 지운다
+ */
+async function absorbEnfPrep(ev: CalEvent) {
+  if (ev.project !== ENF || ev.type !== 'SIV') return
   const c = siteCoreRaw(ev.site)
-  if (c.length < 2) return
+  const b0 = S().todos.get(safeId('a_' + ev.id + '_' + GROUPS.prep.id))
+  if (c.length < 2 || !b0 || b0.done) return
+  const preps = [...S().todos.values()].filter((t) => t.prepKey && !t.eventId && t.prepSite && enfSiteOf(t.prepSite, c))
+  if (!preps.length) return
+  const parts = planTodos(ev, S()).find((p) => p.ruleId === GROUPS.prep.id)?.parts || []
   const rs = rulesFor(ev, S().rules)
-  for (const t of [...S().todos.values()].filter((x) => x.prepKey && !x.eventId && x.prepSite)) {
-    const k = siteCoreRaw(t.prepSite)
-    if (!(k.includes(c) || c.includes(k))) continue
-    const r = rs.find((x) => x.key === t.prepKey)
-    if (!r) await putTodo({ ...t, eventId: ev.id })
-    else if (t.done) await putTodo({ ...t, eventId: ev.id, ruleId: r.id })
-    else await deleteTodo(t.id)
+  const target = (key: string | undefined, label: string) => {
+    const r = key ? rs.find((x) => x.key === key) : undefined
+    return (r && parts.find((p) => p.ruleId === r.id)?.sub) || label
+  }
+  let b: Todo = { ...b0, subs: [...(b0.subs || [])] }
+  const notes = b0.note ? [b0.note] : []
+  for (const t of preps) {
+    const items =
+      t.prepKey === 'PREP'
+        ? (t.subs || []).map((x) => ({ key: ENF_PREP.find((e) => e.sub === x)?.key, label: x, done: !!t.done || !!t.checks?.includes(x), at: t.checkAt?.[x] }))
+        : [{ key: t.prepKey, label: t.title.replace('엔플론시아 ' + t.prepSite + ' ', '').replace(/^SIV\s+/, ''), done: !!t.done, at: t.doneAt || undefined }]
+    for (const it of items) {
+      const to = target(it.key, it.label)
+      if (!b.subs!.includes(to)) b.subs!.push(to)
+      if (it.done) b = checkWith(b, to, it.at)
+      /* 단계 체크 ("하위 항목 › 단계") */
+      for (const k of t.checks || []) if (k.startsWith(it.label + DOC_SEP)) b = checkWith(b, to + k.slice(it.label.length), t.checkAt?.[k])
+    }
+    if (t.note?.trim()) notes.push(t.title + ': ' + t.note.trim())
+  }
+  await putTodo({ ...b, note: notes.join('\n') || undefined })
+  for (const t of preps) {
+    for (const ch of [...S().todos.values()].filter((x) => x.parentId === t.id)) await putTodo({ ...ch, parentId: b.id })
+    await deleteTodo(t.id)
   }
 }
 
@@ -509,6 +545,8 @@ export async function addTodo(t: NewTodo): Promise<string> {
   if (prep) {
     const ids: string[] = []
     for (const x of prep) ids.push(await putTodo(x))
+    /* 그 기관 SIV 외근이 이미 있으면 바로 그 외근의 Preparation 으로 */
+    for (const ev of [...S().events.values()]) if (kindOf(ev) === 'visit' && ev.date >= todayStr()) await absorbEnfPrep(ev)
     return ids[0]
   }
   const ns = newSiteMail(t, S())
@@ -589,8 +627,22 @@ export async function resetRanks(items: Todo[]) {
   }
 }
 
+/** 완료 시각. 직접 한 체크와 시각이 겹치지 않게 한다 (완료하며 자동으로 체크한 하위 항목은 체크 시각 = 완료 시각) */
+const doneStamp = (t: Todo) => {
+  let at = nowIso()
+  while (Object.values(t.checkAt || {}).includes(at)) at = new Date(Date.parse(at) + 1).toISOString()
+  return at
+}
+
+/** 완료를 풀 때: 완료하면서 자동으로 체크한 하위 항목만 다시 풀어, 완료 전에 직접 체크해 둔 상태로 되돌린다 */
+const reopen = (t: Todo): Todo => {
+  const auto = (t.subs || []).filter((x) => !!t.doneAt && t.checkAt?.[x] === t.doneAt)
+  const keep = (x: string) => !auto.includes(x)
+  return { ...t, done: false, doneAt: null, checks: (t.checks || []).filter(keep), checkAt: keepAt(t.checkAt, (x) => (keep(x) ? x : null)) }
+}
+
 export async function toggleDone(t: Todo) {
-  await putTodo({ ...t, done: !t.done, doneAt: !t.done ? new Date().toISOString() : null })
+  await putTodo(t.done ? reopen(t) : { ...t, done: true, doneAt: doneStamp(t) })
 }
 
 /** 체크 하나를 켜거나 끈다 (켤 때 시각을 남긴다) */
@@ -607,8 +659,8 @@ const settleDone = (t: Todo): Todo => {
   const subs = t.subs || []
   if (!subs.length) return t
   const all = subs.every((x) => t.checks?.includes(x))
-  if (all && !t.done) return { ...t, done: true, doneAt: nowIso() }
-  if (!all && t.done) return { ...t, done: false, doneAt: null }
+  if (all && !t.done) return { ...t, done: true, doneAt: doneStamp(t) }
+  if (!all && t.done) return reopen(t)
   return t
 }
 
@@ -1216,6 +1268,37 @@ async function migrate() {
       await putTodo({ ...t, done: true, doneAt: last && last.length > 10 ? last : last ? last + 'T09:00:00+09:00' : nowIso() })
     }
     appStore.setState({ mig: [...S().mig, 'subdone1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('enfprep2')) {
+    /* 엔플론시아 SIV Preparation 에 PPT·서명서류 Site specific 업데이트·바인더 제작 요청도 늘 넣는다 (꺼 둔 덮어쓰기 규칙을 지운다).
+       오늘 이후 엔플론시아 SIV 의 열린 Preparation 에 없으면 날짜 순 자리에 넣고, 같은 일을 따로 만들어 둔 열린 할 일과
+       "SIV 예정"으로 만든 준비 할 일은 그 Preparation 으로 합친다 */
+    const fresh = inSync()
+    const keys = ['SSPPT', 'SSSIGN', 'BINDER']
+    appStore.setState({ rules: S().rules.filter((r) => !(r.project === ENF && r.off && keys.includes(r.key || ''))) })
+    const today = todayStr()
+    for (const ev of [...S().events.values()]) {
+      if (kindOf(ev) !== 'visit' || ev.project !== ENF || ev.type !== 'SIV' || ev.date < today || !ev.genKey) continue
+      const p = planTodos(ev, S()).find((x) => x.ruleId === GROUPS.prep.id)
+      const old = p && S().todos.get(safeId('a_' + ev.id + '_' + p.ruleId))
+      if (!p || !old || old.done) continue
+      const ids = new Set(rulesFor(ev, S().rules).filter((r) => keys.includes(r.key || '')).map((r) => r.id))
+      const add = (p.parts || []).filter((x) => ids.has(x.ruleId) && !old.subs?.includes(x.sub))
+      const cur = { subs: old.subs || [], checks: old.checks || [], checkAt: old.checkAt || {}, note: old.note || '' }
+      const b = mergeBundle(cur, (p.parts || []).filter((x) => add.includes(x) || cur.subs.includes(x.sub)), [])
+      /* 같은 일을 따로 만들어 둔 열린 할 일 (예: "엔플론시아 SC제일산부인과 SIV 바인더 제작 요청 …") */
+      const site = siteShort(ev.site)
+      const twins = [...S().todos.values()].filter(
+        (t) => !t.done && !t.eventId && !t.prepKey && t.project === ENF && t.title.includes(site) && add.some((x) => t.title.endsWith(' ' + x.sub)),
+      )
+      const notes = [b.note, ...twins.filter((t) => t.note?.trim()).map((t) => t.title + ': ' + t.note!.trim())].filter(Boolean)
+      await putTodo({ ...old, subs: b.subs, note: notes.join('\n') || undefined })
+      for (const t of twins) await deleteTodo(t.id)
+      await absorbEnfPrep(S().events.get(ev.id)!)
+    }
+    await keepSynced(fresh)
+    appStore.setState({ mig: [...S().mig, 'enfprep2'] })
     await putConfig()
   }
 }

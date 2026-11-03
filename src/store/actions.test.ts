@@ -775,3 +775,64 @@ describe('하위 항목을 다 체크하면 완료 · 단계 (enfsteps1, subdone
     expect(s.todos.get('full')).toMatchObject({ done: true, doneAt: '2026-10-09T02:00:00.000Z' })
   })
 })
+
+describe('완료를 풀면 완료 전 체크로 되돌린다', () => {
+  it('완료하며 자동으로 체크된 하위 항목만 풀리고, 직접 체크해 둔 것은 그대로', async () => {
+    const id = await addTodo({ title: '가 SIV FUL', due: '2026-10-19', subs: ['A', 'B', 'C'], done: false })
+    await toggleCheck(id, 'A')
+    await toggleDone(getState().todos.get(id)!)
+    expect(getState().todos.get(id)).toMatchObject({ done: true, checks: ['A', 'B', 'C'] })
+    await toggleDone(getState().todos.get(id)!)
+    expect(getState().todos.get(id)).toMatchObject({ done: false, checks: ['A'] })
+    expect(Object.keys(getState().todos.get(id)!.checkAt!)).toEqual(['A'])
+  })
+
+  it('하위 항목 하나를 풀어 다시 열려도 자동으로 체크된 것은 함께 풀리고, 직접 다 체크해서 끝난 할 일은 풀어도 체크가 남는다', async () => {
+    const id = await addTodo({ title: '가 SIV FUL', due: '2026-10-19', subs: ['A', 'B', 'C'], done: false })
+    await toggleCheck(id, 'A')
+    await toggleDone(getState().todos.get(id)!)
+    await toggleCheck(id, 'B')
+    expect(getState().todos.get(id)).toMatchObject({ done: false, checks: ['A'] })
+    await toggleCheck(id, 'B')
+    await toggleCheck(id, 'C')
+    expect(getState().todos.get(id)!.done).toBe(true)
+    await toggleDone(getState().todos.get(id)!)
+    expect(getState().todos.get(id)).toMatchObject({ done: false, checks: ['A', 'B', 'C'] })
+  })
+})
+
+describe('엔플론시아 SIV 예정 → 외근 Preparation 으로 합치기', () => {
+  const DONE_MIG = ['enfprep2', 'subdone1', 'enfsteps1', 'scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2', 'docs1', 'enfbeta1']
+  const cl: Rule = { id: 'r-e-cl', key: 'CL', type: 'SIV', project: ENF, title: '{site} SIV Confirmation Letter 발송', dir: 'before', n: 2, unit: 'ADD', send: false, verify: false, start: 'due', startN: 0 }
+  const ppt: Rule = { id: 'r-siv-ssppt', key: 'SSPPT', type: 'SIV', project: '*', title: '{proj} {site} SIV PPT Site specific 업데이트 (ICF 삽입 등 일괄 검토)', dir: 'before', n: 4, unit: 'WD', send: false, verify: false, start: 'lead', startN: 2 }
+
+  it('SIV 예정 Preparation 의 체크·단계 체크를 외근 Preparation 의 같은 일로 옮기고, 규칙에 없는 일은 덧붙인 뒤 지운다', async () => {
+    await replaceAll({
+      events: [], fuls: [],
+      todos: [{
+        id: 'prep', title: '엔플론시아 가나의원 SIV Preparation', project: ENF, prepKey: 'PREP', prepSite: '가나의원', done: false, due: '2026-10-14',
+        subs: ['계약서 Site specific 업데이트', 'ICF Site specific 업데이트', '바인더 제작 요청 (중앙문화사, 오전 중)', 'Confirmation Letter 발송', '내가 단 것'],
+        checks: ['계약서 Site specific 업데이트', 'ICF Site specific 업데이트 › 작성', '바인더 제작 요청 (중앙문화사, 오전 중)'], note: '원장님 확인',
+      }],
+      config: { rules: [...ENF_SS_RULES, cl, ppt], holidays: DEFAULT_HOLIDAYS, mig: DONE_MIG, notes: null, projects: [], companions: [] },
+    })
+    const ev: CalEvent = { ...visit, id: 'new', type: 'SIV', project: ENF, site: '가나의원', date: '2026-10-21', createdDate: '2026-10-12' }
+    await putEvent(ev)
+    await syncEvent(ev)
+    expect(todos().map((t) => t.id)).toEqual(['a_new_g-prep'])
+    expect(todos()[0]).toMatchObject({
+      subs: ['계약서 Site specific 업데이트', 'ICF Site specific 업데이트', 'Confirmation Letter 발송', 'PPT Site specific 업데이트 (ICF 삽입 등 일괄 검토)', '바인더 제작 요청 (중앙문화사, 오전 중)', '내가 단 것'],
+      checks: ['계약서 Site specific 업데이트', 'ICF Site specific 업데이트 › 작성', '바인더 제작 요청 (중앙문화사, 오전 중)'],
+      note: '엔플론시아 가나의원 SIV Preparation: 원장님 확인',
+    })
+  })
+
+  it('외근이 이미 있으면 SIV 예정을 적자마자 그 Preparation 으로 합친다 (앞 낱말로 기관을 찾는다)', async () => {
+    await replaceAll({ events: [], fuls: [], todos: [], config: { rules: [...ENF_SS_RULES, cl], holidays: DEFAULT_HOLIDAYS, mig: DONE_MIG, notes: null, projects: [{ name: ENF, short: '엔플론시아', sites: [] }], companions: [] } })
+    const ev: CalEvent = { ...visit, id: 'gc', type: 'SIV', project: ENF, site: '금천연세로이소아청소년과의원', date: '2026-10-21', createdDate: '2026-10-12' }
+    await putEvent(ev)
+    await syncEvent(ev)
+    await addTodo({ title: '엔플론시아 금천 SIV 예정', done: false })
+    expect(todos().map((t) => t.id)).toEqual(['a_gc_g-prep'])
+  })
+})

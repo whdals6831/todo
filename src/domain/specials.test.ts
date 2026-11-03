@@ -51,11 +51,12 @@ describe('특수 키워드 흐름', () => {
     expect(sp?.items[0]).toMatchObject({ title: '브레즈트리 사아병원 Site Selection Confirmation Letter 발송', due: '2026-10-12', approvedSite: '사아병원' })
   })
 
-  it('엔플론시아 SIV 예정 → 준비 할 일 7개, CL·EDC 는 TBD', () => {
+  it('엔플론시아 SIV 예정 → SIV Preparation 하나 (계약서·ICF 먼저), 메세지·연락 같은 일은 아님', () => {
     const sp = specialFor({ title: '엔플론시아 자차의원 SIV 예정' }, ctx)
     expect(sp?.kind).toBe('enf')
-    expect(sp?.items).toHaveLength(7)
-    expect(sp?.items.filter((x) => x.tbd).map((x) => x.prepKey)).toEqual(['CL', 'EDC'])
-    expect(sp?.items.find((x) => x.prepKey === 'BINDER')).toMatchObject({ due: '2026-10-13', time: '11:30' })
+    expect(sp?.items).toHaveLength(1)
+    expect(sp?.items[0]).toMatchObject({ title: '엔플론시아 자차의원 SIV Preparation', prepKey: 'PREP', prepSite: '자차의원', due: '2026-10-13' })
+    expect(sp?.items[0].subs?.slice(0, 2)).toEqual(['계약서 Site specific 업데이트', 'ICF Site specific 업데이트'])
+    expect(specialFor({ title: '엔플론시아 금천 원장님께 SIV 메세지' }, ctx)).toBeNull()
   })
 })

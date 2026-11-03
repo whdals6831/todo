@@ -1,5 +1,5 @@
 import type { Data, Todo } from '../types/domain.ts'
-import { BRZ, ENF, IMJ } from './constants.ts'
+import { BRZ, ENF, ENF_SS_RULES, IMJ } from './constants.ts'
 import { addWorkdays, md, todayStr } from './date.ts'
 import { detectProject, sameSite, siteCore, stripProj } from './project.ts'
 
@@ -7,7 +7,7 @@ import { detectProject, sameSite, siteCore, stripProj } from './project.ts'
  * 할 일 제목의 키워드로 동작하는 과제별 특수 흐름 (원본 그대로 과제 이름에 묶여 있다).
  *   "브레즈트리 <새 기관> 메일"        → 1st contact mail·PSV 일정 문의(WD1) + CA(WD3)
  *   "브레즈트리 <기관> 의뢰사 승인됨"   → Site Selection CL 발송(WD1), 대기 중인 선정 확인 할 일 완료
- *   "엔플론시아 <기관> SIV 예정"       → 계약서·ICF(WD1), PPT·서명서류·바인더(WD2), CL·EDC(TBD)
+ *   "엔플론시아 <기관> SIV 예정"       → SIV Preparation 하나 (계약서·ICF 먼저, PPT·서명서류·바인더·CL·EDC)
  */
 
 /** id 가 없는 새 할 일 */
@@ -17,7 +17,7 @@ type Ctx = Pick<Data, 'projects' | 'holidays'>
 
 /** 기관 이름이 아니라 업무 내용을 적은 제목이면 특수 흐름을 쓰지 않는다 */
 const NEWSITE_TASKWORDS =
-  /업데이트|확인|전달|작성|요청|회신|정리|송부|발송|업로드|서명|계약|omf|cl|ful|etmf|edc|crc|pi|ca|sdv|psv|siv|mv|cov|follow|letter|선생님|교수님|담당|수정|ppt|인쇄|예약|회의|교육|qc|검토|논의|일정|자료|파일|문서|바인더|icf|준비물/i
+  /업데이트|확인|전달|작성|요청|회신|정리|송부|발송|업로드|서명|계약|omf|cl|ful|etmf|edc|crc|pi|ca|sdv|psv|siv|mv|cov|follow|letter|선생님|교수님|원장님|담당|수정|ppt|인쇄|예약|회의|교육|qc|검토|논의|일정|자료|파일|문서|바인더|icf|준비물|메[세시]지|연락|전화|문자|카톡|안내/i
 
 const looksLikeSite = (rest: string) => !!rest && rest.split(' ').length <= 3 && !NEWSITE_TASKWORDS.test(rest)
 
@@ -53,7 +53,23 @@ export function newSiteMail(t: NewTodo, ctx: Ctx): { main: NewTodo; ca: NewTodo 
   }
 }
 
-/** 엔플론시아(Non-IRB) 기관 SIV 가 곧 잡힐 때의 준비 할 일 묶음 */
+/** 엔플론시아 SIV 준비 하위 항목 (계약서·ICF 가 맨 먼저). key 는 외근 규칙의 key — 외근을 등록하면 그 규칙의 일로 합친다 */
+export const ENF_PREP: { key: string; sub: string }[] = [
+  { key: 'CONTRACT', sub: '계약서 Site specific 업데이트' },
+  { key: 'ICF', sub: 'ICF Site specific 업데이트' },
+  { key: 'SSPPT', sub: 'PPT Site specific 업데이트 (ICF 삽입 등 일괄 검토)' },
+  { key: 'SSSIGN', sub: '서명서류 Site specific 업데이트' },
+  { key: 'BINDER', sub: '바인더 제작 요청 (중앙문화사, 오전 중)' },
+  { key: 'CL', sub: 'Confirmation Letter 발송' },
+  { key: 'EDC', sub: 'EDC 계정 요청' },
+]
+
+/** 외근 등록 전 Preparation 에서도 계약서·ICF 밑에 단계를 보인다 (외근 규칙의 steps) */
+export const ENF_PREP_STEPS: Record<string, string[]> = Object.fromEntries(
+  ENF_SS_RULES.map((r) => [r.title.replace('{site} SIV ', ''), r.steps || []]),
+)
+
+/** 엔플론시아(Non-IRB) 기관 SIV 가 곧 잡힐 때: "{기관} SIV Preparation" 하나에 준비 일을 하위 항목으로 (외근을 등록하면 외근의 Preparation 에 합친다) */
 export function enfSivPrep(t: NewTodo, ctx: Ctx): NewTodo[] | null {
   if (t.parentId || t.prepKey || detectProject(ctx.projects, t.title) !== ENF || !/siv|개시/i.test(t.title)) return null
   const rest = stripProj(ctx.projects, t.title, ENF)
@@ -62,26 +78,13 @@ export function enfSivPrep(t: NewTodo, ctx: Ctx): NewTodo[] | null {
     .trim()
   if (!looksLikeSite(rest)) return null
   const today = todayStr()
-  const wd = (k: number) => addWorkdays(today, k, ctx.holidays)
-  const P1 = '엔플론시아 ' + rest + ' '
-  const now = new Date().toISOString()
-  const b = (k: number, why: string) => '엔플론시아 SIV 준비 · 추가일 ' + md(today) + (k ? ' 후 WD' + k + ' = ' + md(wd(k)) : '') + ' [' + why + ']'
-  const mk = (key: string, title: string, k: number | null, why = '', extra: Partial<NewTodo> = {}): NewTodo => ({
-    title: P1 + title, project: ENF, prepSite: rest, prepKey: key,
-    start: k == null ? '' : wd(k), due: k == null ? '' : wd(k), tbd: k == null, time: '', autoDue: false, done: false, created: now,
-    basis: k == null ? '외근(SIV) 등록 전까지 TBD → 외근 등록하면 등록일 기준 WD2 내로 자동 지정 [본인 기준: Non-IRB 기관이라 개시가 급하게 잡힘]' : b(k, why),
-    startBasis: k == null ? '' : '추가일 후 WD' + k + ' 당일 착수 (마감일과 같은 날)',
-    ...extra,
-  })
-  return [
-    mk('CONTRACT', '계약서 Site specific 업데이트', 1, '본인 기준: Non-IRB 기관 급한 개시 → 계약서·ICF 먼저, WD1 내'),
-    mk('ICF', 'ICF Site specific 업데이트', 1, '본인 기준: Non-IRB 기관 급한 개시 → 계약서·ICF 먼저, WD1 내'),
-    mk('SSPPT', 'SIV PPT Site specific 업데이트 (ICF 삽입 등 일괄 검토)', 2, '본인 기준: WD2 내'),
-    mk('SSSIGN', 'SIV 서명서류 Site specific develop', 2, '본인 기준: WD2 내'),
-    mk('BINDER', 'SIV 바인더 제작 요청 (중앙문화사, 오전 중)', 2, '본인 기준: WD2 내, 오전에 요청하면 다음 날 도착', { time: '11:30' }),
-    mk('CL', 'SIV Confirmation Letter 발송', null),
-    mk('EDC', 'SIV EDC 계정 발급 요청', null),
-  ]
+  const due = addWorkdays(today, 2, ctx.holidays)
+  return [{
+    title: '엔플론시아 ' + rest + ' SIV Preparation', project: ENF, prepSite: rest, prepKey: 'PREP',
+    subs: ENF_PREP.map((x) => x.sub), start: today, due, tbd: false, time: '', autoDue: false, done: false, created: new Date().toISOString(),
+    basis: '엔플론시아 SIV 준비 · 추가일 ' + md(today) + ' 후 WD2 = ' + md(due) + ' [본인 기준: Non-IRB 기관 급한 개시 → 계약서·ICF 먼저. 외근(SIV)을 등록하면 외근의 Preparation 에 합친다]',
+    startBasis: '추가한 당일 착수',
+  }]
 }
 
 /** Breztri 의뢰사 기관 선정 승인 → Site Selection CL 발송 */
@@ -123,7 +126,7 @@ export function specialFor(t: NewTodo, ctx: Ctx): Special | null {
 export const QUICK = [
   { t: '브레즈트리 기관명 메일', d: '신규 배정 기관 → 1st contact mail·PSV 일정 문의(WD1) + CA(WD3)' },
   { t: '브레즈트리 기관명 의뢰사 승인됨', d: '→ Site Selection CL 발송(당일 착수, WD1)' },
-  { t: '엔플론시아 기관명 SIV 예정', d: '→ 계약서·ICF(WD1), PPT·서명서류·바인더(WD2), CL·EDC(TBD)' },
+  { t: '엔플론시아 기관명 SIV 예정', d: '→ SIV Preparation 하나 (계약서·ICF 먼저, PPT·서명서류·바인더·CL·EDC)' },
 ]
 
 /** 제목에 keyword 가 들어간 할 일과 함께 추가할 할 일 규칙 */

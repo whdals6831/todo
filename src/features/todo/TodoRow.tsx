@@ -4,6 +4,7 @@ import { dLabel, isUrgent } from '@/domain/priority.ts'
 import { projShort } from '@/domain/project.ts'
 import { bundleParts, copyText, isGroupRule } from '@/domain/rules.ts'
 import { docListsFor } from '@/domain/signDocs.ts'
+import { ENF_PREP_STEPS } from '@/domain/specials.ts'
 import { Button } from '@/components/ui/Button.tsx'
 import { Highlight } from '@/components/ui/Highlight.tsx'
 import { ConfirmLine } from '@/components/ui/Layout.tsx'
@@ -54,7 +55,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const today = todayStr()
   const subs = (t.subs || []).map((x) => ({
     t: x, due: dues[x], late: !!dues[x] && dues[x] < today && !checks.includes(x), docs: group ? docListsFor(x, t, notes, events) : [],
-    steps: parts[x]?.steps,
+    steps: parts[x]?.steps ?? (t.prepKey === 'PREP' && !t.done ? ENF_PREP_STEPS[x] : undefined),
   }))
   const checked = (items: { t: string }[], pre: string) => items.filter((d) => checks.includes(pre + d.t)).length
 

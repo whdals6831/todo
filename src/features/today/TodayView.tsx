@@ -65,7 +65,7 @@ function TodayBody({ t }: { t: DateStr }) {
   const events = useApp((st) => st.events)
   const todos = useApp((st) => st.todos)
   const evs = eventsOn(t, events)
-  const b = todayBuckets(t, todos)
+  const b = todayBuckets(t, todos, events)
   const complete = dayComplete(t, todos)
 
   return (

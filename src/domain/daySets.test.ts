@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Todo } from '../types/domain.ts'
-import { briefData, dayComplete, daySet, todaySet } from './daySets.ts'
+import type { CalEvent, Todo } from '../types/domain.ts'
+import { briefData, dayComplete, daySet, todayBuckets, todaySet } from './daySets.ts'
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -56,5 +56,19 @@ describe('오늘 브리핑은 하루 종일', () => {
     expect(briefData('2026-10-28', new Date(), { todos, holidays: {} })).toMatchObject({ rate: 50, evening: false })
     vi.setSystemTime(new Date('2026-10-28T17:55:00+09:00'))
     expect(briefData('2026-10-28', new Date(), { todos, holidays: {} })).toMatchObject({ evening: true })
+  })
+})
+
+describe('7일 안에 착수할 일', () => {
+  it('아직 안 다녀온 외근의 방문 후 일은 빼고, 다녀온 외근·방문 전 일은 그대로', () => {
+    const ev = (id: string, date: string): CalEvent => ({ id, kind: 'visit', date, type: 'SIV', project: 'P', site: '가' })
+    const events = new Map([['next', ev('next', '2026-10-30')], ['done', ev('done', '2026-10-27')]])
+    const todos = map([
+      { id: 'post', title: '가 SIV 방문 후 정리', due: '2026-11-13', start: '2026-11-02', eventId: 'next', ruleId: 'g-post' },
+      { id: 'prep', title: '가 SIV PPT 인쇄', due: '2026-10-29', start: '2026-10-29', eventId: 'next' },
+      { id: 'past', title: '가 SIV 방문 후 정리', due: '2026-11-10', start: '2026-10-29', eventId: 'done', ruleId: 'g-post' },
+      { id: 'own', title: '그냥 할 일', due: '2026-11-04', start: '2026-11-02' },
+    ])
+    expect(todayBuckets('2026-10-28', todos, events).soon.map((x) => x.id)).toEqual(['prep', 'past', 'own'])
   })
 })

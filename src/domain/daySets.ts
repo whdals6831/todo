@@ -67,8 +67,15 @@ export function todayCount(t: DateStr, todos: Data['todos']) {
   return [...todos.values()].filter((x) => !x.done).filter((x) => (x.due ? x.due <= t || (!!x.start && x.start <= t) : !x.someday)).length
 }
 
+/** 아직 다녀오지 않은 외근의 방문 후 일 (방문 다음에 착수) — 방문 전에는 "7일 안에 착수할 일"에 띄우지 않는다 */
+const afterComingVisit = (x: Todo, t: DateStr, events?: Data['events']) => {
+  const ev = x.eventId ? events?.get(x.eventId) : undefined
+  const last = ev ? ev.endDate || ev.date : ''
+  return !!last && last >= t && !!x.start && x.start > last
+}
+
 /** 오늘 할 일 화면 구성 */
-export function todayBuckets(t: DateStr, todos: Data['todos']) {
+export function todayBuckets(t: DateStr, todos: Data['todos'], events?: Data['events']) {
   const all = [...todos.values()]
   const open = all.filter((x) => !x.done)
   const late = open.filter((x) => x.due && x.due < t).sort((a, b) => a.due!.localeCompare(b.due!))
@@ -85,8 +92,10 @@ export function todayBuckets(t: DateStr, todos: Data['todos']) {
     list: [...today, ...doing, ...tbdOpen, ...doneT].sort(byPriority),
     openN: today.length + doing.length + tbdOpen.length,
     doneN: doneT.length,
-    /** 7일 안에 착수할 일 */
-    soon: open.filter((x) => x.start && x.start > t && x.start <= shift(t, 7)).sort((a, b) => a.start!.localeCompare(b.start!)),
+    /** 7일 안에 착수할 일 (아직 안 다녀온 외근의 방문 후 일은 빼고) */
+    soon: open
+      .filter((x) => x.start && x.start > t && x.start <= shift(t, 7) && !afterComingVisit(x, t, events))
+      .sort((a, b) => a.start!.localeCompare(b.start!)),
   }
 }
 

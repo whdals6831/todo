@@ -52,6 +52,7 @@ export const KEYS: [string, string][] = [
   ['EDC', 'EDC 계정 요청'],
   ['LUNCH', '도시락 예약'],
   ['WID', 'WID 외근 일정 등록'],
+  ['CLAIM', '비용청구'],
   ['', '기타 (덮어쓰지 않음)'],
   ['SKIP', '이 과제·방문은 자동 할 일 없음'],
 ]
@@ -98,6 +99,12 @@ export const MV_SITE_RULE: Rule = {
 export const WID_RULE: Rule = {
   id: 'r-wid', key: 'WID', type: '*', project: '*', title: '{site} {type} WID 외근 일정 등록',
   dir: 'after', n: 3, unit: 'ADD', send: false, verify: false, basis: '본인 기준: 외근 등록하면 WD3 내 WID 에 외근 일정 등록', start: 'reg', startN: 0,
+}
+
+/** 외근 다녀와서 WD3 에 비용청구 (그날 착수·마감 → 방문 후 정리에 들어간다) */
+export const CLAIM_RULE: Rule = {
+  id: 'r-claim', key: 'CLAIM', type: '*', project: '*', title: '{site} {type} 비용청구',
+  dir: 'after', n: 3, unit: 'WD', send: false, verify: false, basis: '본인 기준: 외근 후 WD3 에 비용청구', start: 'due', startN: 0,
 }
 
 /** 지방 기관 외근을 등록하면 KTX 예매 (등록한 날 착수, 등록일 WD1 마감 → Preparation 에 들어간다) */
@@ -163,6 +170,7 @@ export const DEFAULT_RULES: Rule[] = [
   { ...MV_SITE_RULE },
   { ...WID_RULE },
   { ...KTX_RULE },
+  { ...CLAIM_RULE },
   ...PREP_RULES.map((r) => ({ ...r })),
   { id: 'r-cl', key: 'CL', type: '*', project: '*', title: '{site} {type} Confirmation Letter 발송', dir: 'before', n: 3, unit: 'WD', send: true, verify: true, basis: 'PMP 확인 필요 (임시값)', start: 'lead', startN: 2 },
   { ...RPT_RULE },

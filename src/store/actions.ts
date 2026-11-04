@@ -1,10 +1,10 @@
 import {
-  BRZ, BRZ_PSV_FUL, ENF, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, TARL_SIV_SCAN, WID_RULE, brzPsvFulRule,
+  BRZ, BRZ_PSV_FUL, CLAIM_RULE, ENF, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, TARL_SIV_SCAN, WID_RULE, brzPsvFulRule,
   fulPackRules, kindOf,
 } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
-import { MONTHLY, monthlyPlan, nextMonth } from '../domain/monthly.ts'
+import { MONTHLY, isVisitSub, monthlyPlan, monthlyTitle, nextMonth, visitList, visitSkip, visitSubs } from '../domain/monthly.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort, stripProj } from '../domain/project.ts'
 import { GROUPS, genKey, isGroupRule, manualTwin, normRule, planTodos, rulesFor, subLabel, type PlannedPart, type PlannedTodo } from '../domain/rules.ts'
 import {
@@ -93,7 +93,26 @@ export async function putTodo(t0: NewTodo): Promise<string> {
   }
   else if (t.done && prev?.done && localDay(t.doneAt) !== localDay(prev.doneAt)) await followUpsRedate(t)
   if (prev && isGroupRule(t.ruleId)) await skipGoneParts(prev, t)
+  if (prev) await skipGoneVisits(prev, t)
   return t.id
+}
+
+/** 매월 외근 목록(비용청구) 할 일이면 그 매월 할 일과 달. 아니면 null */
+function visitListOf(id: string) {
+  for (const x of MONTHLY) {
+    const pre = safeId('m_' + x.id + '_')
+    if (x.visits && id.startsWith(pre) && /^\d{4}-\d{2}$/.test(id.slice(pre.length))) return { x, month: id.slice(pre.length) }
+  }
+  return null
+}
+
+/** 매월 외근 목록에서 외근 하위 항목을 지우면 그 외근의 skip 에 남겨 다시 넣지 않는다 */
+async function skipGoneVisits(prev: Todo, t: Todo) {
+  const l = visitListOf(t.id)
+  const gone = (prev.subs || []).filter((y) => !(t.subs || []).includes(y))
+  if (!l || !gone.length) return
+  for (const v of visitList(l.month, S().events.values(), S().projects, l.x))
+    if (gone.includes(v.sub)) await putEvent({ ...v.ev, skip: [...(v.ev.skip || []), visitSkip(l.x)] })
 }
 
 /** 외근 할 일 묶음에서 규칙대로의 하위 항목을 지우거나 이름을 바꾸면, 그 규칙을 외근의 skip 에 남겨 다시 끼우지 않는다 */
@@ -160,6 +179,7 @@ export async function deleteEventCascade(id: string) {
     await putFul(unlinkFul(f))
   }
   await deleteEvent(id)
+  await syncVisitLists()
 }
 
 /* ---------- 완료하면 생기는 확인 할 일 ---------- */
@@ -430,6 +450,7 @@ export async function syncEvent(ev: CalEvent, force = false) {
     await absorbEnfPrep(ev)
     synced.set(ev.id, key)
     await putEvent({ ...(S().events.get(ev.id) ?? ev), genKey: key })
+    await syncVisitLists()
   } finally {
     busy.delete(ev.id)
   }
@@ -453,6 +474,7 @@ async function cleanOrphans() {
 export async function syncAll(force = false) {
   await cleanOrphans()
   for (const ev of [...S().events.values()]) await syncEvent(ev, force)
+  await syncVisitLists()
 }
 
 /** "SIV 예정"에 적은 기관이 이 외근의 기관인가 (앞 낱말만 맞아도: "금천 원장님께 …" → 금천연세로이…) */
@@ -1339,6 +1361,17 @@ async function migrate() {
     appStore.setState({ mig: [...S().mig, 'dedup1'] })
     await putConfig()
   }
+  if (!S().mig.includes('claim1')) {
+    /* 외근 다녀와서 WD3 비용청구 (KTX 예매 다음에). 이미 등록한 외근도 WD3 이 오늘 이후면 방문 후 정리에 들어간다 */
+    const s = S()
+    let rules = s.rules
+    if (!rules.some((r) => r.id === CLAIM_RULE.id)) {
+      const i = rules.findIndex((r) => r.id === KTX_RULE.id)
+      rules = i < 0 ? [...rules, { ...CLAIM_RULE }] : [...rules.slice(0, i + 1), { ...CLAIM_RULE }, ...rules.slice(i + 1)]
+    }
+    appStore.setState({ rules, mig: [...s.mig, 'claim1'] })
+    await putConfig()
+  }
 }
 
 /**
@@ -1357,15 +1390,42 @@ async function syncMonthly() {
       const p = monthlyPlan(month, x, S().holidays)
       const id = safeId('m_' + x.id + '_' + month)
       if (p.due < today || S().todos.has(id)) continue
+      const subs = x.visits ? visitSubs(month, S().events.values(), S().projects, x) : []
       await putTodo({
-        id, title: x.title, project: '', start: p.start, due: p.due, time: '', tbd: false, autoDue: false, done: false,
-        basis: p.basis, startBasis: p.startBasis, created: new Date().toISOString(),
+        id, title: monthlyTitle(x, month), project: x.project || '', start: p.start, due: p.due, time: '', tbd: false, autoDue: false, done: false,
+        basis: p.basis, startBasis: p.startBasis, subs: subs.length ? subs : undefined, created: new Date().toISOString(),
       })
     }
   }
   if (!made.length) return
   appStore.setState({ mig: [...S().mig, ...made] })
   await putConfig()
+}
+
+/**
+ * 매월 외근 목록 할 일(비용청구)의 하위 항목을 그달 외근에 맞춘다. 새 외근은 방문일 순 자리에 끼우고,
+ * 없어진 외근은 체크하지 않았을 때만 뺀다. 직접 단 하위 항목은 그대로. 끝낸 목록에 새 외근이 생기면 다시 연다
+ */
+async function syncVisitLists() {
+  for (const t of [...S().todos.values()]) {
+    const l = visitListOf(t.id)
+    if (!l) continue
+    const want = visitSubs(l.month, S().events.values(), S().projects, l.x)
+    const cur = t.subs || []
+    const subs = cur.filter((y) => want.includes(y) || (t.checks || []).includes(y) || !isVisitSub(y))
+    want.forEach((w, k) => {
+      if (subs.includes(w)) return
+      const prev = want.slice(0, k).reverse().find((y) => subs.includes(y))
+      const next = want.slice(k + 1).find((y) => subs.includes(y))
+      /* 앞뒤 외근이 없으면 외근 줄 맨 끝 (직접 단 항목 앞) */
+      const tail = subs.reduce((at, y, i) => (isVisitSub(y) ? i + 1 : at), 0)
+      subs.splice(prev ? subs.indexOf(prev) + 1 : next ? subs.indexOf(next) : tail, 0, w)
+    })
+    if (subs.length === cur.length && subs.every((y, i) => y === cur[i])) continue
+    let n = withSubs(t, subs)
+    if (n.done && subs.some((y) => !n.checks?.includes(y))) n = { ...n, done: false, doneAt: null }
+    await putTodo(n)
+  }
 }
 
 export async function loadAll() {

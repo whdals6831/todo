@@ -1,5 +1,5 @@
 import type { Data, Todo } from '../types/domain.ts'
-import { BRZ, ENF, ENF_SS_RULES, IMJ, TARL } from './constants.ts'
+import { APPROVAL_RE, APPROVAL_STEPS, BRZ, ENF, ENF_SS_RULES, IMJ, TARL } from './constants.ts'
 import { addWorkdays, md, todayStr } from './date.ts'
 import { detectProject, sameSite, siteCore, stripProj } from './project.ts'
 
@@ -77,6 +77,13 @@ export const ENF_PREP: { key: string; sub: string }[] = [
 export const ENF_PREP_STEPS: Record<string, string[]> = Object.fromEntries(
   ENF_SS_RULES.map((r) => [r.title.replace('{site} SIV ', ''), r.steps || []]),
 )
+
+/** 하위 항목 밑 단계: 규칙의 단계 → 엔플론시아 "SIV 예정" 준비 단계 → 결재 상신이면 결재 단계 */
+export function stepsFor(sub: string, ruleSteps: string[] | undefined, t: Pick<Todo, 'prepKey' | 'done'>): string[] | undefined {
+  if (ruleSteps?.length) return ruleSteps
+  if (t.prepKey === 'PREP' && !t.done && ENF_PREP_STEPS[sub]) return ENF_PREP_STEPS[sub]
+  return APPROVAL_RE.test(sub) ? APPROVAL_STEPS : undefined
+}
 
 /** 엔플론시아(Non-IRB) 기관 SIV 가 곧 잡힐 때: "{기관} SIV Preparation" 하나에 준비 일을 하위 항목으로 (외근을 등록하면 외근의 Preparation 에 합친다) */
 export function enfSivPrep(t: NewTodo, ctx: Ctx): NewTodo[] | null {

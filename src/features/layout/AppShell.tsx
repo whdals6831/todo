@@ -11,7 +11,7 @@ import { NotesView } from '../notes/NotesView.tsx'
 import { SearchView } from '../search/SearchView.tsx'
 import { SettingsView } from '../settings/SettingsView.tsx'
 import { DonePopover, DuePopover } from '../todo/DatePopovers.tsx'
-import { TodoAddModal, TodoEditModal } from '../todo/TodoModals.tsx'
+import { SubEditModal, TodoAddModal, TodoEditModal } from '../todo/TodoModals.tsx'
 import { AllTodosView } from '../todos/AllTodosView.tsx'
 import { TodayView } from '../today/TodayView.tsx'
 import { Sidebar } from './Sidebar.tsx'
@@ -96,10 +96,12 @@ function Overlays() {
   const todos = useApp((st) => st.todos)
   const popTodo = popover && popover.kind !== 'cell' ? todos.get(popover.id) : undefined
   const editTodo = modal?.kind === 'todoEdit' ? todos.get(modal.id) : undefined
+  const subTodo = modal?.kind === 'subEdit' && todos.get(modal.id)?.subs?.includes(modal.sub) ? todos.get(modal.id) : undefined
   return (
     <>
       {modal?.kind === 'todoAdd' && <TodoAddModal due={modal.due} />}
       {editTodo && <TodoEditModal key={editTodo.id} todo={editTodo} />}
+      {subTodo && modal?.kind === 'subEdit' && <SubEditModal key={subTodo.id + '|' + modal.sub} todo={subTodo} sub={modal.sub} />}
       {modal?.kind === 'event' && <EventModal key={modal.event.id || 'new'} event={modal.event} as={modal.as} />}
       {popover?.kind === 'due' && popTodo && <DuePopover key={popTodo.id} todo={popTodo} anchor={popover.anchor} />}
       {popover?.kind === 'done' && popTodo && <DonePopover key={popTodo.id} todo={popTodo} anchor={popover.anchor} />}

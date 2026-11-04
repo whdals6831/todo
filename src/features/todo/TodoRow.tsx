@@ -4,14 +4,14 @@ import { dLabel, isUrgent } from '@/domain/priority.ts'
 import { projShort } from '@/domain/project.ts'
 import { bundleParts, copyText, isGroupRule } from '@/domain/rules.ts'
 import { docListsFor } from '@/domain/signDocs.ts'
-import { ENF_PREP_STEPS } from '@/domain/specials.ts'
+import { stepsFor } from '@/domain/specials.ts'
 import { Button } from '@/components/ui/Button.tsx'
 import { Highlight } from '@/components/ui/Highlight.tsx'
 import { ConfirmLine } from '@/components/ui/Layout.tsx'
 import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
-import { addSub, dismissTodo, renameSub, rollOver, toSomeday, toggleCheck, toggleDone, toggleStep } from '@/store/actions.ts'
+import { addSub, dismissTodo, rollOver, toSomeday, toggleCheck, toggleDone, toggleStep } from '@/store/actions.ts'
 import { openModal, openPopover, useApp } from '@/store/ui.ts'
 import type { Todo } from '@/types/domain.ts'
 import { startDrag, wasJustDropped } from '../drag/drag.ts'
@@ -28,6 +28,8 @@ interface Props {
 }
 
 const openEdit = (t: Todo) => openModal({ kind: 'todoEdit', id: t.id })
+/** 하위 항목 편집 창 (이름·마감일·삭제) */
+const editSub = (id: string, sub: string) => openModal({ kind: 'subEdit', id, sub })
 
 export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const projects = useApp((s) => s.projects)
@@ -51,11 +53,12 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const shown = lists.find((l) => l.key === open)
   /* 묶음 할 일은 하위 항목마다 그 일의 날짜를 오른쪽에 (지났으면 빨갛게), 단계가 있는 일(엔플론시아 계약서·ICF)은 밑에 단계를 */
   const parts = t.done ? {} : bundleParts(t, { rules, holidays, events, projects })
-  const dues = Object.fromEntries(Object.entries(parts).map(([k, x]) => [k, x.due]))
+  /* 직접 정한 하위 항목 마감일이 규칙 날짜보다 먼저 */
+  const dues: Record<string, string> = { ...Object.fromEntries(Object.entries(parts).map(([k, x]) => [k, x.due])), ...(t.done ? {} : t.subDue) }
   const today = todayStr()
   const subs = (t.subs || []).map((x) => ({
     t: x, due: dues[x], late: !!dues[x] && dues[x] < today && !checks.includes(x), docs: group ? docListsFor(x, t, notes, events) : [],
-    steps: parts[x]?.steps ?? (t.prepKey === 'PREP' && !t.done ? ENF_PREP_STEPS[x] : undefined),
+    steps: stepsFor(x, parts[x]?.steps, t),
   }))
   const checked = (items: { t: string }[], pre: string) => items.filter((d) => checks.includes(pre + d.t)).length
 
@@ -92,7 +95,14 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
           <li key={i} className={cx(on && s.docOn, d.late && s.subLate)}>
             <RoundCheckbox checked={on} onToggle={() => toggle(d.t)} label={d.t + ' 체크'} />
             {sub ? <SubText id={t.id} text={d.t} /> : <span className={s.docT}>{d.t}</span>}
-            {d.due && <span className={cx(s.subDue, d.late && s.late)}>{md(d.due)}</span>}
+            {d.due &&
+              (sub ? (
+                <button type="button" className={cx(s.subDue, s.subDueBtn, d.late && s.late)} title="눌러서 하위 항목 편집" onClick={() => editSub(t.id, d.t)}>
+                  {md(d.due)}
+                </button>
+              ) : (
+                <span className={cx(s.subDue, d.late && s.late)}>{md(d.due)}</span>
+              ))}
             {d.w && <span className={s.docW}>{d.w}</span>}
             {d.docs?.map((l) => {
               const key = d.t + '|' + l.key
@@ -225,39 +235,16 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
 
 /** 하위 항목 글자: 누르면 그 자리에서 고친다 (Enter·바깥을 누르면 저장, Esc 는 취소, 비우면 지움) */
 function SubText({ id, text }: { id: string; text: string }) {
-  const [v, setV] = useState<string | null>(null)
-  const cancel = useRef(false)
-  if (v == null)
-    return (
-      <span
-        className={cx(s.docT, s.subT)}
-        title="눌러서 고치기"
-        /* 줄이 골라져 추가 칸이 잠깐 보이지 않게 */
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => setV(text)}
-      >
-        {text}
-      </span>
-    )
   return (
-    <input
-      className={cx(s.subAdd, s.subEdit)}
-      autoFocus
-      value={v}
-      aria-label={text + ' 고치기'}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => {
-        if (!cancel.current) void renameSub(id, text, v)
-        cancel.current = false
-        setV(null)
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') cancel.current = true
-        else if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
-        e.preventDefault()
-        e.currentTarget.blur()
-      }}
-    />
+    <span
+      className={cx(s.docT, s.subT)}
+      title="눌러서 하위 항목 편집 (이름·마감일·삭제)"
+      /* 줄이 골라져 추가 칸이 잠깐 보이지 않게 */
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => editSub(id, text)}
+    >
+      {text}
+    </span>
   )
 }
 

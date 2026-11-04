@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, ENF, ENF_SS_RULES, FUL_PACKS, IMJ, KTX_RULE, PRE_SIV, SCAN_RULE, WID_RULE } from '../domain/constants.ts'
+import { stepsFor } from '../domain/specials.ts'
+import { APPROVAL_STEPS, BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, ENF, ENF_SS_RULES, FUL_PACKS, IMJ, KTX_RULE, PRE_SIV, SCAN_RULE, WID_RULE } from '../domain/constants.ts'
 import { nowIso } from '../domain/date.ts'
 import { isFarSite } from '../domain/project.ts'
 import { bundleParts, genKey, partDues, planTodos } from '../domain/rules.ts'
 import type { CalEvent, Rule, Todo } from '../types/domain.ts'
 import {
-  addFul, addSub, addTodo, deleteEventCascade, dismissTodo, loadAll, moveTodo, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, toggleStep, withSubs,
+  addFul, addSub, addTodo, deleteEventCascade, dismissTodo, editSub, loadAll, moveTodo, removeSub, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, toggleStep, withSubs,
 } from './actions.ts'
 import { createLocalRepository, createMemoryRepository } from './localRepository.ts'
 import { getState } from './store.ts'
@@ -962,5 +963,70 @@ describe('외근 비용청구 (claim1) · 매월 마지막 주 월요일 할 일
     expect(getState().todos.get('m_claim_2026-11')).toMatchObject({
       subs: ['Pj 다라의원 SIV (11/3)', 'Pj 마바병원 PSV (11/12)', '영수증'], checks: ['Pj 다라의원 SIV (11/3)'], checkAt: { 'Pj 다라의원 SIV (11/3)': '2026-11-03T01:00:00.000Z' },
     })
+  })
+})
+
+describe('하위 항목 편집 창 · 결재 상신 단계', () => {
+  const rules: Rule[] = [
+    { id: 'r-a', key: '', type: '*', project: '*', title: '{site} {type} 스캔', dir: 'after', n: 1, unit: 'WD', send: false, verify: false, start: 'due', startN: 0 },
+    { id: 'r-b', key: '', type: '*', project: '*', title: '{site} {type} 바인더 정리', dir: 'after', n: 3, unit: 'WD', send: false, verify: false, start: 'due', startN: 0 },
+    { id: 'r-c', key: '', type: '*', project: '*', title: '{site} {type} MVR 결재 상신', dir: 'after', n: 5, unit: 'WD', send: false, verify: false, start: 'due', startN: 0 },
+  ]
+
+  it('묶음 하위 항목의 마감일·이름을 고치고 지운다 (다시 맞춰도 고친 날짜는 그대로, 지운 항목은 안 돌아온다)', async () => {
+    await replaceAll({ events: [], todos: [], fuls: [], config: { rules, holidays: DEFAULT_HOLIDAYS, mig: ['claim1', 'scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'ful5', 'fulpack3', 'wid1'], notes: null, projects: [], companions: [] } })
+    await putEvent(visit)
+    await syncEvent(visit)
+    const id = 'a_ev1_g-post'
+    expect(getState().todos.get(id)!.subs).toEqual(['스캔', '바인더 정리', 'MVR 결재 상신'])
+    expect(bundleParts(getState().todos.get(id)!, getState())['스캔'].due).toBe('2026-10-22')
+
+    await editSub(id, '스캔', '스캔', '2026-10-27', '2026-10-22')
+    expect(getState().todos.get(id)!.subDue).toEqual({ 스캔: '2026-10-27' })
+    await syncEvent(getState().events.get('ev1')!, true)
+    expect(getState().todos.get(id)!.subDue).toEqual({ 스캔: '2026-10-27' })
+    /* 규칙 날짜로 되돌리면 직접 정한 날짜는 지운다 */
+    await editSub(id, '스캔', '스캔', '2026-10-22', '2026-10-22')
+    expect(getState().todos.get(id)!.subDue).toBeUndefined()
+
+    /* 이름을 바꾸면 체크와 보이던 날짜가 따라간다 */
+    await toggleCheck(id, '바인더 정리')
+    await editSub(id, '바인더 정리', '바인더 정리·발송', '2026-10-26', '2026-10-26')
+    expect(getState().todos.get(id)).toMatchObject({ subs: ['스캔', '바인더 정리·발송', 'MVR 결재 상신'], checks: ['바인더 정리·발송'], subDue: { '바인더 정리·발송': '2026-10-26' } })
+
+    await removeSub(id, '스캔')
+    expect(getState().todos.get(id)!.subs).toEqual(['바인더 정리·발송', 'MVR 결재 상신'])
+    await syncEvent(getState().events.get('ev1')!, true)
+    expect(getState().todos.get(id)!.subs).toEqual(['바인더 정리·발송', 'MVR 결재 상신'])
+    expect(getState().events.get('ev1')!.skip).toEqual(expect.arrayContaining(['r-a', 'r-b']))
+  })
+
+  it('결재 상신: 묶음 하위 항목이면 단계로, 낱개 할 일이면 하위 항목으로 수정·PM 승인 확인·T-Sign 요청·T-Sign 업로드', async () => {
+    expect(stepsFor('Precheck list 결재 상신 (SIV Material·PPT 포함)', [], { done: false })).toEqual(APPROVAL_STEPS)
+    expect(stepsFor('계약서 Site specific 업데이트', ['작성'], { done: false })).toEqual(['작성'])
+    expect(stepsFor('바인더 정리', undefined, { done: false })).toBeUndefined()
+    expect(APPROVAL_STEPS).toEqual(['수정', 'PM 승인 확인', 'T-Sign 요청', 'T-Sign 업로드'])
+
+    const id = await addTodo({ title: '가나대 계약서 결재 상신', done: false })
+    expect(getState().todos.get(id)!.subs).toEqual(APPROVAL_STEPS)
+    await replaceAll({ events: [], todos: [], fuls: [], config: { rules: [rules[2]], holidays: DEFAULT_HOLIDAYS, mig: ['claim1', 'scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'ful5', 'fulpack3', 'wid1'], notes: null, projects: [], companions: [] } })
+    await putEvent(visit)
+    await syncEvent(visit)
+    expect(getState().todos.get('a_ev1_r-c')!.subs).toEqual(APPROVAL_STEPS)
+  })
+
+  it('열린 결재 상신 할 일에 단계를 하위 항목으로 (approval1, 끝낸 일·하위 항목이 있는 일은 그대로)', async () => {
+    await replaceAll({
+      events: [], fuls: [],
+      todos: [
+        { id: 'a', title: 'SIVR 결재 상신', done: false },
+        { id: 'b', title: 'PSVR 결재 상신', done: true },
+        { id: 'c', title: 'MVR 결재 상신', done: false, subs: ['첨부'] },
+      ],
+      config: { rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['claim1', 'scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'ful5', 'fulpack3', 'wid1'], notes: null, projects: [], companions: [] },
+    })
+    expect(getState().todos.get('a')!.subs).toEqual(APPROVAL_STEPS)
+    expect(getState().todos.get('b')!.subs).toBeUndefined()
+    expect(getState().todos.get('c')!.subs).toEqual(['첨부'])
   })
 })

@@ -101,6 +101,10 @@ export const WID_RULE: Rule = {
   dir: 'after', n: 3, unit: 'ADD', send: false, verify: false, basis: '본인 기준: 외근 등록하면 WD3 내 WID 에 외근 일정 등록', start: 'reg', startN: 0,
 }
 
+/** 결재 상신 일에 늘 붙는 단계 (묶음 하위 항목이면 그 밑에, 낱개 할 일이면 하위 항목으로) */
+export const APPROVAL_STEPS = ['수정', 'PM 승인 확인', 'T-Sign 요청', 'T-Sign 업로드']
+export const APPROVAL_RE = /결재\s*상신/
+
 /** 외근 다녀와서 WD3 에 비용청구 (그날 착수·마감 → 방문 후 정리에 들어간다) */
 export const CLAIM_RULE: Rule = {
   id: 'r-claim', key: 'CLAIM', type: '*', project: '*', title: '{site} {type} 비용청구',

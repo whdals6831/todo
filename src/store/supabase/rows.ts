@@ -72,10 +72,25 @@ function fromRow<T>(row: Row, cols: readonly Col[]): T {
 }
 
 export const eventToRow = (e: CalEvent) => toRow(e, EVENT_COLS)
-export const todoToRow = (t: Todo) => toRow(t, TODO_COLS)
+/** 하위 항목 마감일(subDue)은 컬럼을 따로 두지 않고 check_at 에 이 앞말을 붙여 함께 둔다 */
+const SUB_DUE = '#due:'
+export const todoToRow = (t: Todo) => {
+  const { subDue, ...rest } = t
+  const sd = Object.entries(subDue || {})
+  return toRow(sd.length ? { ...rest, checkAt: { ...rest.checkAt, ...Object.fromEntries(sd.map(([k, v]) => [SUB_DUE + k, v])) } } : rest, TODO_COLS)
+}
 export const fulToRow = (f: Ful) => toRow(f, FUL_COLS)
 export const rowToEvent = (r: Row) => fromRow<CalEvent>(r, EVENT_COLS)
-export const rowToTodo = (r: Row) => fromRow<Todo>(r, TODO_COLS)
+export const rowToTodo = (r: Row): Todo => {
+  const t = fromRow<Todo>(r, TODO_COLS)
+  const all = Object.entries(t.checkAt || {})
+  if (!all.some(([k]) => k.startsWith(SUB_DUE))) return t
+  return {
+    ...t,
+    checkAt: Object.fromEntries(all.filter(([k]) => !k.startsWith(SUB_DUE))),
+    subDue: Object.fromEntries(all.filter(([k]) => k.startsWith(SUB_DUE)).map(([k, v]) => [k.slice(SUB_DUE.length), v])),
+  }
+}
 export const rowToFul = (r: Row) => fromRow<Ful>(r, FUL_COLS)
 
 export const configToRow = (c: Config): Row => ({

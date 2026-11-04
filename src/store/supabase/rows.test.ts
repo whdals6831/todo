@@ -16,6 +16,15 @@ describe('행 변환', () => {
     expect(t).toEqual({ id: 'x', title: 't', due: '', start: '', time: '', done: true, doneAt: '2026-10-16T01:00:00.000Z' })
   })
 
+  it('할 일: 하위 항목 마감일은 check_at 에 같이 두고, 읽을 때 다시 나눈다', () => {
+    const t: Todo = { id: 'x', title: 't', due: '', start: '', done: false, checks: ['A'], checkAt: { A: '2026-11-04T01:00:00.000Z' }, subDue: { B: '2026-11-10' } }
+    const row = todoToRow(t)
+    expect(row.check_at).toEqual({ A: '2026-11-04T01:00:00.000Z', '#due:B': '2026-11-10' })
+    expect(row).not.toHaveProperty('sub_due')
+    expect(rowToTodo(JSON.parse(JSON.stringify(row)))).toMatchObject({ checkAt: { A: '2026-11-04T01:00:00.000Z' }, subDue: { B: '2026-11-10' } })
+    expect(todoToRow({ ...t, subDue: undefined }).check_at).toEqual({ A: '2026-11-04T01:00:00.000Z' })
+  })
+
   it('일정: 배열·빈 종료일 왕복', () => {
     const e: CalEvent = { id: 'ev1', kind: 'visit', date: '2026-10-21', endDate: '', time: '14:00', type: 'MV', skip: ['r-cl'], genKey: 'v3|…' }
     const back = rowToEvent(JSON.parse(JSON.stringify(eventToRow(e))))

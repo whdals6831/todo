@@ -184,9 +184,21 @@
   font-weight: var(--weight-medium);
   color: var(--color-fg);
 }
-/* 하위 항목 글자: 눌러서 고치기 */
+/* 하위 항목 날짜: 눌러서 편집 창 */
+.subDueBtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+.subDueBtn:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* 하위 항목 글자: 눌러서 편집 창 */
 .subT {
-  cursor: text;
+  cursor: pointer;
 }
 .subT:hover {
   text-decoration: underline;

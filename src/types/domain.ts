@@ -69,6 +69,8 @@ export interface Todo {
   checks?: string[]
   /** 체크한 시각 (이름 → ISO). 시각을 모르는 옛 체크는 날짜(YYYY-MM-DD)만 */
   checkAt?: Record<string, string>
+  /** 하위 항목 마감일을 직접 정한 것 (이름 → 날짜). 없으면 묶음 규칙의 날짜 */
+  subDue?: Record<string, DateStr>
   /** PMP 원문으로 확인되지 않은 임시 규칙에서 나온 할 일 */
   verify?: boolean
   /** 자동 할 일을 만든 일정 */

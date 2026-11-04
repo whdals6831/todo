@@ -1,12 +1,13 @@
 import type { CalEvent, Data, DateStr, NormRule, Project, Rule, Todo } from '../types/domain.ts'
-import { DEFAULT_KEYMAP, DEFAULT_STARTMAP, START_WHY, URGENT_PROJECTS, coversDay, kindOf } from './constants.ts'
+import { APPROVAL_RE, APPROVAL_STEPS, DEFAULT_KEYMAP, DEFAULT_STARTMAP, START_WHY, URGENT_PROJECTS, coversDay, kindOf } from './constants.ts'
 import {
   addWorkdays, holidaysBetween, isWork, md, nextWork, nextWorkOrSame, prevWork, shift, todayStr,
 } from './date.ts'
-import { escapeRegExp, isFarSite, projShort, sameSite, siteCore, siteShort, stripProj } from './project.ts'
+import { escapeRegExp, isFarSite, projShort, safeId, sameSite, siteCore, siteShort, stripProj } from './project.ts'
 
 type RuleCtx = Pick<Data, 'rules' | 'holidays'>
-type PlanCtx = Pick<Data, 'rules' | 'holidays' | 'events' | 'projects'>
+/** todos 가 있으면 이미 있는 묶음은 항목이 하나만 남아도 묶음으로 둔다 */
+type PlanCtx = Pick<Data, 'rules' | 'holidays' | 'events' | 'projects'> & { todos?: Data['todos'] }
 
 /** 옛 규칙에 없는 key·start 를 기본값으로 채운다 */
 export function normRule(r: Rule): NormRule {
@@ -220,7 +221,9 @@ export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
   const one = rs.map((r) => {
     const { due, basis } = computeDue(ev, r, ctx)
     const { start, startBasis } = computeStart(ev, r, due, ctx)
-    const subs = [...new Set((r.subs || []).map(fill).filter(Boolean))]
+    const subs0 = [...new Set((r.subs || []).map(fill).filter(Boolean))]
+    /* 하위 항목이 없는 결재 상신 일은 결재 단계를 하위 항목으로 */
+    const subs = subs0.length || !APPROVAL_RE.test(r.title) ? subs0 : [...APPROVAL_STEPS]
     return { title: fill(r.title), due, basis, start, startBasis, ruleId: r.id, verify: !!r.verify, time: r.time || '', subs }
   })
   const out: PlannedTodo[] = []
@@ -228,7 +231,9 @@ export function planTodos(ev: CalEvent, ctx: PlanCtx): PlannedTodo[] {
   for (const g of ['prep', 'post'] as const) {
     const G = GROUPS[g]
     const idx = rs.map((r, i) => (groupOf(r) === g ? i : -1)).filter((i) => i >= 0)
-    if (idx.length < 2) continue
+    /* 둘 이상일 때만 묶는다. 이미 만든 묶음은 하위 항목을 지워 하나만 남아도 그대로 (묶음이 사라지며 직접 단 항목·체크를 잃지 않게) */
+    const had = !!ctx.todos?.has(safeId('a_' + ev.id + '_' + G.id))
+    if (idx.length < (had ? 1 : 2)) continue
     /* 묶음을 지웠으면 그 안의 일도 낱개로 되살리지 않는다 */
     if (skip.has(G.id)) {
       idx.forEach((i) => bundled.add(i))
@@ -264,7 +269,9 @@ export function partDues(t: Pick<Todo, 'ruleId' | 'eventId'>, ctx: PlanCtx): Rec
 /** 묶음 할 일의 하위 항목 이름 → 그 규칙의 일 (날짜·단계) */
 export function bundleParts(t: Pick<Todo, 'ruleId' | 'eventId'>, ctx: PlanCtx): Record<string, PlannedPart> {
   const ev = t.eventId && isGroupRule(t.ruleId) ? ctx.events.get(t.eventId) : undefined
-  const p = ev ? planTodos(ev, ctx).find((x) => x.ruleId === t.ruleId) : undefined
+  /* 이 묶음 할 일은 이미 있다 */
+  const todos = new Map([[safeId('a_' + t.eventId + '_' + t.ruleId), t as Todo]])
+  const p = ev ? planTodos(ev, { ...ctx, todos }).find((x) => x.ruleId === t.ruleId) : undefined
   return Object.fromEntries((p?.parts || []).map((x) => [x.sub, x]))
 }
 

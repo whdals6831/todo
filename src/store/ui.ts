@@ -10,6 +10,7 @@ export type View = 'cal' | 'today' | 'all' | 'ful' | 'notes' | 'search' | 'rules
 export type Modal =
   | { kind: 'todoAdd'; due?: DateStr }
   | { kind: 'todoEdit'; id: string }
+  | { kind: 'subEdit'; id: string; sub: string }
   | { kind: 'event'; event: Partial<CalEvent>; as?: EventKind }
 
 export type Popover =

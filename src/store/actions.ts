@@ -1,5 +1,5 @@
 import {
-  BRZ, BRZ_PSV_FUL, CLAIM_RULE, ENF, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, TARL_SIV_SCAN, WID_RULE, brzPsvFulRule,
+  APPROVAL_RE, APPROVAL_STEPS, BRZ, BRZ_PSV_FUL, CLAIM_RULE, ENF, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, TARL_SIV_SCAN, WID_RULE, brzPsvFulRule,
   fulPackRules, kindOf,
 } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
@@ -342,7 +342,7 @@ async function syncBundle(ev: CalEvent, p: PlannedTodo, mine: Todo[], regen: boo
   await putTodo({
     id, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis,
     ruleId: p.ruleId, verify: p.verify, eventId: ev.id, project: ev.project || '', done: false, doneAt: null,
-    rank: old?.rank, note: b.note || undefined, subs: b.subs.length ? b.subs : undefined, checks: b.checks, checkAt: b.checkAt,
+    rank: old?.rank, note: b.note || undefined, subs: b.subs.length ? b.subs : undefined, checks: b.checks, checkAt: b.checkAt, subDue: old?.subDue,
     created: old?.created || new Date().toISOString(),
   })
   for (const t of open) {
@@ -439,7 +439,8 @@ export async function syncEvent(ev: CalEvent, force = false) {
       await putTodo({
         id, title: p.title, due: p.due, time: p.time || '', basis: p.basis, start: p.start, startBasis: p.startBasis,
         ruleId: p.ruleId, verify: p.verify, eventId: ev.id, project: ev.project || '', done: false,
-        rank: base?.rank, note: old?.note, subs: subs.length ? subs : undefined, checks: base?.checks, checkAt: base?.checkAt, created: base?.created || new Date().toISOString(),
+        rank: base?.rank, note: old?.note, subs: subs.length ? subs : undefined, checks: base?.checks, checkAt: base?.checkAt, subDue: base?.subDue,
+        created: base?.created || new Date().toISOString(),
       })
       if (twin) {
         for (const c of [...S().todos.values()].filter((x) => x.parentId === twin.id)) await putTodo({ ...c, parentId: id })
@@ -605,6 +606,8 @@ export async function addTodo(t: NewTodo): Promise<string> {
     await putTodo(ns.ca)
     t = ns.main
   }
+  /* 결재 상신 일은 결재 단계를 하위 항목으로 */
+  if (!t.subs?.length && !t.parentId && APPROVAL_RE.test(t.title)) t = { ...t, subs: [...APPROVAL_STEPS] }
   const id = await putTodo(t)
   for (const c of companionsFor(t, S().companions)) {
     const i = t.title.toLowerCase().indexOf(c.keyword.toLowerCase())
@@ -738,7 +741,17 @@ const underSub = (name: string, sub: string) => name === sub || name.startsWith(
 export const withSubs = (t: Todo, subs: string[]): Todo => {
   const gone = (t.subs || []).filter((x) => !subs.includes(x))
   const keep = (x: string) => !gone.some((g) => underSub(x, g))
-  return { ...t, subs, checks: (t.checks || []).filter(keep), checkAt: keepAt(t.checkAt, (x) => (keep(x) ? x : null)) }
+  const subDue = keepAt(t.subDue, (x) => (subs.includes(x) ? x : null))
+  return {
+    ...t, subs, checks: (t.checks || []).filter(keep), checkAt: keepAt(t.checkAt, (x) => (keep(x) ? x : null)),
+    subDue: subDue && Object.keys(subDue).length ? subDue : undefined,
+  }
+}
+
+/** 하위 항목 이름 바꾸기 (체크·단계 체크·직접 정한 마감일도 따라간다) */
+const renamed = (t: Todo, from: string, to: string): Todo => {
+  const ren = (x: string) => (underSub(x, from) ? to + x.slice(from.length) : x)
+  return { ...t, subs: (t.subs || []).map(ren), checks: (t.checks || []).map(ren), checkAt: keepAt(t.checkAt, ren), subDue: keepAt(t.subDue, ren) }
 }
 
 export async function addSub(id: string, text: string) {
@@ -755,8 +768,32 @@ export async function renameSub(id: string, from: string, to: string) {
   const cur = t?.subs || []
   if (!t || v === from || cur.includes(v)) return
   if (!v) return putTodo(withSubs(t, cur.filter((x) => x !== from)))
-  const ren = (x: string) => (underSub(x, from) ? v + x.slice(from.length) : x)
-  await putTodo({ ...t, subs: cur.map(ren), checks: (t.checks || []).map(ren), checkAt: keepAt(t.checkAt, ren) })
+  await putTodo(renamed(t, from, v))
+}
+
+/**
+ * 하위 항목 편집 창: 이름과 마감일. 마감일이 규칙 날짜(ruleDue)와 같거나 비면 직접 정한 날짜를 지운다.
+ * 이름을 바꾸면 규칙과의 연결이 끊기므로 보이던 날짜를 그대로 직접 정한 날짜로 남긴다
+ */
+export async function editSub(id: string, from: string, to: string, due: DateStr, ruleDue = '') {
+  const t0 = S().todos.get(id)
+  const v = to.trim()
+  if (!t0 || !v || !(t0.subs || []).includes(from)) return
+  const move = v !== from && !(t0.subs || []).includes(v)
+  const t = move ? renamed(t0, from, v) : t0
+  const name = move ? v : from
+  const sd = { ...t.subDue }
+  if (due && (move || due !== ruleDue)) sd[name] = due
+  else delete sd[name]
+  await putTodo({ ...t, subDue: Object.keys(sd).length ? sd : undefined })
+}
+
+/** 하위 항목 지우기. 남은 하위 항목을 다 체크했으면 할 일도 끝낸 것으로 */
+export async function removeSub(id: string, name: string) {
+  const t = S().todos.get(id)
+  if (!t || !(t.subs || []).includes(name)) return
+  const n = withSubs(t, t.subs!.filter((x) => x !== name))
+  await putTodo(n.subs?.length ? settleDone(n) : n)
 }
 
 /* ---------- 설정 ---------- */
@@ -1370,6 +1407,15 @@ async function migrate() {
       rules = i < 0 ? [...rules, { ...CLAIM_RULE }] : [...rules.slice(0, i + 1), { ...CLAIM_RULE }, ...rules.slice(i + 1)]
     }
     appStore.setState({ rules, mig: [...s.mig, 'claim1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('approval1')) {
+    /* 하위 항목이 없는 열린 결재 상신 할 일에 결재 단계를 하위 항목으로 (묶음 하위 항목은 화면에서 단계로 보인다) */
+    for (const t of [...S().todos.values()]) {
+      if (t.done || t.subs?.length || t.parentId || isGroupRule(t.ruleId) || !APPROVAL_RE.test(t.title)) continue
+      await putTodo({ ...t, subs: [...APPROVAL_STEPS] })
+    }
+    appStore.setState({ mig: [...S().mig, 'approval1'] })
     await putConfig()
   }
 }

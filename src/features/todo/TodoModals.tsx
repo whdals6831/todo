@@ -6,9 +6,10 @@ import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { CheckField, Field, FormGrid, Input, Select } from '@/components/ui/Field.tsx'
 import { ConfirmLine } from '@/components/ui/Layout.tsx'
 import { Modal, ModalFoot } from '@/components/ui/Modal.tsx'
-import { addTodo, dismissTodo, manualId, putTodo, syncChildren, withSubs } from '@/store/actions.ts'
+import { bundleParts } from '@/domain/rules.ts'
+import { addTodo, dismissTodo, editSub, manualId, putTodo, removeSub, syncChildren, withSubs } from '@/store/actions.ts'
 import { getState } from '@/store/store.ts'
-import { closeModal, ui, useApp } from '@/store/ui.ts'
+import { closeModal, openModal, ui, useApp } from '@/store/ui.ts'
 import type { DateStr, Todo } from '@/types/domain.ts'
 import { KeywordHints } from './QuickAdd.tsx'
 import { useHintInput } from './useHintInput.ts'
@@ -173,6 +174,60 @@ export function TodoAddModal({ due: due0 }: { due?: DateStr }) {
         <Button variant="solid" onClick={go}>
           추가
         </Button>
+      </ModalFoot>
+    </Modal>
+  )
+}
+
+/** 하위 항목 편집: 이름·마감일 고치기, 지우기. 마감일을 비우면 규칙 날짜로 */
+export function SubEditModal({ todo: t, sub }: { todo: Todo; sub: string }) {
+  const rules = useApp((st) => st.rules)
+  const holidays = useApp((st) => st.holidays)
+  const events = useApp((st) => st.events)
+  const projects = useApp((st) => st.projects)
+  const ruleDue = bundleParts(t, { rules, holidays, events, projects })[sub]?.due || ''
+  const [name, setName] = useState(sub)
+  const [due, setDue] = useState(t.subDue?.[sub] || ruleDue)
+  const [confirming, setConfirming] = useState(false)
+  const save = async () => {
+    if (!name.trim()) return
+    closeModal()
+    await editSub(t.id, sub, name, due, ruleDue)
+  }
+  return (
+    <Modal title="하위 항목 편집" onClose={closeModal}>
+      <FormGrid>
+        <Field label="이름" full>
+          <Input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={onEnter(save)} />
+        </Field>
+        <Field label="마감일">
+          <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+        </Field>
+      </FormGrid>
+      <div className={s.info}>
+        <div className={s.basis}>{'할 일: ' + t.title}</div>
+        {ruleDue && <div className={s.basis}>{'규칙 날짜 ' + md(ruleDue) + (due !== ruleDue ? ' · 마감일을 비우면 규칙 날짜로 돌아가요' : '')}</div>}
+      </div>
+      <ModalFoot>
+        {confirming ? (
+          <ConfirmLine
+            message="이 하위 항목을 삭제할까요?"
+            onConfirm={async () => {
+              closeModal()
+              await removeSub(t.id, sub)
+            }}
+            onCancel={() => setConfirming(false)}
+          />
+        ) : (
+          <>
+            <Button onClick={() => setConfirming(true)}>삭제</Button>
+            <Button onClick={() => openModal({ kind: 'todoEdit', id: t.id })}>할 일 편집 창</Button>
+            <Button onClick={closeModal}>취소</Button>
+            <Button variant="solid" onClick={save}>
+              저장
+            </Button>
+          </>
+        )}
       </ModalFoot>
     </Modal>
   )

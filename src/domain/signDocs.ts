@@ -19,13 +19,19 @@ const TYPE_RE = /(?:^|[^a-z])(psv|siv|mv|cov|add-?on)(?![a-z])/i
 
 const norm = (s: string) => s.toLowerCase().replace(/[\s_-]/g, '')
 
-/** 서명 문서 순서: PSV 미참석 연구진(해당 인력) → PI만 → 그 외. 같은 묶음 안은 원래 순서 */
+/**
+ * 서명 문서 순서: 개인정보처리동의서(Privacy Notice) → Signed CV → GCP 이수증 → 그 밖의 PSV 미참석 연구진(해당 인력) 서류
+ * → PI만 → 그 외. 같은 묶음 안은 원래 순서
+ */
 function docGroup(it: NoteItem) {
   const t = String(it.t || '')
   const w = String(it.w || '').trim()
-  if (/미참석|해당\s*(연구진|인력)|PSV 때 못 받았|추가 인력/.test(t + ' ' + w)) return 0
-  if (/^PI(만)?(\s*[·(]|$)/.test(w)) return 1
-  return 2
+  if (/개인정보|privacy/i.test(t)) return 0
+  if (/(^|[^a-z])cv([^a-z]|$)/i.test(t)) return 1
+  if (/gcp|이수증/i.test(t)) return 2
+  if (/미참석|해당\s*(연구진|인력)|PSV 때 못 받았|추가 인력/.test(t + ' ' + w)) return 3
+  if (/^PI(만)?(\s*[·(]|$)/.test(w)) return 4
+  return 5
 }
 export const sortDocs = (arr: NoteItem[]) =>
   arr.map((it, i) => [it, i] as const).sort((a, b) => docGroup(a[0]) - docGroup(b[0]) || a[1] - b[1]).map((x) => x[0])

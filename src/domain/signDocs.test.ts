@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BRZ } from './constants.ts'
-import { docListsFor, etmfDocsFor, signDocsFor } from './signDocs.ts'
+import { docListsFor, etmfDocsFor, signDocsFor, sortDocs } from './signDocs.ts'
 import type { CalEvent, Notes } from '../types/domain.ts'
 
 const notes: Notes = {
@@ -54,5 +54,23 @@ describe('하위 항목의 문서 목록 (외근 할 일 묶음)', () => {
     expect(docListsFor('Confirmation Letter 발송', prep, notes, events)).toEqual([])
     const post = { title: '원주 SIV 방문 후 정리', eventId: 'e1' }
     expect(docListsFor('서명문서 eTMF 업로드', post, notes, events).map((l) => l.key)).toEqual(['etmf'])
+  })
+})
+
+describe('서명문서 순서', () => {
+  it('개인정보처리동의서 → Signed CV → GCP 이수증 → PI → 그 외 (영문 이름도)', () => {
+    const t = (xs: [string, string][]) => sortDocs(xs.map(([t, w]) => ({ t, w }))).map((d) => d.t)
+    expect(
+      t([
+        ['Delegation log', 'PI/Sub-I/CRC'], ['Study Material Receipt', 'PI'], ['GCP 교육 이수증 (2년 이내)', 'PI/Sub-I/CRC'],
+        ['Signed CV', 'PI/Sub-I/CRC'], ['Source Document Agreement', 'PI'], ['개인정보처리동의서 (PSV 때 못 받았거나 추가 인력)', 'PI/Sub-I/CRC'],
+      ]),
+    ).toEqual(['개인정보처리동의서 (PSV 때 못 받았거나 추가 인력)', 'Signed CV', 'GCP 교육 이수증 (2년 이내)', 'Study Material Receipt', 'Source Document Agreement', 'Delegation log'])
+    expect(
+      t([
+        ['Attendee List', 'PI/Sub-I/CRC'], ['(PSV 미참석 연구진) GCP certificate', '해당 연구진'], ['Site Visit Record', 'PI'],
+        ['(PSV 미참석 연구진) Signed and dated English CV', '해당 연구진'], ['(PSV 미참석 연구진) Amgen Privacy Notice', '해당 연구진'],
+      ]),
+    ).toEqual(['(PSV 미참석 연구진) Amgen Privacy Notice', '(PSV 미참석 연구진) Signed and dated English CV', '(PSV 미참석 연구진) GCP certificate', 'Site Visit Record', 'Attendee List'])
   })
 })

@@ -4,7 +4,7 @@ import {
 } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
-import { MONTHLY, isVisitSub, monthlyPlan, monthlyTitle, nextMonth, visitList, visitSkip, visitSubs } from '../domain/monthly.ts'
+import { MONTHLY, isVisitSub, monthlyPlan, monthlyTitle, nextMonth, visitBase, visitList, visitSkip, visitSubs } from '../domain/monthly.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort, stripProj } from '../domain/project.ts'
 import { GROUPS, genKey, isGroupRule, manualTwin, normRule, planTodos, rulesFor, subLabel, type PlannedPart, type PlannedTodo } from '../domain/rules.ts'
 import {
@@ -1411,8 +1411,20 @@ async function syncVisitLists() {
     const l = visitListOf(t.id)
     if (!l) continue
     const want = visitSubs(l.month, S().events.values(), S().projects, l.x)
+    /* 이름이 바뀐 외근(예전 날짜 없는 이름·방문일 변경)은 체크째 새 이름으로: 같은 외근 이름이 하나만 비어 있을 때 */
+    const ren = new Map<string, string>()
+    for (const y of t.subs || []) {
+      if (want.includes(y) || !isVisitSub(y)) continue
+      const to = want.filter((w) => visitBase(w) === visitBase(y) && !(t.subs || []).includes(w) && ![...ren.values()].includes(w))
+      if (to.length === 1) ren.set(y, to[0])
+    }
+    const rn = (x: string) => {
+      const k = [...ren.keys()].find((y) => x === y || x.startsWith(y + DOC_SEP))
+      return k ? ren.get(k)! + x.slice(k.length) : x
+    }
+    const t0 = t.subs?.length ? { ...t, subs: t.subs.map(rn), checks: (t.checks || []).map(rn), checkAt: keepAt(t.checkAt, rn) } : t
     const cur = t.subs || []
-    const subs = cur.filter((y) => want.includes(y) || (t.checks || []).includes(y) || !isVisitSub(y))
+    const subs = (t0.subs || []).filter((y) => want.includes(y) || (t0.checks || []).includes(y) || !isVisitSub(y))
     want.forEach((w, k) => {
       if (subs.includes(w)) return
       const prev = want.slice(0, k).reverse().find((y) => subs.includes(y))
@@ -1422,7 +1434,7 @@ async function syncVisitLists() {
       subs.splice(prev ? subs.indexOf(prev) + 1 : next ? subs.indexOf(next) : tail, 0, w)
     })
     if (subs.length === cur.length && subs.every((y, i) => y === cur[i])) continue
-    let n = withSubs(t, subs)
+    let n = withSubs(t0, subs)
     if (n.done && subs.some((y) => !n.checks?.includes(y))) n = { ...n, done: false, doneAt: null }
     await putTodo(n)
   }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_HOLIDAYS as holidays, IMJ } from './constants.ts'
 import type { CalEvent } from '../types/domain.ts'
-import { MONTHLY, isVisitSub, lastMonday, monthlyPlan, monthlyTitle, nextMonth, visitSkip, visitSubs } from './monthly.ts'
+import { MONTHLY, isVisitSub, visitBase, lastMonday, monthlyPlan, monthlyTitle, nextMonth, visitSkip, visitSubs } from './monthly.ts'
 
 const plan = MONTHLY[0]
 
@@ -34,7 +34,7 @@ describe('매월 마지막 주 월요일 할 일', () => {
     expect(monthlyTitle(claim, '2026-11')).toBe('11월 비용청구')
   })
 
-  it('비용청구 하위 항목: 그달 외근을 방문일 순으로 "과제 약칭 기관 방문 종류". 같은 이름은 날짜를 붙이고, 기타·뺀 외근은 넣지 않는다', () => {
+  it('비용청구 하위 항목: 그달 외근을 방문일 순으로 "과제 약칭 기관 방문 종류 (방문일)". 기타·뺀 외근은 넣지 않는다', () => {
     const projects = [{ name: IMJ, short: 'Imjudo', sites: [] }, { name: 'B', short: 'Breztri', sites: [] }]
     const v = (id: string, date: string, site: string, type: string, project = IMJ, more: Partial<CalEvent> = {}): CalEvent => ({ id, kind: 'visit', date, site, type, project, ...more })
     const evs = [
@@ -46,8 +46,9 @@ describe('매월 마지막 주 월요일 할 일', () => {
       v('f', '2026-11-12', '자차병원', 'COV', IMJ, { skip: [visitSkip(claim)] }),
       { id: 'm', kind: 'meeting', date: '2026-11-05', title: '팀 회의' } as CalEvent,
     ]
-    expect(visitSubs('2026-11', evs, projects, claim)).toEqual(['Breztri 다라의원 SIV', 'Imjudo 가나대병원 MV (11/20)', 'Imjudo 가나대병원 MV (11/25)'])
+    expect(visitSubs('2026-11', evs, projects, claim)).toEqual(['Breztri 다라의원 SIV (11/3)', 'Imjudo 가나대병원 MV (11/20)', 'Imjudo 가나대병원 MV (11/25)'])
     expect(isVisitSub('Imjudo 가나대병원 MV (11/20)') && isVisitSub('Breztri 다라의원 Add-on')).toBe(true)
     expect(isVisitSub('영수증 정리')).toBe(false)
+    expect(visitBase('Imjudo 가나대병원 MV (11/20)')).toBe('Imjudo 가나대병원 MV')
   })
 })

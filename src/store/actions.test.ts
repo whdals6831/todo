@@ -914,33 +914,53 @@ describe('외근 비용청구 (claim1) · 매월 마지막 주 월요일 할 일
     const id = 'm_claim_2026-11'
     expect(getState().todos.get('m_imj-enroll_2026-11')).toMatchObject({ title: '이뮤도 등록 현황 메일 발송', project: IMJ, start: '2026-11-30', due: '2026-11-30' })
     expect(getState().todos.get('m_imj-enroll_2026-12')).toMatchObject({ due: '2026-12-28' })
-    expect(getState().todos.get(id)).toMatchObject({ title: '11월 비용청구', due: '2026-11-30', subs: ['Pj 다라의원 SIV', 'Imjudo 가나대병원 MV'] })
+    expect(getState().todos.get(id)).toMatchObject({ title: '11월 비용청구', due: '2026-11-30', subs: ['Pj 다라의원 SIV (11/3)', 'Imjudo 가나대병원 MV (11/20)'] })
     expect(getState().todos.get('m_claim_2026-12')!.subs).toBeUndefined()
 
     const c = ev('c', '2026-11-10', '마바병원', 'PSV')
     await putEvent(c)
     await syncEvent(c)
-    expect(getState().todos.get(id)!.subs).toEqual(['Pj 다라의원 SIV', 'Pj 마바병원 PSV', 'Imjudo 가나대병원 MV'])
+    expect(getState().todos.get(id)!.subs).toEqual(['Pj 다라의원 SIV (11/3)', 'Pj 마바병원 PSV (11/10)', 'Imjudo 가나대병원 MV (11/20)'])
 
     /* 체크한 외근·직접 단 항목은 외근을 지워도 남고, 체크 안 한 외근은 빠진다 */
-    await toggleCheck(id, 'Pj 다라의원 SIV')
+    await toggleCheck(id, 'Pj 다라의원 SIV (11/3)')
     await addSub(id, '영수증 정리')
     await deleteEventCascade('b')
     await deleteEventCascade('c')
-    expect(getState().todos.get(id)!.subs).toEqual(['Pj 다라의원 SIV', 'Imjudo 가나대병원 MV', '영수증 정리'])
+    expect(getState().todos.get(id)!.subs).toEqual(['Pj 다라의원 SIV (11/3)', 'Imjudo 가나대병원 MV (11/20)', '영수증 정리'])
 
     /* 목록에서 직접 뺀 외근은 다시 넣지 않는다 */
-    await renameSub(id, 'Imjudo 가나대병원 MV', '')
+    await renameSub(id, 'Imjudo 가나대병원 MV (11/20)', '')
     expect(getState().events.get('a')!.skip).toContain('m-claim')
     await syncEvent(getState().events.get('a')!, true)
-    expect(getState().todos.get(id)!.subs).toEqual(['Pj 다라의원 SIV', '영수증 정리'])
+    expect(getState().todos.get(id)!.subs).toEqual(['Pj 다라의원 SIV (11/3)', '영수증 정리'])
 
     /* 끝낸 목록에 그달 외근이 새로 생기면 다시 연다 (이미 한 체크는 그대로) */
     await toggleDone(getState().todos.get(id)!)
     const d = ev('d', '2026-11-27', '사아병원', 'MV')
     await putEvent(d)
     await syncEvent(d)
-    expect(getState().todos.get(id)).toMatchObject({ done: false, subs: ['Pj 다라의원 SIV', 'Pj 사아병원 MV', '영수증 정리'] })
-    expect(getState().todos.get(id)!.checks).toEqual(['Pj 다라의원 SIV', '영수증 정리'])
+    expect(getState().todos.get(id)).toMatchObject({ done: false, subs: ['Pj 다라의원 SIV (11/3)', 'Pj 사아병원 MV (11/27)', '영수증 정리'] })
+    expect(getState().todos.get(id)!.checks).toEqual(['Pj 다라의원 SIV (11/3)', '영수증 정리'])
+
+    /* 방문일을 옮기면 이름의 날짜도 바뀌고 체크는 그대로 */
+    await toggleCheck(id, 'Pj 사아병원 MV (11/27)')
+    await putEvent({ ...getState().events.get('d')!, date: '2026-11-26' })
+    await syncEvent(getState().events.get('d')!, true)
+    expect(getState().todos.get(id)).toMatchObject({ subs: ['Pj 다라의원 SIV (11/3)', 'Pj 사아병원 MV (11/26)', '영수증 정리'], done: true })
+  })
+
+  it('예전 날짜 없는 이름은 체크째 날짜 붙은 이름으로 바꾼다', async () => {
+    vi.setSystemTime(new Date('2026-11-04T09:00:00+09:00'))
+    const a: CalEvent = { ...visit, id: 'a', date: '2026-11-03', site: '다라의원', type: 'SIV' }
+    const b: CalEvent = { ...a, id: 'b', date: '2026-11-12', site: '마바병원', type: 'PSV' }
+    await replaceAll({
+      events: [a, b], fuls: [],
+      todos: [{ id: 'm_claim_2026-11', title: '11월 비용청구', due: '2026-11-30', done: false, subs: ['Pj 다라의원 SIV', 'Pj 마바병원 PSV', '영수증'], checks: ['Pj 다라의원 SIV'], checkAt: { 'Pj 다라의원 SIV': '2026-11-03T01:00:00.000Z' } }],
+      config: { rules: RULES, holidays: DEFAULT_HOLIDAYS, mig: ['claim1', ...MIG], notes: null, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] },
+    })
+    expect(getState().todos.get('m_claim_2026-11')).toMatchObject({
+      subs: ['Pj 다라의원 SIV (11/3)', 'Pj 마바병원 PSV (11/12)', '영수증'], checks: ['Pj 다라의원 SIV (11/3)'], checkAt: { 'Pj 다라의원 SIV (11/3)': '2026-11-03T01:00:00.000Z' },
+    })
   })
 })

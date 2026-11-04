@@ -40,14 +40,16 @@ export function lastMonday(month: string): DateStr {
 export const monthlyTitle = (x: Monthly, month: string) => x.title.replace('{m}', String(Number(month.slice(5))))
 
 const VISIT_TAIL = '(PSV|SIV|MV|Add-on|COV)( \\(\\d{1,2}/\\d{1,2}\\))?$'
-/** 외근 목록에서 만든 하위 항목 모양 ("Imjudo 가나대병원 MV", 같은 이름이 둘이면 "… MV (11/12)") */
+/** 외근 목록에서 만든 하위 항목 모양 ("Imjudo 가나대병원 MV (11/12)", 예전 것은 날짜 없이) */
+/** 하위 항목에서 방문일을 뗀 이름 */
+export const visitBase = (s: string) => s.replace(/ \(\d{1,2}\/\d{1,2}\)$/, '')
 export const isVisitSub = (s: string) => new RegExp('\\s' + VISIT_TAIL).test(s)
 
 /** 외근을 이 매월 목록에서 뺐다는 표시 (외근의 skip 에 남긴다) */
 export const visitSkip = (x: Pick<Monthly, 'id'>) => 'm-' + x.id
 
 /**
- * 그달 외근 목록(비용청구)의 하위 항목: 과제 약칭 · 기관 · 방문 종류 (방문일 순). 같은 이름이 둘 이상이면 방문일을 붙인다.
+ * 그달 외근 목록(비용청구)의 하위 항목: 과제 약칭 · 기관 · 방문 종류 · (방문일), 방문일 순.
  * 자동 할 일이 없는 기타 외근과 목록에서 직접 뺀 외근은 넣지 않는다
  */
 export function visitList(month: string, events: Iterable<CalEvent>, projects: Project[], x: Pick<Monthly, 'id'>) {
@@ -56,7 +58,7 @@ export function visitList(month: string, events: Iterable<CalEvent>, projects: P
     .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''))
   const names = evs.map((e) => [projShort(projects, e.project), siteShort(e.site), e.type].filter(Boolean).join(' '))
   const day = (d: DateStr) => md(d).replace(/\(.\)$/, '')
-  const subs = names.map((n, i) => (names.indexOf(n) !== names.lastIndexOf(n) ? n + ' (' + day(evs[i].date) + ')' : n))
+  const subs = names.map((n, i) => n + ' (' + day(evs[i].date) + ')')
   return evs.map((ev, i) => ({ ev, sub: subs[i] })).filter((v, i) => subs.indexOf(v.sub) === i)
 }
 export const visitSubs = (...a: Parameters<typeof visitList>) => visitList(...a).map((v) => v.sub)

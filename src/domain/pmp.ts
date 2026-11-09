@@ -1,6 +1,6 @@
 import type { CalEvent, Data, DateStr, Holidays, RuleDir, Todo } from '../types/domain.ts'
 import { kindOf } from './constants.ts'
-import { addWorkdays, isWork, localDay, prevWork, shift } from './date.ts'
+import { addWorkdays, isWork, localDay, prevWork, shift, todayStr } from './date.ts'
 import { chipSite, siteShort, stripProj } from './project.ts'
 import { isGroupRule } from './rules.ts'
 
@@ -17,6 +17,8 @@ interface PmpItem {
   todo?: RegExp
   /** 이 항목을 끝낸 날(아직이면 그 PMP 마감)부터 센다 */
   from?: string
+  /** 내 일이 아니라(PM 업무) 마감일이 지나면 저절로 끝낸 것으로 본다 */
+  auto?: boolean
 }
 
 const CL = /Confirmation Letter/i
@@ -32,7 +34,7 @@ const REPORTS: PmpItem[] = [
 const AZ: PmpItem[] = [
   { item: 'Confirmation Letter', dir: 'before', n: 1, unit: 'WD', todo: CL },
   ...REPORTS,
-  { item: 'Sponsor 송부', dir: 'after', n: 15, unit: 'WD' },
+  { item: 'Sponsor 송부', dir: 'after', n: 15, unit: 'WD', auto: true },
   { item: 'eTMF 문서 보관', dir: 'after', n: 30, unit: 'CD', todo: ETMF },
 ]
 
@@ -44,7 +46,7 @@ export const PMP_DEADLINES: Record<string, PmpItem[]> = {
     { item: 'Confirmation Letter', types: ['SIV'], dir: 'before', n: 1, unit: 'CD', todo: CL },
     { item: 'Confirmation Letter', types: ['MV', 'COV'], dir: 'before', n: 0, unit: 'CD', todo: CL },
     ...REPORTS,
-    { item: 'Sponsor 송부', dir: 'after', n: 15, unit: 'WD' },
+    { item: 'Sponsor 송부', dir: 'after', n: 15, unit: 'WD', auto: true },
     { item: '종이 바인더 filing', dir: 'after', n: 10, unit: 'WD', todo: /binder/i },
   ],
   'Amgen - Tarlatamab': [
@@ -106,12 +108,16 @@ export function pmpFor(ev: CalEvent, { todos, holidays }: Pick<Data, 'todos' | '
   const out: PmpDue[] = []
   items.forEach((x, i) => {
     const linked = x.todo ? mine.filter((t) => x.todo!.test(t.title)) : []
-    const doneDay = linked.length && linked.every((t) => t.done) ? linked.map((t) => t.day).sort().at(-1) || '' : ''
     const prev = x.from ? out.find((o) => o.item === x.from) : undefined
     const base = prev ? prev.doneDay || prev.date : ev.date
+    const date = countFrom(base, x, holidays)
+    /* PM 업무(Sponsor 송부)는 마감일이 지나면 그날 끝낸 것으로 */
+    const doneDay = x.auto
+      ? date < todayStr() ? date : ''
+      : linked.length && linked.every((t) => t.done) ? linked.map((t) => t.day).sort().at(-1) || '' : ''
     out.push({
       key: ev.id + '|' + i, project: ev.project || '', item: x.item, label: siteShort(ev.site) + ' ' + ev.type + ' · ' + x.item,
-      chip: chipSite(ev.site) + ' ' + ev.type + ' ' + chipItem(x.item), date: countFrom(base, x, holidays), doneDay, linked: linked.length > 0,
+      chip: chipSite(ev.site) + ' ' + ev.type + ' ' + chipItem(x.item), date, doneDay, linked: linked.length > 0,
     })
   })
   return out

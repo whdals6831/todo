@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { CalEvent, Todo } from '../types/domain.ts'
 import { DEFAULT_HOLIDAYS as holidays } from './constants.ts'
 import { pmpFor, pmpOn } from './pmp.ts'
@@ -47,6 +47,18 @@ describe('PMP 마감', () => {
       ['Visit Report 작성', '', false],
     ])
     expect(pmpOn('2026-11-06', data(ev, list))[0]).toMatchObject({ item: 'eTMF 문서 보관', doneDay: '', linked: true })
+  })
+
+  it('Sponsor 송부는 PM 업무라 마감일이 지나면 저절로 끝낸 것으로 (그 전에는 아직)', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const ev = visit()
+    vi.setSystemTime(new Date('2026-10-30T09:00:00+09:00'))
+    expect(pmpOn('2026-10-30', data(ev))[0]).toMatchObject({ item: 'Sponsor 송부', doneDay: '' })
+    vi.setSystemTime(new Date('2026-10-31T09:00:00+09:00'))
+    expect(pmpOn('2026-10-30', data(ev))[0]).toMatchObject({ item: 'Sponsor 송부', doneDay: '2026-10-30' })
+    const enf = visit({ project: 'MSD - 엔플론시아' })
+    expect(pmpFor(enf, data(enf)).find((x) => x.item === 'Sponsor 송부')!.doneDay).toBe('2026-10-30')
+    vi.useRealTimers()
   })
 
   it('캘린더 칸 이름은 기관을 줄이고 긴 항목은 약어로', () => {

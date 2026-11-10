@@ -236,6 +236,13 @@
 .dl.urgent::before {
   background: var(--color-danger);
 }
+/* 오늘·내일 마감: 주황 */
+.dl.soon {
+  color: var(--color-soon);
+}
+.dl.soon::before {
+  background: var(--color-soon);
+}
 .dl.done {
   color: var(--color-faint);
   text-decoration: line-through;
@@ -442,6 +449,10 @@ span.pmpLabel {
 .pmpUrgent {
   font-weight: var(--weight-semibold);
   color: var(--color-danger);
+}
+.pmpSoon {
+  font-weight: var(--weight-semibold);
+  color: var(--color-soon);
 }
 /* 끝낸 마감: 할 일처럼 줄을 긋는다 */
 .pmpDone .pmpName {

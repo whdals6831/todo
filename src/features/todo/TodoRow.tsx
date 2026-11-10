@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { localDay, md, todayStr } from '@/domain/date.ts'
-import { dLabel, isUrgent } from '@/domain/priority.ts'
+import { dLabel, dueTone } from '@/domain/priority.ts'
 import { projShort } from '@/domain/project.ts'
 import { bundleParts, copyText, isGroupRule } from '@/domain/rules.ts'
 import { docListsFor } from '@/domain/signDocs.ts'
@@ -42,7 +42,10 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   /** 이 줄을 골랐거나(과제 꼬리표 등을 누름) 하위 항목 입력칸에 쓰는 중 → 입력칸을 띄운다.
      CSS :focus 로 숨기면 줄 → 입력칸으로 포커스가 옮겨 가는 순간 칸이 잠깐 숨어 포커스를 놓치므로 상태로 둔다 */
   const [picked, setPicked] = useState(false)
-  const urgent = isUrgent(t)
+  /* 지난 미완료는 빨강(urgent), 오늘·내일 마감은 주황(soon) */
+  const tone = dueTone(t)
+  const urgent = tone === 'late'
+  const soon = tone === 'soon'
   const dd = localDay(t.doneAt)
   const checks = t.checks || []
   const group = isGroupRule(t.ruleId)
@@ -57,7 +60,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const dues: Record<string, string> = { ...Object.fromEntries(Object.entries(parts).map(([k, x]) => [k, x.due])), ...(t.done ? {} : t.subDue) }
   const today = todayStr()
   const subs = (t.subs || []).map((x) => ({
-    t: x, due: dues[x], late: !!dues[x] && dues[x] < today && !checks.includes(x), docs: group ? docListsFor(x, t, notes, events) : [],
+    t: x, due: dues[x], late: !!dues[x] && dues[x] < today && !checks.includes(x), soon: dues[x] === today && !checks.includes(x), docs: group ? docListsFor(x, t, notes, events) : [],
     steps: stepsFor(x, parts[x]?.steps, t),
   }))
   const checked = (items: { t: string }[], pre: string) => items.filter((d) => checks.includes(pre + d.t)).length
@@ -83,7 +86,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
 
   /* 체크해도 편집 창이 열리지 않게. 하위 항목(sub)은 글자를 눌러 고치고, 줄을 골랐으면 맨 아래에 입력칸 */
   const checklist = (
-    items: { t: string; w?: string; due?: string; late?: boolean; docs?: typeof lists; steps?: string[] }[],
+    items: { t: string; w?: string; due?: string; late?: boolean; soon?: boolean; docs?: typeof lists; steps?: string[] }[],
     pre: string,
     sub = false,
     toggle = (name: string) => toggleCheck(t.id, pre + name),
@@ -92,16 +95,16 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
       {items.map((d, i) => {
         const on = checks.includes(pre + d.t)
         return (
-          <li key={i} className={cx(on && s.docOn, d.late && s.subLate)}>
+          <li key={i} className={cx(on && s.docOn, d.late && s.subLate, d.soon && s.subSoon)}>
             <RoundCheckbox checked={on} onToggle={() => toggle(d.t)} label={d.t + ' 체크'} />
             {sub ? <SubText id={t.id} text={d.t} /> : <span className={s.docT}>{d.t}</span>}
             {d.due &&
               (sub ? (
-                <button type="button" className={cx(s.subDue, s.subDueBtn, d.late && s.late)} title="눌러서 하위 항목 편집" onClick={() => editSub(t.id, d.t)}>
+                <button type="button" className={cx(s.subDue, s.subDueBtn, d.late && s.late, d.soon && s.soonT)} title="눌러서 하위 항목 편집" onClick={() => editSub(t.id, d.t)}>
                   {md(d.due)}
                 </button>
               ) : (
-                <span className={cx(s.subDue, d.late && s.late)}>{md(d.due)}</span>
+                <span className={cx(s.subDue, d.late && s.late, d.soon && s.soonT)}>{md(d.due)}</span>
               ))}
             {d.w && <span className={s.docW}>{d.w}</span>}
             {d.docs?.map((l) => {
@@ -166,8 +169,8 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   )
 
   return (
-    <div className={cx(s.row, t.done && s.done, urgent && s.urgent)} data-todo-id={t.id}>
-      <RoundCheckbox checked={!!t.done} onToggle={() => toggleDone(t)} label="완료 표시" tone={urgent ? 'danger' : 'default'} />
+    <div className={cx(s.row, t.done && s.done, urgent && s.urgent, soon && s.soon)} data-todo-id={t.id}>
+      <RoundCheckbox checked={!!t.done} onToggle={() => toggleDone(t)} label="완료 표시" tone={urgent ? 'danger' : soon ? 'soon' : 'default'} />
       {/* 제목 글자를 눌러야 편집. 나머지(과제 꼬리표 등)를 누르면 이 줄이 골라져 Shift+Enter 로 하위 항목을 단다 */}
       <div
         className={s.body}
@@ -210,7 +213,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
         </div>
         <div className={s.meta}>
           {t.project && (
-            <Tag tone={urgent ? 'danger' : 'default'} className={s.proj} title="누르고 Shift+Enter: 하위 항목 추가">
+            <Tag tone={urgent ? 'danger' : soon ? 'soon' : 'default'} className={s.proj} title="누르고 Shift+Enter: 하위 항목 추가">
               {projShort(projects, t.project)}
             </Tag>
           )}

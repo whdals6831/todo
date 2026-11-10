@@ -170,7 +170,7 @@ function DueChip({ due: x, day: d }: { due: PmpDue; day: DateStr }) {
   const dl = dLabel(x.date)
   return (
     <span
-      className={cx(s.chip, s.dl, x.doneDay && s.done, !x.doneDay && (dl.soon || (dl.late && x.linked)) && s.urgent)}
+      className={cx(s.chip, s.dl, x.doneDay && s.done, !x.doneDay && dl.late && x.linked && s.urgent, !x.doneDay && dl.soon && s.soon)}
       title={x.label + (x.doneDay ? ' · 완료' : '')}
       onClick={(e) => {
         e.stopPropagation()
@@ -237,7 +237,7 @@ function PmpRow({ due: x }: { due: PmpDue }) {
           {late > 0 && <span className={s.pmpLate}>{late + '일 지나서'}</span>}
         </span>
       ) : (
-        <span className={cx(s.pmpLeft, (dl.late || dl.soon) && s.pmpUrgent)}>{dl.t}</span>
+        <span className={cx(s.pmpLeft, dl.late && s.pmpUrgent, dl.soon && s.pmpSoon)}>{dl.t}</span>
       )}
     </div>
   )

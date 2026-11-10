@@ -168,6 +168,15 @@
   color: var(--color-danger);
   font-weight: var(--weight-semibold);
 }
+/* 오늘 마감인 하위 항목은 주황 */
+.subSoon > .docT {
+  color: var(--color-soon);
+  font-weight: var(--weight-semibold);
+}
+.soonT {
+  color: var(--color-soon);
+  font-weight: var(--weight-semibold);
+}
 /* 묶음의 하위 항목(서명문서 준비 등) 밑에 펼치는 문서 목록 */
 .subDocs {
   grid-column: 2 / -1;
@@ -270,6 +279,17 @@
   color: var(--color-danger);
 }
 .urgent .dd {
+  font-weight: var(--weight-semibold);
+}
+
+/* 오늘·내일 마감: 주황 (지난 일의 빨강과 구분) */
+.soon .title,
+.soon .meta,
+.soon .due,
+.soon .dd {
+  color: var(--color-soon);
+}
+.soon .dd {
   font-weight: var(--weight-semibold);
 }
 

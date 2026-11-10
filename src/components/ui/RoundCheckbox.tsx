@@ -5,7 +5,7 @@ interface Props {
   checked: boolean
   onToggle: () => void
   label: string
-  tone?: 'default' | 'danger'
+  tone?: 'default' | 'danger' | 'soon'
 }
 
 /** 동그란 완료 체크 */
@@ -16,7 +16,7 @@ export function RoundCheckbox({ checked, onToggle, label, tone = 'default' }: Pr
       role="checkbox"
       aria-checked={checked}
       aria-label={label}
-      className={cx(s.box, tone === 'danger' && !checked && s.danger)}
+      className={cx(s.box, tone === 'danger' && !checked && s.danger, tone === 'soon' && !checked && s.soon)}
       onClick={onToggle}
     />
   )

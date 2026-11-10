@@ -57,8 +57,14 @@ export function slotByTime(t: Todo, prev: Todo | null | undefined, todos: Map<st
 
 /** 오늘·내일(D-1) 마감이거나 지난 미완료. 날짜 없이 추가해 자동으로 잡힌 마감은 제외 */
 export function isUrgent(t: Todo) {
-  if (t.done || !t.due || t.autoDue) return false
-  return diffDays(todayStr(), t.due) <= 1
+  return dueTone(t) !== ''
+}
+
+/** 마감 색: 지난 미완료는 'late'(빨강), 오늘·내일 마감은 'soon'(주황). 날짜 없이 추가해 자동으로 잡힌 마감은 '' */
+export function dueTone(t: Todo): 'late' | 'soon' | '' {
+  if (t.done || !t.due || t.autoDue) return ''
+  const n = diffDays(todayStr(), t.due)
+  return n < 0 ? 'late' : n <= 1 ? 'soon' : ''
 }
 
 /** 마감까지 남은 날 표시: "오늘", "D-3", "2일 지남" */

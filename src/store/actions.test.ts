@@ -236,6 +236,31 @@ describe('저장된 규칙 옮기기', () => {
     expect(brz()).toEqual([['Signed CV', 'Study Summary'], ['Delegation log']])
   })
 
+  it('엔플론시아 업무 노트 SIV 서명 문서: 비밀유지서약서 2부·계약서 1부·PSV용 문서를 한 번만', async () => {
+    const notes = {
+      'MSD - 엔플론시아': [
+        { v: 'PSV', items: [], docs: [] },
+        { v: 'SIV', items: [], docs: [{ t: 'Delegation log', w: 'PI/Sub-I/CRC' }, { t: 'Confidentiality Agreement', w: 'PI만' }] },
+      ],
+    }
+    const config = { rules: [], holidays: DEFAULT_HOLIDAYS, mig: ['claim1', 'scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'enfss1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10'], notes, projects: [{ name: 'P', short: 'Pj', sites: [] }], companions: [] }
+    await replaceAll({ events: [], todos: [], fuls: [], config })
+    const want = [
+      [],
+      [
+        { t: 'Delegation log', w: 'PI/Sub-I/CRC' },
+        { t: '비밀유지서약서 (Confidentiality Agreement) 2부', w: 'PI만' },
+        { t: '계약서 1부', w: '' },
+        { t: '조사기관 설문지 (PSV용 · 의뢰사 요청)', w: '' },
+        { t: '조사담당의를 위한 안내서 (PSV용 · 의뢰사 요청)', w: '' },
+      ],
+    ]
+    const enf = () => getState().notes!['MSD - 엔플론시아'].map((x) => x.docs)
+    expect(enf()).toEqual(want)
+    await replaceAll({ events: [], todos: [], fuls: [], config: { ...config, notes: getState().notes } })
+    expect(enf()).toEqual(want)
+  })
+
   it('Imjudo 업무 노트 MV 에 방문 전 할 일·ISF Checklist·현장에서 써 올 것을 한 번만 넣는다 (체크는 그대로)', async () => {
     const notes = {
       'AZ - Imjudo': [

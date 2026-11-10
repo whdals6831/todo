@@ -1418,6 +1418,27 @@ async function migrate() {
     appStore.setState({ mig: [...S().mig, 'approval1'] })
     await putConfig()
   }
+  if (!S().mig.includes('enfsiv1')) {
+    /* 엔플론시아 업무 노트 SIV 서명 문서: 비밀유지서약서 2부 · 계약서 1부 · 의뢰사가 요청한 PSV용 문서 (이미 있으면 그대로) */
+    const s = S()
+    const CA = '비밀유지서약서 (Confidentiality Agreement) 2부'
+    const fix = (x: NoteSection): NoteSection => {
+      if (x.v.trim().toUpperCase() !== 'SIV') return x
+      let docs = (x.docs || []).map((d) => (/confidentiality\s*agreement|비밀유지/i.test(d.t) && !/2\s*부/.test(d.t) ? { ...d, t: CA } : d))
+      const want: [RegExp, NoteItem][] = [
+        [/confidentiality\s*agreement|비밀유지/i, { t: CA, w: 'PI만' }],
+        [/계약서/, { t: '계약서 1부', w: '' }],
+        [/조사기관\s*설문지/, { t: '조사기관 설문지 (PSV용 · 의뢰사 요청)', w: '' }],
+        [/조사담당의를?\s*위한\s*안내서/, { t: '조사담당의를 위한 안내서 (PSV용 · 의뢰사 요청)', w: '' }],
+      ]
+      for (const [re, d] of want) if (!docs.some((y) => re.test(y.t))) docs = [...docs, d]
+      return { ...x, docs }
+    }
+    const secs = s.notes?.[ENF]
+    const notes = s.notes && secs ? { ...s.notes, [ENF]: secs.map(fix) } : s.notes
+    appStore.setState({ notes, mig: [...s.mig, 'enfsiv1'] })
+    await putConfig()
+  }
 }
 
 /**

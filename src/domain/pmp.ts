@@ -139,8 +139,11 @@ const todoDeadline = (t: Todo, projects: Data['projects']): PmpDue => {
  * 할 일을 만든 날부터 센다 (휴일이면 직전 영업일). 외근 할 일은 그 외근의 PMP 마감 줄로 이미 보인다
  */
 const LOOSE_ETMF = /업로드|approve|승인/i
+/** "어떻게 업로드할지 PM님 확인" 처럼 묻는 일은 빼고 */
+const ASKING = /확인|문의|할지/
 const ETMF_30: PmpItem = { item: 'eTMF 문서 보관', dir: 'after', n: 30, unit: 'CD' }
-const isLooseEtmf = (t: Todo) => !t.eventId && !!t.created && !t.someday && ETMF.test(t.title) && LOOSE_ETMF.test(t.title) && !TODO_DEADLINE.test(t.title)
+const isLooseEtmf = (t: Todo) =>
+  !t.eventId && !!t.created && !t.someday && ETMF.test(t.title) && LOOSE_ETMF.test(t.title) && !ASKING.test(t.title) && !TODO_DEADLINE.test(t.title)
 
 function looseEtmf(t: Todo, { projects, holidays }: Pick<Data, 'projects' | 'holidays'>): PmpDue {
   const name = stripProj(projects, t.title, t.project || '').replace(/\s+/g, ' ').trim()

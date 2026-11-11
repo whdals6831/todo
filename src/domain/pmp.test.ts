@@ -100,11 +100,12 @@ describe('마감 줄로 보는 할 일', () => {
       /* 외근 할 일·Milestone 작성·QC 는 아님 */
       todo('ev', '가나대병원 MV 서명문서 eTMF 업로드', { created: '2026-10-13T00:00:00.000Z' }),
       todo('ms', '이뮤도 eTMF 내 Milestone 작성', { eventId: undefined, created: '2026-10-13T00:00:00.000Z' }),
+      todo('ask', '원주세브 동의서 eTMF에 어떻게 업로드 할지 PM님 확인', { eventId: undefined, created: '2026-10-13T00:00:00.000Z' }),
     ]
     const d = data(visit({ date: '2026-12-01' }), list)
     expect(pmpOn('2026-11-12', d).map((x) => [x.label, x.doneDay, x.linked])).toEqual([['아주대병원 CRC 수령 서명문서 eTMF 업로드 · 30일', '', true]])
     expect(pmpOn('2026-11-27', d).map((x) => [x.chip, x.doneDay])).toEqual([['eTMF 문서 다 approve', '2026-11-02']])
-    expect(pmpOn('2026-11-12', d).concat(pmpOn('2026-11-27', d)).some((x) => /Milestone|가나대/.test(x.label))).toBe(false)
+    expect(pmpOn('2026-11-12', d).concat(pmpOn('2026-11-27', d)).some((x) => /Milestone|가나대|PM님/.test(x.label))).toBe(false)
   })
 })
 

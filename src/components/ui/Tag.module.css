@@ -21,8 +21,8 @@
   color: var(--color-danger);
 }
 
-/* 오늘·내일 마감 */
-.soon {
-  background: var(--color-soon-tint);
-  color: var(--color-soon);
+/* 마감 지남 */
+.late {
+  background: var(--color-late-tint);
+  color: var(--color-late);
 }

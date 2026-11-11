@@ -61,7 +61,7 @@
   color: var(--color-faint);
 }
 .over .groupHead strong {
-  color: var(--color-danger);
+  color: var(--color-late);
 }
 .groupHint {
   margin: var(--space-1) 0 var(--space-0-5);

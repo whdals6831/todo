@@ -79,5 +79,5 @@
 }
 .late {
   font-weight: var(--weight-semibold);
-  color: var(--color-danger);
+  color: var(--color-late);
 }

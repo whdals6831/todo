@@ -105,6 +105,16 @@ export const WID_RULE: Rule = {
 export const APPROVAL_STEPS = ['수정', 'PM 승인 확인', 'T-Sign 요청', 'T-Sign 업로드']
 export const APPROVAL_RE = /결재\s*상신/
 
+/**
+ * 문의 일(예: "브레즈트리 명지병원 개시모임 일정 문의")에 붙는 하위 항목: 문의 바로 앞말을 붙인 "일정 문의" → "회신 확인".
+ * 회신·답장·답변을 쓰는 일은 문의를 받은 쪽이라 붙이지 않는다. 문의 일이 아니면 null
+ */
+export function inquirySubs(title: string): string[] | null {
+  if (!/문의/.test(title) || /회신|답장|답변/.test(title)) return null
+  const m = title.match(/([^\s·,/()[\]]+)\s*문의/)
+  return [(m ? m[1] + ' ' : '') + '문의', '회신 확인']
+}
+
 /** 외근 다녀와서 WD3 에 비용청구 (그날 착수·마감 → 방문 후 정리에 들어간다) */
 export const CLAIM_RULE: Rule = {
   id: 'r-claim', key: 'CLAIM', type: '*', project: '*', title: '{site} {type} 비용청구',

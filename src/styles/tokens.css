@@ -1,7 +1,7 @@
 /*
  * 디자인 토큰 — "printed planner"
  * 종이(흰 바탕) 위에 잉크(검정)와 헤어라인. 강조는 달 숫자와 오늘의 검은 원 두 곳뿐이고,
- * 빨강(signal)은 휴일과 마감 지남에만, 주황은 오늘·내일 마감에만 쓴다.
+ * 빨강(signal)은 휴일과 오늘·내일 마감에만, 보라는 마감 지남에만 쓴다.
  *
  * 브레이크포인트는 CSS 변수를 미디어쿼리에 쓸 수 없어 값으로 적는다.
  *   sm 560px  — 캘린더 칸을 촘촘하게
@@ -24,9 +24,9 @@
   --color-highlight: var(--color-line);
   --color-backdrop: color-mix(in srgb, var(--color-fg) 26%, transparent);
   --color-danger-tint: color-mix(in srgb, var(--color-danger) 8%, transparent);
-  /* 오늘·내일 마감 (지난 일의 빨강과 구분) */
-  --color-soon: #b85000;
-  --color-soon-tint: color-mix(in srgb, var(--color-soon) 10%, transparent);
+  /* 마감 지남 (오늘·내일 마감의 빨강과 구분) */
+  --color-late: #7b2cbf;
+  --color-late-tint: color-mix(in srgb, var(--color-late) 10%, transparent);
 
   /* elevation */
   --shadow-pop: 0 18px 50px rgb(0 0 0 / 0.14);
@@ -121,7 +121,7 @@
     --color-soft: #1b1b1a;
     --color-on-fg: #121212;
     --color-danger: #ff5a5f;
-    --color-soon: #ffa94d;
+    --color-late: #c49bff;
     --shadow-pop: 0 18px 50px rgb(0 0 0 / 0.6);
   }
 }
@@ -136,6 +136,6 @@
   --color-soft: #1b1b1a;
   --color-on-fg: #121212;
   --color-danger: #ff5a5f;
-  --color-soon: #ffa94d;
+  --color-late: #c49bff;
   --shadow-pop: 0 18px 50px rgb(0 0 0 / 0.6);
 }

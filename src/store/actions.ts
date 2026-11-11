@@ -1,5 +1,5 @@
 import {
-  APPROVAL_RE, APPROVAL_STEPS, BRZ, BRZ_PSV_FUL, CLAIM_RULE, ENF, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, TARL_SIV_SCAN, WID_RULE, brzPsvFulRule,
+  APPROVAL_RE, APPROVAL_STEPS, BRZ, BRZ_PSV_FUL, CLAIM_RULE, ENF, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, TARL_SIV_SCAN, WID_RULE, brzPsvFulRule, inquirySubs,
   fulPackRules, kindOf,
 } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
@@ -608,6 +608,9 @@ export async function addTodo(t: NewTodo): Promise<string> {
   }
   /* 결재 상신 일은 결재 단계를 하위 항목으로 */
   if (!t.subs?.length && !t.parentId && APPROVAL_RE.test(t.title)) t = { ...t, subs: [...APPROVAL_STEPS] }
+  /* 문의 일은 "○○ 문의 → 회신 확인" 을 하위 항목으로 */
+  const ask = !t.subs?.length && !t.parentId ? inquirySubs(t.title) : null
+  if (ask) t = { ...t, subs: ask }
   const id = await putTodo(t)
   for (const c of companionsFor(t, S().companions)) {
     const i = t.title.toLowerCase().indexOf(c.keyword.toLowerCase())

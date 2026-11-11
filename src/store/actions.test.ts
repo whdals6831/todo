@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { stepsFor } from '../domain/specials.ts'
-import { APPROVAL_STEPS, BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, ENF, ENF_SS_RULES, FUL_PACKS, IMJ, KTX_RULE, PRE_SIV, SCAN_RULE, WID_RULE } from '../domain/constants.ts'
+import { APPROVAL_STEPS, BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, ENF, ENF_SS_RULES, FUL_PACKS, IMJ, KTX_RULE, PRE_SIV, SCAN_RULE, WID_RULE, inquirySubs } from '../domain/constants.ts'
 import { nowIso } from '../domain/date.ts'
 import { isFarSite } from '../domain/project.ts'
 import { bundleParts, genKey, partDues, planTodos } from '../domain/rules.ts'
@@ -1038,6 +1038,20 @@ describe('하위 항목 편집 창 · 결재 상신 단계', () => {
     await putEvent(visit)
     await syncEvent(visit)
     expect(getState().todos.get('a_ev1_r-c')!.subs).toEqual(APPROVAL_STEPS)
+  })
+
+  it('문의 할 일은 "○○ 문의 → 회신 확인" 하위 항목으로 (회신·답장 쓰는 일, 하위 항목을 직접 단 일은 그대로)', async () => {
+    expect(inquirySubs('브레즈트리 명지병원 개시모임 일정 문의')).toEqual(['일정 문의', '회신 확인'])
+    expect(inquirySubs('탈라타맙 원주세브란스 EDC 발급 완료됐는지 SE에게 문의')).toEqual(['SE에게 문의', '회신 확인'])
+    expect(inquirySubs('브레즈트리 천안충무병원 SIV, 통장사본문의')).toEqual(['통장사본 문의', '회신 확인'])
+    expect(inquirySubs('문의 메일')).toEqual(['문의', '회신 확인'])
+    expect(inquirySubs('[답장] 이뮤도 의정부성모 CRC 문의 회신')).toBeNull()
+    expect(inquirySubs('바인더 정리')).toBeNull()
+
+    const id = await addTodo({ title: '브레즈트리 명지병원 개시모임 일정 문의', done: false })
+    expect(getState().todos.get(id)!.subs).toEqual(['일정 문의', '회신 확인'])
+    const own = await addTodo({ title: '가나대 일정 문의', subs: ['전화'], done: false })
+    expect(getState().todos.get(own)!.subs).toEqual(['전화'])
   })
 
   it('열린 결재 상신 할 일에 단계를 하위 항목으로 (approval1, 끝낸 일·하위 항목이 있는 일은 그대로)', async () => {

@@ -86,7 +86,7 @@
 .rolled {
   font-size: var(--text-2xs);
   font-weight: var(--weight-semibold);
-  color: var(--color-danger);
+  color: var(--color-late);
 }
 
 /* 결재 상신 제목: 눌러서 복사 */
@@ -163,18 +163,18 @@
   color: var(--color-muted);
   white-space: nowrap;
 }
-/* 날짜가 지났는데 아직 안 한 하위 항목은 글자까지 빨갛게 */
+/* 날짜가 지났는데 아직 안 한 하위 항목은 글자까지 보라 */
 .subLate > .docT {
+  color: var(--color-late);
+  font-weight: var(--weight-semibold);
+}
+/* 오늘 마감인 하위 항목은 빨강 */
+.subSoon > .docT {
   color: var(--color-danger);
   font-weight: var(--weight-semibold);
 }
-/* 오늘 마감인 하위 항목은 주황 */
-.subSoon > .docT {
-  color: var(--color-soon);
-  font-weight: var(--weight-semibold);
-}
 .soonT {
-  color: var(--color-soon);
+  color: var(--color-danger);
   font-weight: var(--weight-semibold);
 }
 /* 묶음의 하위 항목(서명문서 준비 등) 밑에 펼치는 문서 목록 */
@@ -257,7 +257,7 @@
   color: var(--color-faint);
 }
 .late {
-  color: var(--color-danger);
+  color: var(--color-late);
   font-weight: var(--weight-semibold);
 }
 
@@ -271,23 +271,23 @@
   opacity: 0.6;
 }
 
-/* 오늘·내일 마감이거나 지남 */
+/* 마감 지남: 보라 */
 .urgent .title,
 .urgent .meta,
 .urgent .due,
 .urgent .dd {
-  color: var(--color-danger);
+  color: var(--color-late);
 }
 .urgent .dd {
   font-weight: var(--weight-semibold);
 }
 
-/* 오늘·내일 마감: 주황 (지난 일의 빨강과 구분) */
+/* 오늘·내일 마감: 빨강 */
 .soon .title,
 .soon .meta,
 .soon .due,
 .soon .dd {
-  color: var(--color-soon);
+  color: var(--color-danger);
 }
 .soon .dd {
   font-weight: var(--weight-semibold);

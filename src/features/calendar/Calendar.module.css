@@ -230,18 +230,19 @@
   border-radius: var(--radius-full);
   background: var(--color-fg);
 }
+/* 마감 지남: 보라 */
 .dl.urgent {
-  color: var(--color-danger);
+  color: var(--color-late);
 }
 .dl.urgent::before {
-  background: var(--color-danger);
+  background: var(--color-late);
 }
-/* 오늘·내일 마감: 주황 */
+/* 오늘·내일 마감: 빨강 */
 .dl.soon {
-  color: var(--color-soon);
+  color: var(--color-danger);
 }
 .dl.soon::before {
-  background: var(--color-soon);
+  background: var(--color-danger);
 }
 .dl.done {
   color: var(--color-faint);
@@ -446,13 +447,14 @@ span.pmpLabel {
   display: block;
   text-align: right;
 }
+/* 마감 지남: 보라 · 오늘·내일: 빨강 */
 .pmpUrgent {
   font-weight: var(--weight-semibold);
-  color: var(--color-danger);
+  color: var(--color-late);
 }
 .pmpSoon {
   font-weight: var(--weight-semibold);
-  color: var(--color-soon);
+  color: var(--color-danger);
 }
 /* 끝낸 마감: 할 일처럼 줄을 긋는다 */
 .pmpDone .pmpName {

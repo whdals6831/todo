@@ -9,7 +9,7 @@ describe('마감 색 (dueTone)', () => {
     vi.useRealTimers()
   })
 
-  it('지난 일은 late(빨강), 오늘·내일 마감은 soon(주황), 그 뒤·완료·자동 마감은 없음', () => {
+  it('지난 일은 late(보라), 오늘·내일 마감은 soon(빨강), 그 뒤·완료·자동 마감은 없음', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-11-10T09:00:00+09:00'))
     expect(dueTone(todo({ due: '2026-11-09' }))).toBe('late')

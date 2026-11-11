@@ -32,6 +32,6 @@
 .danger {
   border-color: var(--color-danger);
 }
-.soon {
-  border-color: var(--color-soon);
+.late {
+  border-color: var(--color-late);
 }

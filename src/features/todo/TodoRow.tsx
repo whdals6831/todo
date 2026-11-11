@@ -42,7 +42,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   /** 이 줄을 골랐거나(과제 꼬리표 등을 누름) 하위 항목 입력칸에 쓰는 중 → 입력칸을 띄운다.
      CSS :focus 로 숨기면 줄 → 입력칸으로 포커스가 옮겨 가는 순간 칸이 잠깐 숨어 포커스를 놓치므로 상태로 둔다 */
   const [picked, setPicked] = useState(false)
-  /* 지난 미완료는 빨강(urgent), 오늘·내일 마감은 주황(soon) */
+  /* 지난 미완료는 보라(urgent), 오늘·내일 마감은 빨강(soon) */
   const tone = dueTone(t)
   const urgent = tone === 'late'
   const soon = tone === 'soon'
@@ -170,7 +170,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
 
   return (
     <div className={cx(s.row, t.done && s.done, urgent && s.urgent, soon && s.soon)} data-todo-id={t.id}>
-      <RoundCheckbox checked={!!t.done} onToggle={() => toggleDone(t)} label="완료 표시" tone={urgent ? 'danger' : soon ? 'soon' : 'default'} />
+      <RoundCheckbox checked={!!t.done} onToggle={() => toggleDone(t)} label="완료 표시" tone={urgent ? 'late' : soon ? 'danger' : 'default'} />
       {/* 제목 글자를 눌러야 편집. 나머지(과제 꼬리표 등)를 누르면 이 줄이 골라져 Shift+Enter 로 하위 항목을 단다 */}
       <div
         className={s.body}
@@ -213,7 +213,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
         </div>
         <div className={s.meta}>
           {t.project && (
-            <Tag tone={urgent ? 'danger' : soon ? 'soon' : 'default'} className={s.proj} title="누르고 Shift+Enter: 하위 항목 추가">
+            <Tag tone={urgent ? 'late' : soon ? 'danger' : 'default'} className={s.proj} title="누르고 Shift+Enter: 하위 항목 추가">
               {projShort(projects, t.project)}
             </Tag>
           )}

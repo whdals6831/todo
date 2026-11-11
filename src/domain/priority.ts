@@ -60,7 +60,7 @@ export function isUrgent(t: Todo) {
   return dueTone(t) !== ''
 }
 
-/** 마감 색: 지난 미완료는 'late'(빨강), 오늘·내일 마감은 'soon'(주황). 날짜 없이 추가해 자동으로 잡힌 마감은 '' */
+/** 마감 색: 지난 미완료는 'late'(보라), 오늘·내일 마감은 'soon'(빨강). 날짜 없이 추가해 자동으로 잡힌 마감은 '' */
 export function dueTone(t: Todo): 'late' | 'soon' | '' {
   if (t.done || !t.due || t.autoDue) return ''
   const n = diffDays(todayStr(), t.due)

@@ -134,12 +134,29 @@ const todoDeadline = (t: Todo, projects: Data['projects']): PmpDue => {
   }
 }
 
+/**
+ * 외근과 이어지지 않은 eTMF 업로드·승인 할 일 (받아 온 서명문서 업로드 등): PMP 의 eTMF 문서 보관 30일을
+ * 할 일을 만든 날부터 센다 (휴일이면 직전 영업일). 외근 할 일은 그 외근의 PMP 마감 줄로 이미 보인다
+ */
+const LOOSE_ETMF = /업로드|approve|승인/i
+const ETMF_30: PmpItem = { item: 'eTMF 문서 보관', dir: 'after', n: 30, unit: 'CD' }
+const isLooseEtmf = (t: Todo) => !t.eventId && !!t.created && !t.someday && ETMF.test(t.title) && LOOSE_ETMF.test(t.title) && !TODO_DEADLINE.test(t.title)
+
+function looseEtmf(t: Todo, { projects, holidays }: Pick<Data, 'projects' | 'holidays'>): PmpDue {
+  const name = stripProj(projects, t.title, t.project || '').replace(/\s+/g, ' ').trim()
+  return {
+    key: t.id + '|etmf', project: t.project || '', item: ETMF_30.item, label: name + ' · 30일', chip: name,
+    date: countFrom(localDay(t.created), ETMF_30, holidays), doneDay: t.done ? localDay(t.doneAt) : '', linked: true,
+  }
+}
+
 type PmpData = Pick<Data, 'events' | 'todos' | 'holidays' | 'projects'>
 
-/** 마감 줄 전체: PMP 마감, 그리고 OMF·비용청구처럼 마감 줄로 보는 할 일 */
+/** 마감 줄 전체: PMP 마감, 그리고 OMF·비용청구처럼 마감 줄로 보는 할 일, 외근과 이어지지 않은 eTMF 할 일(만든 날부터 30일) */
 export const pmpAll = (data: PmpData): PmpDue[] => [
   ...[...data.events.values()].flatMap((ev) => pmpFor(ev, data)),
   ...[...data.todos.values()].filter((t) => t.due && !t.someday && TODO_DEADLINE.test(t.title)).map((t) => todoDeadline(t, data.projects)),
+  ...[...data.todos.values()].filter(isLooseEtmf).map((t) => looseEtmf(t, data)),
 ]
 
 /** 그날이 마감인 것들 */

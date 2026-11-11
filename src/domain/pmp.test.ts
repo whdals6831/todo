@@ -90,6 +90,22 @@ describe('마감 줄로 보는 할 일', () => {
     ]
     expect(pmpOn('2026-10-28', data(visit({ date: '2026-12-01' }), list)).map((x) => x.chip)).toEqual(['10월 비용 청구', 'Monthly 업무 계획 보고', '암젠 eTMF QC'])
   })
+
+  it('외근과 이어지지 않은 eTMF 업로드 할 일은 만든 날부터 30일(휴일이면 직전 영업일)에 마감 줄로', () => {
+    const list = [
+      /* 한국 시간 10/13 만듦 → 11/12(목) */
+      todo('up', '브레즈트리 아주대병원 CRC 수령 서명문서 eTMF 업로드', { eventId: undefined, project: 'AZ - Breztri', due: '2026-11-11', created: '2026-10-13T08:13:50.126Z' }),
+      /* 10/29 만듦 → 11/28(토) → 11/27(금) */
+      todo('ap', '브레즈트리 eTMF 문서 다 approve', { eventId: undefined, project: 'AZ - Breztri', due: '2026-10-29', created: '2026-10-29T00:09:27.717Z', done: true, doneAt: '2026-11-02T01:00:00.000Z' }),
+      /* 외근 할 일·Milestone 작성·QC 는 아님 */
+      todo('ev', '가나대병원 MV 서명문서 eTMF 업로드', { created: '2026-10-13T00:00:00.000Z' }),
+      todo('ms', '이뮤도 eTMF 내 Milestone 작성', { eventId: undefined, created: '2026-10-13T00:00:00.000Z' }),
+    ]
+    const d = data(visit({ date: '2026-12-01' }), list)
+    expect(pmpOn('2026-11-12', d).map((x) => [x.label, x.doneDay, x.linked])).toEqual([['아주대병원 CRC 수령 서명문서 eTMF 업로드 · 30일', '', true]])
+    expect(pmpOn('2026-11-27', d).map((x) => [x.chip, x.doneDay])).toEqual([['eTMF 문서 다 approve', '2026-11-02']])
+    expect(pmpOn('2026-11-12', d).concat(pmpOn('2026-11-27', d)).some((x) => /Milestone|가나대/.test(x.label))).toBe(false)
+  })
 })
 
 describe('PMP 마감과 할 일 묶음', () => {

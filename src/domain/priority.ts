@@ -3,7 +3,7 @@ import { diffDays, todayStr } from './date.ts'
 
 /**
  * 할 일 순서: 미완료가 먼저, 완료는 끝낸 순서대로.
- * 직접 정한 순서(rank)가 있는 것이 먼저 오고, 나머지는 마감 → 시간 → 착수 → 제목 순.
+ * 직접 정한 순서(rank)가 있는 것이 먼저 오고, 나머지는 마감 → (같은 마감이면 하위 항목 없는 일 먼저) → 시간 → 착수 → 제목 순.
  */
 export function byPriority(a: Todo, b: Todo) {
   if (!!a.done !== !!b.done) return a.done ? 1 : -1
@@ -15,8 +15,11 @@ export function byPriority(a: Todo, b: Todo) {
   const rb = b.rank != null
   if (ra && rb && a.rank !== b.rank) return a.rank! - b.rank!
   if (ra !== rb) return ra ? -1 : 1
+  const sa = a.subs?.length ? 1 : 0
+  const sb = b.subs?.length ? 1 : 0
   return (
     (a.due || '9999').localeCompare(b.due || '9999') ||
+    sa - sb ||
     (a.time || '99').localeCompare(b.time || '99') ||
     (a.start || '').localeCompare(b.start || '') ||
     a.title.localeCompare(b.title)

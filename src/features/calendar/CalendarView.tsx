@@ -8,9 +8,11 @@ import { chipSite, projShort } from '@/domain/project.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Label, Sub } from '@/components/ui/Layout.tsx'
 import { Popover } from '@/components/ui/Popover.tsx'
+import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { SegmentedControl } from '@/components/ui/SegmentedControl.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
+import { togglePmp } from '@/store/actions.ts'
 import { closePopover, goToday, openModal, openPopover, setUi, ui, useApp, useUi } from '@/store/ui.ts'
 import type { CalEvent, DateStr } from '@/types/domain.ts'
 import { wasJustDropped } from '../drag/drag.ts'
@@ -215,14 +217,26 @@ export function CellMenu({ date, anchor }: { date: DateStr; anchor: DOMRect }) {
 /** "10월 16일" */
 const monthDay = (d: DateStr) => parse(d).getUTCMonth() + 1 + '월 ' + parse(d).getUTCDate() + '일'
 
-/** 그날이 PMP 마감인 것: 일정 줄과 같은 모양 (시간 자리에 마감, 태그에 과제). 이어진 할 일을 끝냈으면 끝낸 날을 붙인다 */
+/**
+ * 그날이 PMP 마감인 것: 일정 줄과 같은 모양 (시간 자리에 마감, 태그에 과제). 이어진 할 일을 끝냈으면 끝낸 날을 붙인다.
+ * 체크하면 이어진 할 일도 같이 끝낸다. PM 업무처럼 저절로 끝낸 마감은 되돌릴 것이 없어 체크를 잠근다
+ */
 function PmpRow({ due: x }: { due: PmpDue }) {
   const projects = useApp((st) => st.projects)
   const dl = dLabel(x.date)
   const late = x.doneDay && x.doneDay > x.date ? diffDays(x.date, x.doneDay) : 0
+  const auto = !!x.doneDay && !x.refs.length && !x.mark?.day
   return (
     <div className={cx(es.row, x.doneDay && s.pmpDone)}>
       <span className={cx(es.time, s.pmpLabel)}>마감</span>
+      <RoundCheckbox
+        checked={!!x.doneDay}
+        onToggle={() => void togglePmp(x)}
+        label={x.label + (x.doneDay ? ' 완료 취소' : ' 완료 표시')}
+        tone={dl.late ? 'late' : dl.soon ? 'danger' : 'default'}
+        disabled={auto}
+        title={auto ? 'PM 업무라 마감일이 지나 저절로 완료' : x.refs.length ? '체크하면 이어진 할 일도 같이 완료' : undefined}
+      />
       <div className={es.body}>
         <div className={es.name}>
           {x.project && <Tag>{projShort(projects, x.project)}</Tag>}

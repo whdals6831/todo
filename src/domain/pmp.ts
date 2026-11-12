@@ -73,7 +73,24 @@ export interface PmpDue {
   doneDay: DateStr
   /** 끝냈는지 볼 할 일이 있는가 */
   linked: boolean
+  /** 마감 줄을 체크하면 같이 끝낼 할 일 (묶음이면 그 하위 항목) */
+  refs: PmpRef[]
+  /** 이어진 할 일이 없는 외근 마감: 직접 체크한 기록을 둘 외근과 그 표시 */
+  mark?: { eventId: string; tag: string; /** 직접 체크한 날 (안 했으면 "") */ day: DateStr }
 }
+
+export interface PmpRef {
+  id: string
+  /** 묶음(Preparation·방문 후 정리)의 하위 항목 이름 */
+  sub?: string
+}
+
+/**
+ * 이어진 할 일이 없는 외근 마감을 직접 체크한 기록: 그 외근의 skip 에 "pmp:항목@끝낸 날" 로 둔다
+ * (DB 칸을 새로 만들지 않으려고. skip 의 다른 값은 규칙 id 라 겹치지 않는다)
+ */
+export const PMP_MARK = 'pmp:'
+const markDay = (ev: CalEvent, tag: string) => ev.skip?.find((x) => x.startsWith(tag + '@'))?.slice(tag.length + 1) || ''
 
 function countFrom(base: DateStr, x: PmpItem, hol: Holidays): DateStr {
   if (x.unit === 'WD') return addWorkdays(base, x.dir === 'before' ? -x.n : x.n, hol)
@@ -102,8 +119,8 @@ export function pmpFor(ev: CalEvent, { todos, holidays }: Pick<Data, 'todos' | '
     .filter((t) => t.eventId === ev.id)
     .flatMap((t) =>
       isGroupRule(t.ruleId)
-        ? (t.subs || []).map((x) => ({ title: x, done: !!t.done || !!t.checks?.includes(x), day: day(t.checkAt?.[x]) || localDay(t.doneAt) }))
-        : [{ title: t.title, done: !!t.done, day: localDay(t.doneAt) }],
+        ? (t.subs || []).map((x) => ({ id: t.id, sub: x as string | undefined, title: x, done: !!t.done || !!t.checks?.includes(x), day: day(t.checkAt?.[x]) || localDay(t.doneAt) }))
+        : [{ id: t.id, sub: undefined, title: t.title, done: !!t.done, day: localDay(t.doneAt) }],
     )
   const out: PmpDue[] = []
   items.forEach((x, i) => {
@@ -111,13 +128,16 @@ export function pmpFor(ev: CalEvent, { todos, holidays }: Pick<Data, 'todos' | '
     const prev = x.from ? out.find((o) => o.item === x.from) : undefined
     const base = prev ? prev.doneDay || prev.date : ev.date
     const date = countFrom(base, x, holidays)
-    /* PM 업무(Sponsor 송부)는 마감일이 지나면 그날 끝낸 것으로 */
-    const doneDay = x.auto
-      ? date < todayStr() ? date : ''
-      : linked.length && linked.every((t) => t.done) ? linked.map((t) => t.day).sort().at(-1) || '' : ''
+    /* 이어진 할 일이 있으면 그 할 일로, 없으면 직접 체크한 기록으로. PM 업무(Sponsor 송부)는 마감일이 지나면 그날 끝낸 것으로 */
+    const tag = PMP_MARK + x.item
+    const doneDay = linked.length
+      ? linked.every((t) => t.done) ? linked.map((t) => t.day).sort().at(-1) || '' : ''
+      : markDay(ev, tag) || (x.auto && date < todayStr() ? date : '')
     out.push({
       key: ev.id + '|' + i, project: ev.project || '', item: x.item, label: siteShort(ev.site) + ' ' + ev.type + ' · ' + x.item,
       chip: chipSite(ev.site) + ' ' + ev.type + ' ' + chipItem(x.item), date, doneDay, linked: linked.length > 0,
+      refs: linked.map((t) => (t.sub ? { id: t.id, sub: t.sub } : { id: t.id })),
+      mark: linked.length ? undefined : { eventId: ev.id, tag, day: markDay(ev, tag) },
     })
   })
   return out
@@ -130,7 +150,7 @@ const todoDeadline = (t: Todo, projects: Data['projects']): PmpDue => {
   const name = stripProj(projects, t.title, t.project || '').replace(/\s+/g, ' ').trim()
   return {
     key: t.id, project: t.project || '', item: t.title, label: name + (t.time ? ' · ' + t.time + '까지' : ''), chip: name, time: t.time || undefined,
-    date: t.due || '', doneDay: t.done ? localDay(t.doneAt) : '', linked: true,
+    date: t.due || '', doneDay: t.done ? localDay(t.doneAt) : '', linked: true, refs: [{ id: t.id }],
   }
 }
 
@@ -149,7 +169,7 @@ function looseEtmf(t: Todo, { projects, holidays }: Pick<Data, 'projects' | 'hol
   const name = stripProj(projects, t.title, t.project || '').replace(/\s+/g, ' ').trim()
   return {
     key: t.id + '|etmf', project: t.project || '', item: ETMF_30.item, label: name + ' · 30일', chip: name,
-    date: countFrom(localDay(t.created), ETMF_30, holidays), doneDay: t.done ? localDay(t.doneAt) : '', linked: true,
+    date: countFrom(localDay(t.created), ETMF_30, holidays), doneDay: t.done ? localDay(t.doneAt) : '', linked: true, refs: [{ id: t.id }],
   }
 }
 

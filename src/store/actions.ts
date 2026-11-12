@@ -11,6 +11,7 @@ import {
   ENF_PREP, FOLLOWUPS, FULS_ON_DONE, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type FollowUp, type NewTodo,
 } from '../domain/specials.ts'
 import { ETMF_RE, SIGN_RE } from '../domain/signDocs.ts'
+import type { PmpDue } from '../domain/pmp.ts'
 import { slotByTime } from '../domain/priority.ts'
 import type { CalEvent, Config, DateStr, Ful, NoteItem, NoteSection, Notes, Rule, Todo } from '../types/domain.ts'
 import { createMemoryRepository } from './localRepository.ts'
@@ -736,6 +737,26 @@ export async function toggleStep(id: string, sub: string, step: string, steps: s
   const key = (x: string) => sub + DOC_SEP + x
   const n = setCheck(t, key(step), !(t.checks || []).includes(key(step)))
   await putTodo(settleDone(setCheck(n, sub, steps.every((x) => n.checks?.includes(key(x))))))
+}
+
+/**
+ * 마감 줄 체크: 이어진 할 일(묶음이면 그 하위 항목)을 모두 끝내거나, 끝냈으면 다시 연다.
+ * 이어진 할 일이 없는 외근 마감은 그 외근에 직접 체크한 기록(오늘)을 두거나 지운다
+ */
+export async function togglePmp(x: PmpDue) {
+  const on = !x.doneDay
+  for (const r of x.refs) {
+    const t = S().todos.get(r.id)
+    if (!t) continue
+    if (!r.sub) {
+      if (!!t.done !== on) await toggleDone(t)
+    } else if (!on || !(t.done || t.checks?.includes(r.sub))) await putTodo(settleDone(setCheck(t, r.sub, on)))
+  }
+  const m = x.mark
+  const ev = m && S().events.get(m.eventId)
+  if (!m || !ev) return
+  const rest = (ev.skip || []).filter((k) => !k.startsWith(m.tag + '@'))
+  await putEvent({ ...ev, skip: on ? [...rest, m.tag + '@' + todayStr()] : rest })
 }
 
 const underSub = (name: string, sub: string) => name === sub || name.startsWith(sub + DOC_SEP)

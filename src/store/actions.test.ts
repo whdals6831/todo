@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { stepsFor } from '../domain/specials.ts'
 import { APPROVAL_STEPS, BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, ENF, ENF_SS_RULES, FUL_PACKS, IMJ, KTX_RULE, PRE_SIV, SCAN_RULE, WID_RULE, inquirySubs } from '../domain/constants.ts'
 import { nowIso } from '../domain/date.ts'
+import { pmpFor } from '../domain/pmp.ts'
 import { isFarSite } from '../domain/project.ts'
 import { bundleParts, genKey, partDues, planTodos } from '../domain/rules.ts'
 import type { CalEvent, Rule, Todo } from '../types/domain.ts'
 import {
-  addFul, addSub, addTodo, deleteEventCascade, dismissTodo, editSub, loadAll, moveTodo, removeSub, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, toggleStep, withSubs,
+  addFul, addSub, addTodo, deleteEventCascade, dismissTodo, editSub, loadAll, moveTodo, removeSub, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, togglePmp, toggleStep, withSubs,
 } from './actions.ts'
 import { createLocalRepository, createMemoryRepository } from './localRepository.ts'
 import { getState } from './store.ts'
@@ -1067,5 +1068,38 @@ describe('하위 항목 편집 창 · 결재 상신 단계', () => {
     expect(getState().todos.get('a')!.subs).toEqual(APPROVAL_STEPS)
     expect(getState().todos.get('b')!.subs).toBeUndefined()
     expect(getState().todos.get('c')!.subs).toEqual(['첨부'])
+  })
+})
+
+describe('마감 줄 체크 (togglePmp)', () => {
+  it('이어진 할 일·하위 항목을 같이 끝내고 되돌리며, 이어진 할 일이 없는 마감은 외근에 체크한 날을 남긴다', async () => {
+    const ev: CalEvent = { id: 'ev2', kind: 'visit', date: '2026-10-08', type: 'MV', project: 'AZ - Breztri', site: '가나대병원' }
+    await putEvent(ev)
+    await putTodo({ id: 'post', title: '가나대병원 MV 방문 후 정리', eventId: 'ev2', ruleId: 'g-post', subs: ['Follow-up Letter 발송', 'PM - MV (WD10)'], done: false })
+    await putTodo({ id: 'etmf', title: '가나대병원 MV 서명문서 eTMF 업로드', eventId: 'ev2', done: false })
+    const row = (item: string) => pmpFor(getState().events.get('ev2')!, getState()).find((x) => x.item === item)!
+
+    /* 묶음 하위 항목: 그 항목만 체크 (묶음은 아직 열림) */
+    await togglePmp(row('Follow-up Letter'))
+    expect(getState().todos.get('post')!.checks).toEqual(['Follow-up Letter 발송'])
+    expect(getState().todos.get('post')!.done).toBe(false)
+    expect(row('Follow-up Letter').doneDay).toBe('2026-10-12')
+    await togglePmp(row('Follow-up Letter'))
+    expect(getState().todos.get('post')!.checks).toEqual([])
+
+    /* 따로 있는 할 일: 완료 ↔ 다시 열기 */
+    await togglePmp(row('eTMF 문서 보관'))
+    expect(getState().todos.get('etmf')!.done).toBe(true)
+    await togglePmp(row('eTMF 문서 보관'))
+    expect(getState().todos.get('etmf')!.done).toBe(false)
+
+    /* 이어진 할 일이 없는 마감: 외근에 체크한 날 */
+    expect(row('Visit Report 작성')).toMatchObject({ refs: [], mark: { day: '' }, doneDay: '' })
+    await togglePmp(row('Visit Report 작성'))
+    expect(getState().events.get('ev2')!.skip).toEqual(['pmp:Visit Report 작성@2026-10-12'])
+    expect(row('Visit Report 작성').doneDay).toBe('2026-10-12')
+    await togglePmp(row('Visit Report 작성'))
+    expect(getState().events.get('ev2')!.skip).toEqual([])
+    expect(row('Visit Report 작성').doneDay).toBe('')
   })
 })

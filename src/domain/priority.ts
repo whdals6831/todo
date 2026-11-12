@@ -26,6 +26,28 @@ export function byPriority(a: Todo, b: Todo) {
   )
 }
 
+/** 마감 → (같은 마감이면 하위 항목 없는 일 먼저) → 시간 */
+const byDue = (a: Todo, b: Todo) =>
+  (a.due || '9999').localeCompare(b.due || '9999') || (a.subs?.length ? 1 : 0) - (b.subs?.length ? 1 : 0) || (a.time || '99').localeCompare(b.time || '99')
+
+/**
+ * 목록 순서. 직접 정한 순서(rank)는 그대로 두고, 순서를 정한 뒤에 생긴 할 일(rank 없음)은 맨 아래가 아니라
+ * 마감 자리에 끼워 넣는다: 마감이 더 늦은(같은 마감이면 하위 항목이 있는) 첫 할 일 바로 위. 끝낸 일은 맨 뒤.
+ */
+export function sortTodos(list: Todo[]): Todo[] {
+  const open = list.filter((x) => !x.done)
+  const done = list.filter((x) => x.done).sort(byPriority)
+  const ranked = open.filter((x) => x.rank != null).sort(byPriority)
+  const loose = open.filter((x) => x.rank == null).sort(byPriority)
+  const out: Todo[] = []
+  let i = 0
+  for (const r of ranked) {
+    while (i < loose.length && byDue(loose[i], r) < 0) out.push(loose[i++])
+    out.push(r)
+  }
+  return [...out, ...loose.slice(i), ...done]
+}
+
 /**
  * 직접 순서를 정한 목록에서, 마감 시간이 생기거나 바뀐 할 일은 그 시간 자리로 옮긴다:
  * 같은 날짜의 미완료 중 더 늦거나 시간이 없는 첫 할 일 바로 위. 나머지 순서는 그대로 둔다.

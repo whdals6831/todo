@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Todo } from '../types/domain.ts'
-import { byPriority, dueTone, isUrgent } from './priority.ts'
+import { byPriority, dueTone, isUrgent, sortTodos } from './priority.ts'
 
 const todo = (o: Partial<Todo> = {}): Todo => ({ id: 't', title: '일', done: false, ...o })
 
@@ -33,5 +33,25 @@ describe('할 일 순서 (byPriority)', () => {
       todo({ id: 'two', title: '마 비용 청구', due: '2026-11-12' }),
     ]
     expect(list.sort(byPriority).map((x) => x.id)).toEqual(['late', 'one', 'two', 'sub2', 'sub'])
+  })
+})
+
+describe('직접 정한 순서와 새 할 일 (sortTodos)', () => {
+  it('순서를 정한 뒤에 생긴 할 일은 맨 아래가 아니라 마감 자리에 (같은 마감이면 하위 항목 있는 일보다 위)', () => {
+    const list = [
+      todo({ id: 'r-late', due: '2026-11-11', rank: 0, subs: ['x'] }),
+      todo({ id: 'r-today', due: '2026-11-12', rank: 1, subs: ['x'] }),
+      todo({ id: 'r-next', due: '2026-11-13', rank: 2 }),
+      todo({ id: 'new-today', due: '2026-11-12' }),
+      todo({ id: 'new-late', due: '2026-11-11' }),
+      todo({ id: 'new-far', due: '2026-12-01' }),
+      todo({ id: 'done', due: '2026-11-01', done: true }),
+    ]
+    expect(sortTodos(list).map((x) => x.id)).toEqual(['new-late', 'r-late', 'new-today', 'r-today', 'r-next', 'new-far', 'done'])
+  })
+
+  it('직접 정한 순서끼리는 그대로', () => {
+    const list = [todo({ id: 'b', due: '2026-11-10', rank: 1 }), todo({ id: 'a', due: '2026-11-20', rank: 0 }), todo({ id: 'n', due: '2026-11-15' })]
+    expect(sortTodos(list).map((x) => x.id)).toEqual(['n', 'a', 'b'])
   })
 })

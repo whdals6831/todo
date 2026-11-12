@@ -3,7 +3,7 @@ import { DOW, diffDays, dow, fmt, md, parse, shift, todayStr } from '@/domain/da
 import { kindLabel, kindOf } from '@/domain/constants.ts'
 import { dayComplete, dayTodos, eventsOn } from '@/domain/daySets.ts'
 import { pmpAll, pmpOn, type PmpDue } from '@/domain/pmp.ts'
-import { byPriority, dLabel } from '@/domain/priority.ts'
+import { dLabel, sortTodos } from '@/domain/priority.ts'
 import { chipSite, projShort } from '@/domain/project.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Label, Sub } from '@/components/ui/Layout.tsx'
@@ -254,7 +254,7 @@ function DayPanel() {
   const evs = eventsOn(d, events)
   const projects = useApp((st) => st.projects)
   const pmp = pmpOn(d, { events, todos, holidays, projects })
-  const merged = dayTodos(d, todos).sort(byPriority)
+  const merged = sortTodos(dayTodos(d, todos))
   const open = merged.filter((t) => !t.done)
 
   return (

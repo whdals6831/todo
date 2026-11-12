@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 import bunny from '@/assets/bunny.png'
 import { DOW, localDay, localHM, md, parse, shift } from '@/domain/date.ts'
 import { briefData, dayComplete, daySet, eventsOn, todayBuckets } from '@/domain/daySets.ts'
-import { byPriority } from '@/domain/priority.ts'
+import { sortTodos } from '@/domain/priority.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Fold, Group, Sub, ViewHeader } from '@/components/ui/Layout.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
@@ -126,7 +126,7 @@ function OtherDayBody({ d, today }: { d: DateStr; today: DateStr }) {
   const todos = useApp((st) => st.todos)
   const evs = eventsOn(d, events)
   const ds = daySet(d, todos)
-  const open = ds.open.sort(byPriority)
+  const open = sortTodos(ds.open)
   const items = [...open, ...ds.done.sort((a, b) => (a.doneAt || '').localeCompare(b.doneAt || ''))]
 
   return (

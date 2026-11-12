@@ -1,7 +1,7 @@
 import type { CalEvent, Data, DateStr, Todo } from '../types/domain.ts'
 import { BUNNY_SINCE, byKindTime, coversDay } from './constants.ts'
 import { localDay, nextWork, shift, todayStr } from './date.ts'
-import { byPriority } from './priority.ts'
+import { sortTodos } from './priority.ts'
 
 const uniq = <T,>(xs: T[]) => [...new Set(xs)]
 const after = (a: DateStr | undefined, b: DateStr) => (a || '') > b
@@ -89,7 +89,7 @@ export function todayBuckets(t: DateStr, todos: Data['todos'], events?: Data['ev
     /** 처음 밀린 일 */
     late1: late.filter((x) => !(x.rolled || 0)),
     late,
-    list: [...today, ...doing, ...tbdOpen, ...doneT].sort(byPriority),
+    list: sortTodos([...today, ...doing, ...tbdOpen, ...doneT]),
     openN: today.length + doing.length + tbdOpen.length,
     doneN: doneT.length,
     /** 7일 안에 착수할 일 (아직 안 다녀온 외근의 방문 후 일은 빼고) */
@@ -102,7 +102,7 @@ export function todayBuckets(t: DateStr, todos: Data['todos'], events?: Data['ev
 /** 전체 할 일 화면의 묶음 */
 export function todoGroups(todos: Todo[], t: DateStr) {
   const wk = shift(t, 7)
-  const open = todos.filter((x) => !x.done).sort(byPriority)
+  const open = sortTodos(todos.filter((x) => !x.done))
   const groups: { name: string; over: boolean; items: Todo[] }[] = [
     { name: '지연', over: true, items: open.filter((x) => x.due && x.due < t) },
     { name: '오늘', over: false, items: open.filter((x) => x.due === t) },

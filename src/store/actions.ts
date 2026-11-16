@@ -1442,16 +1442,19 @@ async function migrate() {
     appStore.setState({ mig: [...S().mig, 'approval1'] })
     await putConfig()
   }
-  if (!S().mig.includes('enfsiv1')) {
-    /* 엔플론시아 업무 노트 SIV 서명 문서: 비밀유지서약서 2부 · 계약서 1부 · 의뢰사가 요청한 PSV용 문서 (이미 있으면 그대로) */
+  if (!S().mig.includes('enfsiv2')) {
+    /* 엔플론시아 업무 노트 SIV 서명 문서: 계약서 2부 · 비밀유지서약서 1부 · 의뢰사가 요청한 PSV용 문서 (없으면 넣고, 부수가 다르면 고친다) */
     const s = S()
-    const CA = '비밀유지서약서 (Confidentiality Agreement) 2부'
+    const CA = '비밀유지서약서 (Confidentiality Agreement) 1부'
+    const CA_RE = /confidentiality\s*agreement|비밀유지/i
     const fix = (x: NoteSection): NoteSection => {
       if (x.v.trim().toUpperCase() !== 'SIV') return x
-      let docs = (x.docs || []).map((d) => (/confidentiality\s*agreement|비밀유지/i.test(d.t) && !/2\s*부/.test(d.t) ? { ...d, t: CA } : d))
+      let docs = (x.docs || []).map((d) =>
+        CA_RE.test(d.t) && !/1\s*부/.test(d.t) ? { ...d, t: CA } : /^계약서(\s*\d\s*부)?$/.test(d.t.trim()) && !/2\s*부/.test(d.t) ? { ...d, t: '계약서 2부' } : d,
+      )
       const want: [RegExp, NoteItem][] = [
-        [/confidentiality\s*agreement|비밀유지/i, { t: CA, w: 'PI만' }],
-        [/계약서/, { t: '계약서 1부', w: '' }],
+        [CA_RE, { t: CA, w: 'PI만' }],
+        [/계약서/, { t: '계약서 2부', w: '' }],
         [/조사기관\s*설문지/, { t: '조사기관 설문지 (PSV용 · 의뢰사 요청)', w: '' }],
         [/조사담당의를?\s*위한\s*안내서/, { t: '조사담당의를 위한 안내서 (PSV용 · 의뢰사 요청)', w: '' }],
       ]
@@ -1460,7 +1463,7 @@ async function migrate() {
     }
     const secs = s.notes?.[ENF]
     const notes = s.notes && secs ? { ...s.notes, [ENF]: secs.map(fix) } : s.notes
-    appStore.setState({ notes, mig: [...s.mig, 'enfsiv1'] })
+    appStore.setState({ notes, mig: [...s.mig, 'enfsiv2'] })
     await putConfig()
   }
 }

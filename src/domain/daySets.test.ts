@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CalEvent, Todo } from '../types/domain.ts'
-import { briefData, dayComplete, daySet, todayBuckets, todaySet } from './daySets.ts'
+import { atVisitOn, briefData, dayComplete, daySet, todayBuckets, todaySet, visitFirst } from './daySets.ts'
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -70,5 +70,37 @@ describe('7일 안에 착수할 일', () => {
       { id: 'own', title: '그냥 할 일', due: '2026-11-04', start: '2026-11-02' },
     ])
     expect(todayBuckets('2026-10-28', todos, events).soon.map((x) => x.id)).toEqual(['prep', 'past', 'own'])
+  })
+})
+
+describe('외근 날에는 그 외근 업무를 맨 위로', () => {
+  const ev: CalEvent = { id: 'v', kind: 'visit', date: '2026-10-28', type: 'SIV', project: 'P', site: '021. 천안충무병원(PI 홍길동)' }
+  const events = new Map([['v', ev], ['m', { id: 'm', kind: 'meeting', date: '2026-10-28', title: '회의' } as CalEvent]])
+  const todos = map([
+    { id: 'own', title: '그냥 할 일', due: '2026-10-28' },
+    { id: 'late', title: '지난 일', due: '2026-10-27' },
+    { id: 'prep', title: '천안충무병원 SIV Preparation', due: '2026-10-27', eventId: 'v', ruleId: 'g-prep' },
+    { id: 'name', title: 'Breztri 천안충무병원 SIV PPT 재인쇄 (15분)', due: '2026-10-28', project: 'P' },
+    { id: 'other', title: '천안충무병원 MV FUL', due: '2026-10-28', eventId: 'old' },
+    { id: 'proj', title: '천안충무 다른 과제 일', due: '2026-10-28', project: 'Q' },
+    { id: 'later', title: '천안충무병원 SIV FUL', due: '2026-11-04', start: '2026-10-29', eventId: 'v' },
+  ])
+
+  it('그 외근의 할 일과 제목에 기관 이름이 든 할 일 (다른 외근·다른 과제는 빼고)', () => {
+    const at = atVisitOn('2026-10-28', events)
+    expect([...todos.values()].filter(at).map((x) => x.id)).toEqual(['prep', 'name', 'later'])
+    expect(atVisitOn('2026-10-29', events)(todos.get('prep')!)).toBe(false)
+  })
+
+  it('오늘 할 일: 오늘 보일 외근 업무만 맨 위 묶음으로, 지연·할 일 묶음에서는 뺀다', () => {
+    const b = todayBuckets('2026-10-28', todos, events)
+    expect(b.visit.map((x) => x.id)).toEqual(['prep', 'name'])
+    expect(b.late.map((x) => x.id)).toEqual(['late'])
+    expect(b.list.map((x) => x.id)).toEqual(['own', 'proj', 'other'])
+  })
+
+  it('다른 목록은 외근 업무를 앞으로, 나머지 순서는 그대로', () => {
+    const list = ['own', 'late', 'name', 'prep'].map((id) => todos.get(id)!)
+    expect(visitFirst(list, '2026-10-28', events).map((x) => x.id)).toEqual(['name', 'prep', 'own', 'late'])
   })
 })

@@ -1,7 +1,7 @@
 import bunny from '@/assets/bunny.png'
 import { DOW, diffDays, dow, fmt, md, parse, shift, todayStr } from '@/domain/date.ts'
 import { kindLabel, kindOf } from '@/domain/constants.ts'
-import { dayComplete, dayTodos, eventsOn } from '@/domain/daySets.ts'
+import { dayComplete, dayTodos, eventsOn, visitFirst } from '@/domain/daySets.ts'
 import { pmpAll, pmpOn, type PmpDue } from '@/domain/pmp.ts'
 import { dLabel, sortTodos } from '@/domain/priority.ts'
 import { chipSite, projShort } from '@/domain/project.ts'
@@ -269,7 +269,8 @@ function DayPanel() {
   const projects = useApp((st) => st.projects)
   const pmp = pmpOn(d, { events, todos, holidays, projects })
   const merged = sortTodos(dayTodos(d, todos))
-  const open = merged.filter((t) => !t.done)
+  /* 그날 외근과 이어진 할 일이 맨 위 */
+  const open = visitFirst(merged.filter((t) => !t.done), d, events)
 
   return (
     <div className={s.day}>

@@ -1,7 +1,8 @@
 import type { CalEvent, Data, DateStr, Todo } from '../types/domain.ts'
-import { BUNNY_SINCE, byKindTime, coversDay } from './constants.ts'
+import { BUNNY_SINCE, byKindTime, coversDay, kindOf } from './constants.ts'
 import { localDay, nextWork, shift, todayStr } from './date.ts'
 import { sortTodos } from './priority.ts'
+import { siteCore } from './project.ts'
 
 const uniq = <T,>(xs: T[]) => [...new Set(xs)]
 const after = (a: DateStr | undefined, b: DateStr) => (a || '') > b
@@ -38,6 +39,28 @@ export function daySet(d: DateStr, todos: Data['todos']) {
     ),
   )
   return { items, done: items.filter((x) => x.done), open: items.filter((x) => !x.done) }
+}
+
+/**
+ * 그날 외근과 이어진 할 일인가: 그 외근의 자동 할 일, 또는 외근과 이어지지 않은 할 일 중 제목에 그 기관 이름(앞 4자)이 든 것.
+ * 과제가 다른 할 일은 뺀다
+ */
+export function atVisitOn(d: DateStr, events: Data['events']): (t: Todo) => boolean {
+  const vs = eventsOn(d, events).filter((e) => kindOf(e) === 'visit')
+  if (!vs.length) return () => false
+  const ids = new Set(vs.map((e) => e.id))
+  const names = vs.map((e) => ({ key: siteCore(e.site).slice(0, 4), project: e.project || '' })).filter((x) => x.key.length >= 2)
+  return (t) => {
+    if (t.eventId) return ids.has(t.eventId)
+    const title = t.title.replace(/\s+/g, '').replace(/대학교/g, '대')
+    return names.some((x) => title.includes(x.key) && (!t.project || !x.project || t.project === x.project))
+  }
+}
+
+/** 그날 외근과 이어진 할 일을 맨 위로 (나머지 순서는 그대로) */
+export function visitFirst(list: Todo[], d: DateStr, events: Data['events']): Todo[] {
+  const at = atVisitOn(d, events)
+  return [...list.filter(at), ...list.filter((x) => !at(x))]
 }
 
 /** 오늘 할 일과 캘린더 날짜 패널이 함께 쓰는 그날의 할 일 목록 */
@@ -78,12 +101,19 @@ const afterComingVisit = (x: Todo, t: DateStr, events?: Data['events']) => {
 export function todayBuckets(t: DateStr, todos: Data['todos'], events?: Data['events']) {
   const all = [...todos.values()]
   const open = all.filter((x) => !x.done)
-  const late = open.filter((x) => x.due && x.due < t).sort((a, b) => a.due!.localeCompare(b.due!))
-  const today = open.filter((x) => x.due === t)
-  const doing = open.filter((x) => after(x.due, t) && x.start && x.start <= t).sort((a, b) => a.due!.localeCompare(b.due!))
+  /* 오늘 외근과 이어진 일 중 오늘 화면에 보일 것(지연·오늘 마감·착수·TBD)은 맨 위 묶음으로 빼 둔다 */
+  const at = events ? atVisitOn(t, events) : () => false
+  const shows = (x: Todo) => (x.due ? x.due <= t || (!!x.start && x.start <= t) : !x.someday)
+  const visit = sortTodos(open.filter((x) => at(x) && shows(x)))
+  const rest = open.filter((x) => !visit.includes(x))
+  const late = rest.filter((x) => x.due && x.due < t).sort((a, b) => a.due!.localeCompare(b.due!))
+  const today = rest.filter((x) => x.due === t)
+  const doing = rest.filter((x) => after(x.due, t) && x.start && x.start <= t).sort((a, b) => a.due!.localeCompare(b.due!))
   const doneT = all.filter((x) => x.done && doneDay(x) === t)
-  const tbdOpen = open.filter((x) => !x.due && !x.someday)
+  const tbdOpen = rest.filter((x) => !x.due && !x.someday)
   return {
+    /** 오늘 외근과 이어진 일 (맨 위) */
+    visit,
     /** 한 번 미룬 일이 또 밀림 */
     judge: late.filter((x) => (x.rolled || 0) >= 1),
     /** 처음 밀린 일 */

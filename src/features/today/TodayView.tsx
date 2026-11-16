@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import bunny from '@/assets/bunny.png'
 import { DOW, localDay, localHM, md, parse, shift } from '@/domain/date.ts'
-import { briefData, dayComplete, daySet, eventsOn, todayBuckets } from '@/domain/daySets.ts'
+import { briefData, dayComplete, daySet, eventsOn, todayBuckets, visitFirst } from '@/domain/daySets.ts'
 import { sortTodos } from '@/domain/priority.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Fold, Group, Sub, ViewHeader } from '@/components/ui/Layout.tsx'
@@ -85,6 +85,11 @@ function TodayBody({ t }: { t: DateStr }) {
           {evs.map((e) => <EventRow key={e.id} event={e} />)}
         </Group>
       )}
+      {b.visit.length > 0 && (
+        <Group title="오늘 외근 업무" count={b.visit.length} hint="오늘 외근과 이어진 할 일이에요.">
+          {b.visit.map((x) => <TodoRow key={x.id} todo={x} extra={x.due && x.due < t ? <RollActions todo={x} /> : undefined} />)}
+        </Group>
+      )}
       {b.judge.length > 0 && (
         <Group title="판정 필요 · 두 번째 밀린 일" count={b.judge.length} over hint="한 번 미룬 일이 또 밀렸어요. 날짜를 다시 잡을지, Someday로 보낼지, 지울지 정해 주세요.">
           {b.judge.map((x) => <TodoRow key={x.id} todo={x} extra={<RollActions todo={x} />} />)}
@@ -111,7 +116,7 @@ function TodayBody({ t }: { t: DateStr }) {
           <DoneFold id="today-done" items={b.list.filter((x) => x.done)} />
         </Group>
       )}
-      {!evs.length && !b.late.length && !b.list.length && <EmptyState>오늘 할 일이 없습니다.</EmptyState>}
+      {!evs.length && !b.visit.length && !b.late.length && !b.list.length && <EmptyState>오늘 할 일이 없습니다.</EmptyState>}
       {b.soon.length > 0 && (
         <Fold id="today-soon" label={'7일 안에 착수할 일 ' + b.soon.length}>
           {b.soon.map((x) => <TodoRow key={x.id} todo={x} />)}
@@ -126,7 +131,7 @@ function OtherDayBody({ d, today }: { d: DateStr; today: DateStr }) {
   const todos = useApp((st) => st.todos)
   const evs = eventsOn(d, events)
   const ds = daySet(d, todos)
-  const open = sortTodos(ds.open)
+  const open = visitFirst(sortTodos(ds.open), d, events)
   const items = [...open, ...ds.done.sort((a, b) => (a.doneAt || '').localeCompare(b.doneAt || ''))]
 
   return (

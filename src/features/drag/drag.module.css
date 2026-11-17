@@ -27,3 +27,8 @@
   box-shadow: inset 0 0 0 2px var(--color-fg);
   background: var(--color-soft);
 }
+/* 그날 목록의 마감 칸 위 */
+:global([data-drop="deadline"]) {
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 2px var(--color-danger);
+}

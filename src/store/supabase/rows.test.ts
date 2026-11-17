@@ -25,6 +25,17 @@ describe('행 변환', () => {
     expect(todoToRow({ ...t, subDue: undefined }).check_at).toEqual({ A: '2026-11-04T01:00:00.000Z' })
   })
 
+  it('할 일: 마감 줄로 끌어다 올린 표시도 check_at 에 두고, 빼면(false) 표시를 지운 check_at 을 보낸다', () => {
+    const t: Todo = { id: 'x', title: 't', due: '2026-11-20', start: '', done: false, checkAt: { A: '2026-11-04T01:00:00.000Z' }, deadline: true }
+    const row = todoToRow(t)
+    expect(row.check_at).toEqual({ A: '2026-11-04T01:00:00.000Z', '#deadline': '1' })
+    expect(row).not.toHaveProperty('deadline')
+    expect(rowToTodo(JSON.parse(JSON.stringify(row)))).toMatchObject({ checkAt: { A: '2026-11-04T01:00:00.000Z' }, deadline: true })
+    expect(rowToTodo(JSON.parse(JSON.stringify(row)))).not.toHaveProperty('subDue')
+    expect(todoToRow({ ...t, checkAt: undefined, deadline: false }).check_at).toEqual({})
+    expect(todoToRow({ ...t, checkAt: undefined, deadline: undefined })).not.toHaveProperty('check_at')
+  })
+
   it('일정: 배열·빈 종료일 왕복', () => {
     const e: CalEvent = { id: 'ev1', kind: 'visit', date: '2026-10-21', endDate: '', time: '14:00', type: 'MV', skip: ['r-cl'], genKey: 'v3|…' }
     const back = rowToEvent(JSON.parse(JSON.stringify(eventToRow(e))))

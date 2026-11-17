@@ -120,3 +120,16 @@ describe('PMP 마감과 할 일 묶음', () => {
     expect(got['PM 승인']).toEqual(['', true])
   })
 })
+
+describe('Training File 업데이트', () => {
+  it('제목에 Training File 이 든 할 일은 마감일에 마감 줄로 보인다', () => {
+    const list = [todo('tf', 'Training File 업데이트', { eventId: undefined, due: '2026-11-23' })]
+    expect(pmpOn('2026-11-23', data(visit({ date: '2026-12-01' }), list)).map((x) => [x.label, x.linked, x.pinned])).toEqual([['Training File 업데이트', true, false]])
+  })
+
+  it('끌어다 올린 eTMF 업로드 할 일은 마감일 줄 하나만 (만든 날부터 30일 줄은 안 만든다)', () => {
+    const list = [todo('up', '서명문서 eTMF 업로드', { eventId: undefined, due: '2026-11-11', created: '2026-10-13T08:13:50.126Z', deadline: true })]
+    const all = [...pmpOn('2026-11-11', data(visit({ date: '2026-12-01' }), list)), ...pmpOn('2026-11-12', data(visit({ date: '2026-12-01' }), list))]
+    expect(all.map((x) => [x.date, x.pinned])).toEqual([['2026-11-11', true]])
+  })
+})

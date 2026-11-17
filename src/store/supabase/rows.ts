@@ -74,22 +74,29 @@ function fromRow<T>(row: Row, cols: readonly Col[]): T {
 export const eventToRow = (e: CalEvent) => toRow(e, EVENT_COLS)
 /** 하위 항목 마감일(subDue)은 컬럼을 따로 두지 않고 check_at 에 이 앞말을 붙여 함께 둔다 */
 const SUB_DUE = '#due:'
+/** 마감 줄로 끌어다 올린 표시(deadline)도 컬럼 없이 check_at 에 이 key 로 둔다 */
+const PIN = '#deadline'
 export const todoToRow = (t: Todo) => {
-  const { subDue, ...rest } = t
+  const { subDue, deadline, ...rest } = t
   const sd = Object.entries(subDue || {})
-  return toRow(sd.length ? { ...rest, checkAt: { ...rest.checkAt, ...Object.fromEntries(sd.map(([k, v]) => [SUB_DUE + k, v])) } } : rest, TODO_COLS)
+  /* 마감 줄에서 뺀 것(deadline: false)도 check_at 을 보내야 DB 의 표시가 지워진다 */
+  if (!sd.length && deadline === undefined) return toRow(rest, TODO_COLS)
+  const extra: Record<string, string> = Object.fromEntries(sd.map(([k, v]) => [SUB_DUE + k, v]))
+  if (deadline) extra[PIN] = '1'
+  return toRow({ ...rest, checkAt: { ...rest.checkAt, ...extra } }, TODO_COLS)
 }
 export const fulToRow = (f: Ful) => toRow(f, FUL_COLS)
 export const rowToEvent = (r: Row) => fromRow<CalEvent>(r, EVENT_COLS)
 export const rowToTodo = (r: Row): Todo => {
   const t = fromRow<Todo>(r, TODO_COLS)
   const all = Object.entries(t.checkAt || {})
-  if (!all.some(([k]) => k.startsWith(SUB_DUE))) return t
-  return {
-    ...t,
-    checkAt: Object.fromEntries(all.filter(([k]) => !k.startsWith(SUB_DUE))),
-    subDue: Object.fromEntries(all.filter(([k]) => k.startsWith(SUB_DUE)).map(([k, v]) => [k.slice(SUB_DUE.length), v])),
-  }
+  const packed = (k: string) => k.startsWith(SUB_DUE) || k === PIN
+  if (!all.some(([k]) => packed(k))) return t
+  const sd = all.filter(([k]) => k.startsWith(SUB_DUE))
+  const n: Todo = { ...t, checkAt: Object.fromEntries(all.filter(([k]) => !packed(k))) }
+  if (sd.length) n.subDue = Object.fromEntries(sd.map(([k, v]) => [k.slice(SUB_DUE.length), v]))
+  if (all.some(([k]) => k === PIN)) n.deadline = true
+  return n
 }
 export const rowToFul = (r: Row) => fromRow<Ful>(r, FUL_COLS)
 

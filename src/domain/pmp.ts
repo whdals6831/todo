@@ -77,6 +77,8 @@ export interface PmpDue {
   refs: PmpRef[]
   /** 이어진 할 일이 없는 외근 마감: 직접 체크한 기록을 둘 외근과 그 표시 */
   mark?: { eventId: string; tag: string; /** 직접 체크한 날 (안 했으면 "") */ day: DateStr }
+  /** 할 일을 끌어다 직접 올린 마감 줄 (빼기 단추를 단다) */
+  pinned?: boolean
 }
 
 export interface PmpRef {
@@ -143,14 +145,20 @@ export function pmpFor(ev: CalEvent, { todos, holidays }: Pick<Data, 'todos' | '
   return out
 }
 
-/** 제목에 이 말이 든 할 일은 그 마감일에 마감 줄로도 보인다 (OMF, 비용청구, Monthly 업무 계획 보고, QC) */
-const TODO_DEADLINE = /OMF|비용\s*청구|업무\s*계획\s*보고|\bQC\b/i
+/** 제목에 이 말이 든 할 일은 그 마감일에 마감 줄로도 보인다 (OMF, 비용청구, Monthly 업무 계획 보고, QC, Training File 업데이트) */
+const TODO_DEADLINE = /OMF|비용\s*청구|업무\s*계획\s*보고|\bQC\b|Training\s*File/i
+
+/** 제목만으로 마감 줄에 오르는 할 일인가 (끌어다 올릴 필요가 없다) */
+export const titleDeadline = (t: Pick<Todo, 'title'>) => TODO_DEADLINE.test(t.title)
+/** 마감 줄로도 보이는 할 일: 제목에 그 말이 들었거나, 끌어다 직접 올린 것 */
+const isTodoDeadline = (t: Todo) => !!t.due && !t.someday && (titleDeadline(t) || !!t.deadline)
 
 const todoDeadline = (t: Todo, projects: Data['projects']): PmpDue => {
   const name = stripProj(projects, t.title, t.project || '').replace(/\s+/g, ' ').trim()
   return {
     key: t.id, project: t.project || '', item: t.title, label: name + (t.time ? ' · ' + t.time + '까지' : ''), chip: name, time: t.time || undefined,
     date: t.due || '', doneDay: t.done ? localDay(t.doneAt) : '', linked: true, refs: [{ id: t.id }],
+    pinned: !!t.deadline && !titleDeadline(t),
   }
 }
 
@@ -163,7 +171,7 @@ const LOOSE_ETMF = /업로드|approve|승인/i
 const ASKING = /확인|문의|할지/
 const ETMF_30: PmpItem = { item: 'eTMF 문서 보관', dir: 'after', n: 30, unit: 'CD' }
 const isLooseEtmf = (t: Todo) =>
-  !t.eventId && !!t.created && !t.someday && ETMF.test(t.title) && LOOSE_ETMF.test(t.title) && !ASKING.test(t.title) && !TODO_DEADLINE.test(t.title)
+  !t.eventId && !!t.created && !t.someday && ETMF.test(t.title) && LOOSE_ETMF.test(t.title) && !ASKING.test(t.title) && !titleDeadline(t) && !t.deadline
 
 function looseEtmf(t: Todo, { projects, holidays }: Pick<Data, 'projects' | 'holidays'>): PmpDue {
   const name = stripProj(projects, t.title, t.project || '').replace(/\s+/g, ' ').trim()
@@ -175,10 +183,10 @@ function looseEtmf(t: Todo, { projects, holidays }: Pick<Data, 'projects' | 'hol
 
 type PmpData = Pick<Data, 'events' | 'todos' | 'holidays' | 'projects'>
 
-/** 마감 줄 전체: PMP 마감, 그리고 OMF·비용청구처럼 마감 줄로 보는 할 일, 외근과 이어지지 않은 eTMF 할 일(만든 날부터 30일) */
+/** 마감 줄 전체: PMP 마감, 그리고 OMF·비용청구처럼 마감 줄로 보는 할 일(끌어다 올린 할 일 포함), 외근과 이어지지 않은 eTMF 할 일(만든 날부터 30일) */
 export const pmpAll = (data: PmpData): PmpDue[] => [
   ...[...data.events.values()].flatMap((ev) => pmpFor(ev, data)),
-  ...[...data.todos.values()].filter((t) => t.due && !t.someday && TODO_DEADLINE.test(t.title)).map((t) => todoDeadline(t, data.projects)),
+  ...[...data.todos.values()].filter(isTodoDeadline).map((t) => todoDeadline(t, data.projects)),
   ...[...data.todos.values()].filter(isLooseEtmf).map((t) => looseEtmf(t, data)),
 ]
 

@@ -1,5 +1,5 @@
 import type { CalEvent, Data, DateStr, Todo } from '../types/domain.ts'
-import { BUNNY_SINCE, byKindTime, coversDay, kindOf } from './constants.ts'
+import { BUNNY_SINCE, byTimeKind, coversDay, kindOf } from './constants.ts'
 import { localDay, nextWork, shift, todayStr } from './date.ts'
 import { sortTodos } from './priority.ts'
 import { siteCore } from './project.ts'
@@ -12,7 +12,7 @@ export const doneDay = (x: Todo): DateStr => localDay(x.doneAt) || x.due || ''
 
 /** 그날에 걸친 일정 (종류·시간 순) */
 export const eventsOn = (d: DateStr, events: Data['events']): CalEvent[] =>
-  [...events.values()].filter((e) => coversDay(e, d)).sort(byKindTime)
+  [...events.values()].filter((e) => coversDay(e, d)).sort(byTimeKind)
 
 /** 오늘 할 일 화면의 묶음: 지연 · 오늘 마감 · 착수한 일 · TBD · 오늘 완료. 끝낸 일은 실제로 끝낸 날에만 보인다 */
 export function todaySet(t: DateStr, todos: Data['todos']) {

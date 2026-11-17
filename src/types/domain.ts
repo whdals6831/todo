@@ -90,6 +90,8 @@ export interface Todo {
   prepSite?: string
   /** Breztri 승인 흐름에서 만든 할 일의 기관 */
   approvedSite?: string
+  /** 캘린더 그날 목록의 "마감"으로 끌어다 올린 할 일 — 마감일에 마감 줄로도 보인다. 뺄 때는 false 로 저장한다 */
+  deadline?: boolean
   /** 만든 시각 (ISO) */
   created?: string
   /** 외부에서 가져온 할 일 표시 (예: 'mail') */

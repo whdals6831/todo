@@ -1,6 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { localDay, mkDoneAt, todayStr } from '@/domain/date.ts'
-import { moveTodo, putTodo, setRanks } from '@/store/actions.ts'
+import { moveTodo, pinDeadline, putTodo, setRanks } from '@/store/actions.ts'
 import { getState } from '@/store/store.ts'
 import { setUi } from '@/store/ui.ts'
 import s from './drag.module.css'
@@ -9,6 +9,7 @@ import s from './drag.module.css'
  * 포인터(마우스·펜·터치)로 할 일을 끈다. 원본과 같은 규칙:
  *  - 같은 목록([data-reorder]) 안의 다른 행([data-todo-id]) 위에 놓으면 순서를 바꾼다
  *  - 캘린더 칸([data-drop-date]) 위에 놓으면 마감일(또는 착수일)을 옮긴다
+ *  - 그날 목록의 "마감"([data-drop-deadline]) 위에 놓으면 그날 마감으로 옮기고 마감 줄에 올린다 (끝낸 할 일은 안 됨)
  *  - 완료한 할 일을 칸에 놓으면 그날을 완료일로 (미래는 안 됨)
  * 5px 넘게 움직여야 끌기가 시작되고, 놓은 직후의 클릭은 무시한다.
  */
@@ -21,7 +22,7 @@ export const wasJustDropped = () => justDropped
 
 const marks = (sel: string) => document.querySelectorAll<HTMLElement>(sel)
 const clearRowMarks = () => marks('[data-drop="before"],[data-drop="after"]').forEach((n) => n.removeAttribute('data-drop'))
-const clearCellMarks = () => marks('[data-drop="cell"]').forEach((n) => n.removeAttribute('data-drop'))
+const clearCellMarks = () => marks('[data-drop="cell"],[data-drop="deadline"]').forEach((n) => n.removeAttribute('data-drop'))
 
 export function startDrag(e: ReactPointerEvent, id: string, field: 'due' | 'start' = 'due') {
   if (e.button !== 0 || dragging) return
@@ -31,6 +32,8 @@ export function startDrag(e: ReactPointerEvent, id: string, field: 'due' | 'star
   const srcBox = (e.currentTarget as Element).closest<HTMLElement>('[data-reorder]')
   let ghost: HTMLDivElement | null = null
   let overDate: string | null = null
+  /** 놓을 자리가 그날 목록의 "마감"이면 true (overDate 는 그날) */
+  let overDeadline = false
   let row: { id: string; before: boolean } | null = null
 
   const begin = () => {
@@ -39,8 +42,11 @@ export function startDrag(e: ReactPointerEvent, id: string, field: 'due' | 'star
     dragging = true
     ghost = document.createElement('div')
     ghost.className = s.ghost
+    const toDeadline = !t.done && !!document.querySelector('[data-drop-deadline]')
     ghost.textContent =
-      t.done && field !== 'start' ? '✓ ' + t.title + ' → 완료한 날짜 칸에 놓기' : (field === 'start' ? '▶ 착수 ' : '') + t.title + ' → 날짜 칸에 놓기'
+      t.done && field !== 'start'
+        ? '✓ ' + t.title + ' → 완료한 날짜 칸에 놓기'
+        : (field === 'start' ? '▶ 착수 ' : '') + t.title + (toDeadline ? ' → 날짜 칸 또는 마감에 놓기' : ' → 날짜 칸에 놓기')
     document.body.append(ghost)
     document.body.dataset.dragging = ''
   }
@@ -62,12 +68,15 @@ export function startDrag(e: ReactPointerEvent, id: string, field: 'due' | 'star
       r.dataset.drop = before ? 'before' : 'after'
       row = { id: r.dataset.todoId!, before }
     } else row = null
-    const c = !row ? hit?.closest<HTMLElement>('[data-drop-date]') : null
-    const prev = overDate
-    overDate = c ? c.dataset.dropDate! : null
-    if (prev !== overDate) {
+    const z = !row && !getState().todos.get(id)?.done ? hit?.closest<HTMLElement>('[data-drop-deadline]') : null
+    const c = !row && !z ? hit?.closest<HTMLElement>('[data-drop-date]') : null
+    const prev = (overDeadline ? '마감 ' : '') + overDate
+    overDeadline = !!z
+    overDate = z ? z.dataset.dropDeadline! : c ? c.dataset.dropDate! : null
+    if (prev !== (overDeadline ? '마감 ' : '') + overDate) {
       clearCellMarks()
-      if (c) c.dataset.drop = 'cell'
+      if (z) z.dataset.drop = 'deadline'
+      else if (c) c.dataset.drop = 'cell'
     }
   }
 
@@ -111,6 +120,10 @@ export function startDrag(e: ReactPointerEvent, id: string, field: 'due' | 'star
     }
     clear()
     markDropped()
+    if (d && t && overDeadline) {
+      await pinDeadline(t, d)
+      return
+    }
     if (d && t && t.done && field !== 'start') {
       if (d > todayStr() || d === localDay(t.doneAt)) return
       setUi({ sel: d })

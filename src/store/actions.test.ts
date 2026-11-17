@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { stepsFor } from '../domain/specials.ts'
 import { APPROVAL_STEPS, BRZ, BRZ_PSV_FUL, DEFAULT_HOLIDAYS, DEFAULT_RULES, ENF, ENF_SS_RULES, FUL_PACKS, IMJ, KTX_RULE, PRE_SIV, SCAN_RULE, WID_RULE, inquirySubs } from '../domain/constants.ts'
 import { nowIso } from '../domain/date.ts'
-import { pmpFor } from '../domain/pmp.ts'
+import { pmpAll, pmpFor } from '../domain/pmp.ts'
 import { isFarSite } from '../domain/project.ts'
 import { bundleParts, genKey, partDues, planTodos } from '../domain/rules.ts'
 import type { CalEvent, Rule, Todo } from '../types/domain.ts'
 import {
-  addFul, addSub, addTodo, deleteEventCascade, dismissTodo, editSub, loadAll, moveTodo, removeSub, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, togglePmp, toggleStep, withSubs,
+  addFul, addSub, addTodo, deleteEventCascade, dismissTodo, editSub, loadAll, moveTodo, pinDeadline, removeSub, putEvent, putTodo, renameSub, replaceAll, saveRules, setRepository, syncEvent, toggleCheck, toggleDone, togglePmp, toggleStep, unpinDeadline, withSubs,
 } from './actions.ts'
 import { createLocalRepository, createMemoryRepository } from './localRepository.ts'
 import { getState } from './store.ts'
@@ -1116,5 +1116,36 @@ describe('마감 줄 체크 (togglePmp)', () => {
     await togglePmp(row('Visit Report 작성'))
     expect(getState().events.get('ev2')!.skip).toEqual([])
     expect(row('Visit Report 작성').doneDay).toBe('')
+  })
+})
+
+describe('할 일을 끌어다 마감 줄에 올리기 (pinDeadline)', () => {
+  const lines = (d: string) => pmpAll(getState()).filter((x) => x.date === d)
+
+  it('마감일을 그날로 옮기고 마감 줄에 올린다. 빼면 마감 줄에서만 사라진다', async () => {
+    await putTodo({ id: 'a', title: '가나대 계약서 회신 확인', due: '2026-10-20', start: '2026-10-16', done: false })
+    expect(lines('2026-10-15')).toEqual([])
+    await pinDeadline(getState().todos.get('a'), '2026-10-15')
+    expect(getState().todos.get('a')).toMatchObject({ due: '2026-10-15', start: '2026-10-15', deadline: true })
+    expect(lines('2026-10-15').map((x) => [x.label, x.pinned, x.doneDay])).toEqual([['가나대 계약서 회신 확인', true, '']])
+
+    await unpinDeadline('a')
+    expect(getState().todos.get('a')).toMatchObject({ due: '2026-10-15', deadline: false })
+    expect(lines('2026-10-15')).toEqual([])
+  })
+
+  it('마감일이 없던 할 일도 그날 마감으로 올라간다', async () => {
+    await putTodo({ id: 'tbd', title: '서명문서 정리', due: '', tbd: true, done: false })
+    await pinDeadline(getState().todos.get('tbd'), '2026-10-16')
+    expect(getState().todos.get('tbd')).toMatchObject({ due: '2026-10-16', tbd: false, deadline: true })
+    expect(lines('2026-10-16').map((x) => x.chip)).toEqual(['서명문서 정리'])
+  })
+
+  it('이미 마감 줄로 보이는 할 일(Training File 같은 제목)은 날짜만 옮기고 두 번 올리지 않는다', async () => {
+    await putTodo({ id: 'tf', title: 'Training File 업데이트', due: '2026-10-23', done: false })
+    expect(lines('2026-10-23').map((x) => [x.chip, x.pinned])).toEqual([['Training File 업데이트', false]])
+    await pinDeadline(getState().todos.get('tf'), '2026-10-22')
+    expect(getState().todos.get('tf')!.deadline).toBeUndefined()
+    expect(lines('2026-10-22').map((x) => x.chip)).toEqual(['Training File 업데이트'])
   })
 })

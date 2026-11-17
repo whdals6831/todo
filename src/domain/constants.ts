@@ -29,16 +29,22 @@ export const kindOf = (e?: Pick<CalEvent, 'kind'> | null): EventKind =>
 
 export const kindLabel = (k: EventKind) => (KINDS.find((x) => x[0] === k) ?? KINDS[0])[1]
 
-/** 같은 날에 일정 종류를 보여 주는 순서 */
+/** 같은 날 같은 시간(또는 둘 다 시간 없음)인 일정을 보여 주는 순서 */
 export const KIND_ORDER: Record<EventKind, number> = { leave: 0, visit: 1, training: 2, meeting: 3 }
 
 /** 그날에 걸친 일정인가 (여러 날 일정 포함) */
 export const coversDay = (e: CalEvent, d: DateStr) =>
   e.date === d || (!!e.endDate && e.date <= d && d <= e.endDate)
 
-/** 같은 날 일정 정렬: 종류 순, 시간 순 */
-export const byKindTime = (a: CalEvent, b: CalEvent) =>
-  KIND_ORDER[kindOf(a)] - KIND_ORDER[kindOf(b)] || (a.time || '').localeCompare(b.time || '')
+/** 시간 비교용 "HH:MM" ("9:00" → "09:00"). 시간이 없으면 "" 라 맨 앞(종일 일정)으로 */
+const timeKey = (t?: string) => {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t || '')
+  return m ? m[1].padStart(2, '0') + ':' + m[2] : ''
+}
+
+/** 같은 날 일정 정렬: 시간 순 (외근·회의·교육이 섞여도). 시간 없는 일정이 먼저, 같은 시간이면 종류 순 */
+export const byTimeKind = (a: CalEvent, b: CalEvent) =>
+  timeKey(a.time).localeCompare(timeKey(b.time)) || KIND_ORDER[kindOf(a)] - KIND_ORDER[kindOf(b)]
 
 /** 규칙 항목. 같은 key 의 규칙끼리 서로 덮어쓴다 */
 export const KEYS: [string, string][] = [

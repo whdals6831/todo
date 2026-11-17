@@ -11,7 +11,7 @@ import {
   ENF_PREP, FOLLOWUPS, FULS_ON_DONE, breztriApproved, companionsFor, enfSivPrep, newSiteMail, type FollowUp, type NewTodo,
 } from '../domain/specials.ts'
 import { ETMF_RE, SIGN_RE } from '../domain/signDocs.ts'
-import type { PmpDue } from '../domain/pmp.ts'
+import { pmpAll, titleDeadline, type PmpDue } from '../domain/pmp.ts'
 import { slotByTime } from '../domain/priority.ts'
 import type { CalEvent, Config, DateStr, Ful, NoteItem, NoteSection, Notes, Rule, Todo } from '../types/domain.ts'
 import { createMemoryRepository } from './localRepository.ts'
@@ -757,6 +757,24 @@ export async function togglePmp(x: PmpDue) {
   if (!m || !ev) return
   const rest = (ev.skip || []).filter((k) => !k.startsWith(m.tag + '@'))
   await putEvent({ ...ev, skip: on ? [...rest, m.tag + '@' + todayStr()] : rest })
+}
+
+/**
+ * 할 일을 캘린더 그날 목록의 "마감"에 끌어다 놓았을 때: 마감일을 그날로 옮기고 마감 줄에 올린다.
+ * 이미 마감 줄로 보이는 할 일(OMF·Training File 같은 제목, PMP 마감과 이어진 외근 할 일)은 날짜만 옮긴다
+ */
+export async function pinDeadline(t: Todo | undefined, d: DateStr) {
+  if (!t) return
+  const shown = titleDeadline(t) || pmpAll(S()).some((x) => x.refs.some((r) => r.id === t.id))
+  if (!t.done) await moveTodo(t, d, '마감으로 끌어 옮김')
+  const cur = S().todos.get(t.id)
+  if (cur && !shown && !cur.deadline) await putTodo({ ...cur, deadline: true, someday: false, tbd: false })
+}
+
+/** 끌어다 올린 마감 줄에서 뺀다 (할 일은 그대로) */
+export async function unpinDeadline(id: string) {
+  const t = S().todos.get(id)
+  if (t?.deadline) await putTodo({ ...t, deadline: false })
 }
 
 const underSub = (name: string, sub: string) => name === sub || name.startsWith(sub + DOC_SEP)

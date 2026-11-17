@@ -12,7 +12,7 @@ import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { SegmentedControl } from '@/components/ui/SegmentedControl.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
-import { togglePmp } from '@/store/actions.ts'
+import { togglePmp, unpinDeadline } from '@/store/actions.ts'
 import { closePopover, goToday, openModal, openPopover, setUi, ui, useApp, useUi } from '@/store/ui.ts'
 import type { CalEvent, DateStr } from '@/types/domain.ts'
 import { wasJustDropped } from '../drag/drag.ts'
@@ -253,6 +253,12 @@ function PmpRow({ due: x }: { due: PmpDue }) {
       ) : (
         <span className={cx(s.pmpLeft, dl.late && s.pmpUrgent, dl.soon && s.pmpSoon)}>{dl.t}</span>
       )}
+      {/* 끌어다 올린 마감은 다시 뺄 수 있다 (할 일은 그대로 남는다) */}
+      {x.pinned && (
+        <IconButton variant="mini" className={s.pmpUnpin} label="마감에서 빼기 (할 일은 그대로)" onClick={() => void unpinDeadline(x.refs[0].id)}>
+          ×
+        </IconButton>
+      )}
     </div>
   )
 }
@@ -293,14 +299,21 @@ function DayPanel() {
       </div>
       <QuickAdd placeholder="이날 마감인 할 일 바로 추가" label="할 일 제목" defaultDue={d} autoDue={false} style={{ marginTop: 'var(--space-1)' }} />
       </div>
-      {open.length > 1 && <Sub className={s.dayHelp} style={{ display: 'block' }}>⋮⋮ 손잡이를 위아래로 끌면 우선순위가, 캘린더 칸에 놓으면 날짜가 바뀝니다.</Sub>}
+      {open.length > 1 && (
+        <Sub className={s.dayHelp} style={{ display: 'block' }}>⋮⋮ 손잡이를 위아래로 끌면 우선순위가, 캘린더 칸에 놓으면 날짜가, 위 마감 칸에 놓으면 이날 마감으로 바뀝니다.</Sub>
+      )}
+      {open.length === 1 && <Sub className={s.dayHelp} style={{ display: 'block' }}>⋮⋮ 손잡이를 위 마감 칸에 놓으면 이날 마감에 올라갑니다.</Sub>}
       {!evs.length && !pmp.length && !merged.length && <EmptyState>이날 외근과 할 일이 없습니다.</EmptyState>}
       {evs.map((e) => (
         <EventRow key={e.id} event={e} />
       ))}
-      {pmp.map((x) => (
-        <PmpRow key={x.key} due={x} />
-      ))}
+      {/* 마감 칸: 할 일을 끌어다 놓으면 이날 마감으로 옮겨 마감 줄에 올린다. 놓을 자리는 끄는 동안에만 보인다 */}
+      <div data-drop-deadline={d} className={s.pmpZone}>
+        {pmp.map((x) => (
+          <PmpRow key={x.key} due={x} />
+        ))}
+        <div className={s.pmpDrop}>{'여기에 놓으면 ' + md(d) + ' 마감에 올라가요'}</div>
+      </div>
       {open.length > 0 && (
         <>
           <div className={s.listHead}>

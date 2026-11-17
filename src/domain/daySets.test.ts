@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CalEvent, Todo } from '../types/domain.ts'
-import { atVisitOn, briefData, dayComplete, daySet, todayBuckets, todaySet, visitFirst } from './daySets.ts'
+import { atVisitOn, briefData, dayComplete, daySet, eventsOn, todayBuckets, todaySet, visitFirst } from './daySets.ts'
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -102,5 +102,15 @@ describe('외근 날에는 그 외근 업무를 맨 위로', () => {
   it('다른 목록은 외근 업무를 앞으로, 나머지 순서는 그대로', () => {
     const list = ['own', 'late', 'name', 'prep'].map((id) => todos.get(id)!)
     expect(visitFirst(list, '2026-10-28', events).map((x) => x.id)).toEqual(['name', 'prep', 'own', 'late'])
+  })
+})
+
+describe('그날 일정 순서', () => {
+  it('외근·회의·교육이 섞여도 시간 순, 시간 없는 일정(종일)이 먼저, 같은 시간이면 종류 순', () => {
+    const ev = (id: string, kind: CalEvent['kind'], time: string): CalEvent => ({ id, kind, date: '2026-11-17', time })
+    const events = new Map(
+      [ev('visit', 'visit', '12:30'), ev('pickup', 'meeting', '11:30'), ev('leave', 'leave', ''), ev('late', 'visit', '14:00'), ev('early', 'training', '9:00'), ev('same', 'meeting', '14:00')].map((e) => [e.id, e]),
+    )
+    expect(eventsOn('2026-11-17', events).map((e) => e.id)).toEqual(['leave', 'early', 'pickup', 'visit', 'late', 'same'])
   })
 })

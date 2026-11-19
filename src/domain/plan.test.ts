@@ -46,19 +46,21 @@ const keys = (xs: { key: string }[]) => xs.map((x) => x.key)
 describe('오늘 할 일을 직접 고른다', () => {
   it('아무것도 고르지 않은 날: 오늘 마감 + 마감 지난 일만 (착수일만 지난 일은 후보로)', () => {
     const b = todayBuckets(T, { todos: map(base), events: ctx.events, ctx })
-    expect(keys(b.late)).toEqual(['a_ev_g-prep|EDC 계정 요청', 'late'])
+    expect(keys(b.late)).toEqual(['a_ev_g-prep', 'late'])
     expect(keys(b.open)).toEqual(['due'])
     expect(todayCount(T, map(base), ctx)).toBe(3)
   })
 
   it('후보: 착수일이 오늘 이전이거나 없는 일. 마감 임박순, 같은 마감이면 보내는 일이 위. Someday·착수 전은 빼고', () => {
     const b = todayBuckets(T, { todos: map(base), events: ctx.events, ctx })
-    expect(keys(b.cands)).toEqual(['a_ev_g-prep|도시락 예약', 'cl', 'send', 'started', 'tbd'])
-    expect(keys(b.soon)).toEqual(['a_ev_g-prep|PPT 인쇄', 'future'])
+    expect(keys(b.cands)).toEqual(['cl', 'send', 'started', 'tbd'])
+    expect(keys(b.soon)).toEqual(['future'])
   })
 
-  it('묶음 제목은 줄로 나오지 않고, 하위 항목이 각자 날짜로 (체크한 것은 빼고)', () => {
-    const items = planItems(map([{ ...bundle, checks: ['EDC 계정 요청'] }]), ctx)
+  it('묶음은 한 줄: 남은 하위 항목 중 가장 이른 날짜로. 풀어 보면 하위 항목이 각자 날짜로 (체크한 것은 빼고)', () => {
+    const one = map([{ ...bundle, checks: ['EDC 계정 요청'] }])
+    expect(planItems(one, ctx).map((x) => [x.title, x.due, x.start])).toEqual([[bundle.title, '2026-11-20', '2026-11-18']])
+    const items = planItems(one, ctx, true)
     expect(items.map((x) => [x.title, x.due, x.start])).toEqual([
       ['가나대병원 SIV 도시락 예약', '2026-11-20', '2026-11-18'],
       ['가나대병원 SIV PPT 인쇄', '2026-11-24', '2026-11-24'],
@@ -69,13 +71,13 @@ describe('오늘 할 일을 직접 고른다', () => {
   it('오늘에 넣으면 바로 오늘 화면에, 다음 날에는 후보로 돌아간다 (마감이 지났으면 자동으로 남는다)', () => {
     const picked = map(base.map((x) => (x.id === 'started' ? { ...x, today: T } : x.id === bundle.id ? { ...x, subToday: { '도시락 예약': T } } : x)))
     const b = todayBuckets(T, { todos: picked, events: ctx.events, ctx })
-    expect(keys(b.open)).toEqual(['due', 'a_ev_g-prep|도시락 예약', 'started'])
+    expect(keys(b.open)).toEqual(['due', 'started'])
     expect(keys(b.cands)).toEqual(['cl', 'send', 'tbd'])
     /* 날이 바뀜 */
     vi.setSystemTime(new Date('2026-11-20T09:00:00+09:00'))
     const n = todayBuckets('2026-11-20', { todos: picked, events: ctx.events, ctx })
-    expect(keys(n.open)).toEqual(['a_ev_g-prep|도시락 예약'])
-    expect(keys(n.late)).toEqual(['a_ev_g-prep|EDC 계정 요청', 'late', 'due'])
+    expect(keys(n.open)).toEqual([])
+    expect(keys(n.late)).toEqual(['a_ev_g-prep', 'late', 'due'])
     expect(keys(n.cands)).toContain('started')
   })
 
@@ -86,9 +88,9 @@ describe('오늘 할 일을 직접 고른다', () => {
     expect(daySet('2026-11-20', todos, ctx).open.map((x) => x.id)).toEqual(['a_ev_g-prep', 'started'])
   })
 
-  it('브리핑·완료 표시도 오늘 화면 기준 (묶음은 하위 항목으로)', () => {
+  it('브리핑·완료 표시도 오늘 화면 기준 (묶음은 한 줄)', () => {
     const b = briefData(T, new Date(), { todos: map(base), holidays: {}, ctx })!
-    expect(b.left.map((x) => x.title)).toEqual(['가나대병원 SIV EDC 계정 요청', '어제 마감', '오늘 마감'])
+    expect(b.left.map((x) => x.title)).toEqual(['가나대병원 SIV Preparation', '어제 마감', '오늘 마감'])
     const done = map([{ id: 'x', title: '끝', due: T, done: true, doneAt: T + 'T01:00:00.000Z' }, { id: 'started', title: '착수만 지난 일', due: '2026-11-30', start: '2026-11-17' }])
     expect(dayComplete(T, done, ctx)).toBe(true)
   })

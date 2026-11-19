@@ -805,7 +805,9 @@ export async function pickDay(id: string, sub: string | undefined, d: DateStr) {
   const t = S().todos.get(id)
   if (!t) return
   if (!sub) {
-    if ((t.today || '') !== d) await putTodo({ ...t, today: d })
+    /* 할 일(묶음이면 묶음째)을 고르거나 빼면 하위 항목만 골라 둔 것도 지운다 */
+    const hadSub = Object.keys(t.subToday || {}).length > 0
+    if ((t.today || '') !== d || hadSub) await putTodo({ ...t, today: d, ...(hadSub ? { subToday: {} } : {}) })
     return
   }
   if (!(t.subs || []).includes(sub) || (t.subToday?.[sub] || '') === d) return

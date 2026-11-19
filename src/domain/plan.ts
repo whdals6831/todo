@@ -6,7 +6,7 @@ import { bundleParts, isGroupRule } from './rules.ts'
  * "오늘 할 일"을 직접 고르는 방식.
  *  - 오늘 화면: 마감이 오늘이거나 지난 일(자동, 뺄 수 없다) + 오늘로 고른 일(today 가 오늘 날짜)
  *  - 후보: 착수일이 오늘 이전이거나 없는 열린 일 중 오늘 화면에 없는 것
- *  - 묶음(Preparation·방문 후 정리)은 제목을 숨기고 하위 항목을 하나씩, 각자 날짜로 본다
+ *  - 묶음(Preparation·방문 후 정리)은 한 줄로 두고 하위 항목은 그 밑에서 펼쳐 본다. 묶음의 날짜는 남은 하위 항목 중 가장 이른 것
  * 고른 날은 그 날짜에만 유효해서 날이 바뀌면 저절로 후보로 돌아간다 (지우는 작업이 따로 없다)
  */
 
@@ -34,12 +34,41 @@ export interface PlanItem {
 const SEND_RE = /발송|송부|회신|보내/
 const baseRule = (id?: string | null) => (id || '').replace(/-manual$/, '')
 
-/** 열린 할 일을 화면 줄로. 묶음은 아직 체크하지 않은 하위 항목 하나하나로 (ctx 가 없으면 묶음도 한 줄) */
-export function planItems(todos: Data['todos'], ctx?: PlanCtx): PlanItem[] {
+/**
+ * 열린 할 일을 화면 줄로. 묶음도 한 줄이고, 날짜는 아직 체크하지 않은 하위 항목 중 가장 이른 마감·착수일로 본다
+ * (하위 항목 하나라도 마감이 오늘이거나 지났으면 오늘 화면에 보이게).
+ * split 이면 묶음을 하위 항목 하나하나로 푼다 (Claude 커넥터·다른 날 목록용)
+ */
+export function planItems(todos: Data['todos'], ctx?: PlanCtx, split = false): PlanItem[] {
+  const parts = splitItems(todos, ctx)
+  if (split) return parts
+  const out: PlanItem[] = []
+  const min = (xs: string[]) => xs.filter(Boolean).sort()[0] || ''
+  for (let i = 0; i < parts.length; i++) {
+    const x = parts[i]
+    if (!x.sub) {
+      out.push(x)
+      continue
+    }
+    const t = x.todo
+    const mine = parts.filter((y) => y.todo === t)
+    i += mine.length - 1
+    out.push({
+      key: t.id, todo: t, title: t.title, project: t.project || '',
+      due: min(mine.map((y) => y.due)), start: min(mine.map((y) => y.start)),
+      /* 하위 항목만 골라 둔 것도 묶음을 고른 것으로 */
+      today: t.today || mine.map((y) => y.today).sort().pop() || '',
+      send: mine.some((y) => y.send),
+    })
+  }
+  return out
+}
+
+function splitItems(todos: Data['todos'], ctx?: PlanCtx): PlanItem[] {
   const out: PlanItem[] = []
   for (const t of todos.values()) {
     if (t.done) continue
-    if (ctx && isGroupRule(t.ruleId) && t.subs?.length) {
+    if (ctx && isGroupRule(t.ruleId) && t.subs?.some((x) => !t.checks?.includes(x))) {
       const parts = bundleParts(t, ctx)
       /* 묶음 제목은 숨기지만 어느 기관·방문의 일인지는 남긴다: "전남대병원 SIV Preparation" → "전남대병원 SIV" */
       const where = t.title.replace(/\s*(Preparation|방문 후 정리)\s*$/, '').trim()
@@ -63,6 +92,9 @@ export function planItems(todos: Data['todos'], ctx?: PlanCtx): PlanItem[] {
   }
   return out
 }
+
+/** 목록에서 접어 두는 일: 서명문서 eTMF 업로드 */
+export const isEtmfUpload = (t: Pick<Todo, 'title'>) => /eTMFs*업로드/i.test(t.title)
 
 /** 고르지 않아도 오늘 화면에 보이는 일: 마감이 오늘이거나 지남 */
 export const isAuto = (x: PlanItem, t: DateStr) => !!x.due && x.due <= t

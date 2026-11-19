@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/Button.tsx'
 import { Fold, Label, Sub } from '@/components/ui/Layout.tsx'
+import { isEtmfUpload } from '@/domain/plan.ts'
 import { resetRanks } from '@/store/actions.ts'
 import type { Todo } from '@/types/domain.ts'
 import s from './TodoList.module.css'
@@ -16,8 +17,6 @@ export function ReorderList({ items, field = () => 'due', extra }: { items: Todo
     </div>
   )
 }
-
-const isEtmfUpload = (t: Todo) => /eTMF\s*업로드/i.test(t.title)
 
 /** 열린 할 일 목록. eTMF 업로드는 맨 위에 접어 두고 눌러서 펼쳐 본다 (펼침 상태는 id 별로 기억) */
 export function OpenList({ id, items, field, extra }: { id: string; items: Todo[]; field?: (t: Todo) => 'due' | 'start'; extra?: (t: Todo) => ReactNode }) {

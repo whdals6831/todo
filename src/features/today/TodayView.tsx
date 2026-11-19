@@ -2,20 +2,20 @@ import { Fragment } from 'react'
 import bunny from '@/assets/bunny.png'
 import { DOW, localDay, localHM, md, nextWork, parse, shift } from '@/domain/date.ts'
 import { briefData, dayComplete, daySet, eventsOn, todayBuckets, visitFirst } from '@/domain/daySets.ts'
-import { isAuto, type PlanItem } from '@/domain/plan.ts'
+import { isAuto, isEtmfUpload, type PlanItem } from '@/domain/plan.ts'
 import { sortTodos } from '@/domain/priority.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Fold, Group, Sub, ViewHeader } from '@/components/ui/Layout.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { projShort } from '@/domain/project.ts'
 import { cx } from '@/lib/cx.ts'
-import { setUi, useApp, usePlanCtx, usePmpDues, useUi } from '@/store/ui.ts'
+import { setUi, useApp, usePlanCtx, useUi } from '@/store/ui.ts'
 import type { DateStr, Todo } from '@/types/domain.ts'
 import { EventRow } from '../event/EventRow.tsx'
 import { QuickAdd } from '../todo/QuickAdd.tsx'
 import { DoneFold, OpenList, RankInfo } from '../todo/TodoList.tsx'
 import { RollActions, TodoRow } from '../todo/TodoRow.tsx'
-import { PlanRow, UnpickButton } from './PlanRow.tsx'
+import { PickButtons, UnpickButton } from './PlanRow.tsx'
 import s from './Today.module.css'
 
 /** 오늘 할 일 (‹ › 로 다른 날도 본다) */
@@ -65,22 +65,31 @@ function DayNav({ d, today }: { d: DateStr; today: DateStr }) {
   )
 }
 
-/** 줄 묶음: 할 일은 할 일 줄로(reorder 면 끌어서 순서 변경), 묶음의 하위 항목은 가벼운 줄로 그 아래에 */
-function Items({ id, items, t, next, reorder }: { id: string; items: PlanItem[]; t: DateStr; next: DateStr; reorder?: boolean }) {
-  const pmp = usePmpDues()
-  const whole = items.filter((x) => !x.sub)
-  const by = new Map(whole.map((x) => [x.todo.id, x]))
+/** 오늘 화면의 줄 묶음 (reorder 면 끌어서 순서 변경, eTMF 업로드는 접어 둔다) */
+function Items({ id, items, t, reorder }: { id: string; items: PlanItem[]; t: DateStr; reorder?: boolean }) {
+  const by = new Map(items.map((x) => [x.todo.id, x]))
   /* 지난 일은 미루기, 고른 일은 오늘에서 빼기 */
   const extra = (x: Todo) => {
     const it = by.get(x.id)
     if (x.due && x.due < t) return <RollActions todo={x} />
     return it && !isAuto(it, t) ? <UnpickButton item={it} today={t} /> : undefined
   }
-  const todos = sortTodos(whole.map((x) => x.todo))
+  const todos = sortTodos(items.map((x) => x.todo))
+  return reorder ? <OpenList id={id} items={todos} extra={extra} /> : todos.map((x) => <TodoRow key={x.id} todo={x} extra={extra(x)} />)
+}
+
+/** 고르는 목록(후보 · 곧 착수할 일): 할 일 줄 옆에 넣기·내일로. eTMF 업로드는 맨 위에 접어 두고 눌러서 펼쳐 본다 */
+function PickList({ id, items, t, next }: { id: string; items: PlanItem[]; t: DateStr; next: DateStr }) {
+  const row = (x: PlanItem) => <TodoRow key={x.key} todo={x.todo} extra={<PickButtons item={x} today={t} next={next} />} />
+  const up = items.filter((x) => isEtmfUpload(x.todo))
   return (
     <>
-      {reorder ? <OpenList id={id} items={todos} extra={extra} /> : todos.map((x) => <TodoRow key={x.id} todo={x} extra={extra(x)} />)}
-      {items.filter((x) => x.sub).map((x) => <PlanRow key={x.key} item={x} today={t} next={next} mode="today" pmp={pmp.get(x.key)} />)}
+      {up.length > 0 && (
+        <Fold id={id + '-etmf'} label={'eTMF 업로드 ' + up.length}>
+          {up.map(row)}
+        </Fold>
+      )}
+      {items.filter((x) => !isEtmfUpload(x.todo)).map(row)}
     </>
   )
 }
@@ -118,27 +127,26 @@ export function TodayLists({ t, busy }: { t: DateStr; busy?: boolean }) {
   const todos = useApp((st) => st.todos)
   const holidays = useApp((st) => st.holidays)
   const ctx = usePlanCtx()
-  const pmp = usePmpDues()
   const b = todayBuckets(t, { todos, events, ctx })
   const complete = dayComplete(t, todos, ctx)
   const next = nextWork(t, holidays)
-  const openTodos = b.open.filter((x) => !x.sub).map((x) => x.todo)
+  const openTodos = b.open.map((x) => x.todo)
 
   return (
     <>
       {b.visit.length > 0 && (
         <Group title="오늘 외근 업무" count={b.visit.length} hint="오늘 외근과 이어진 할 일이에요.">
-          <Items id="today-visit" items={b.visit} t={t} next={next} />
+          <Items id="today-visit" items={b.visit} t={t} />
         </Group>
       )}
       {b.judge.length > 0 && (
         <Group title="판정 필요 · 두 번째 밀린 일" count={b.judge.length} over hint="한 번 미룬 일이 또 밀렸어요. 날짜를 다시 잡을지, Someday로 보낼지, 지울지 정해 주세요.">
-          <Items id="today-judge" items={b.judge} t={t} next={next} />
+          <Items id="today-judge" items={b.judge} t={t} />
         </Group>
       )}
       {b.late1.length > 0 && (
         <Group title="지연 · 어제까지 마감" count={b.late1.length} over hint="마감이 지난 일은 오늘 화면에서 뺄 수 없어요. 한 번은 다음 영업일로 미룰 수 있고, 또 밀리면 위의 판정 칸으로 올라갑니다.">
-          <Items id="today-late" items={b.late1} t={t} next={next} />
+          <Items id="today-late" items={b.late1} t={t} />
         </Group>
       )}
       {b.open.length + b.done.length > 0 && (
@@ -154,19 +162,19 @@ export function TodayLists({ t, busy }: { t: DateStr; busy?: boolean }) {
             </>
           }
         >
-          <Items id="today" items={b.open} t={t} next={next} reorder />
+          <Items id="today" items={b.open} t={t} reorder />
           <DoneFold id="today-done" items={b.done} />
         </Group>
       )}
       {!busy && !b.visit.length && !b.late.length && !b.open.length && !b.done.length && <EmptyState>오늘 할 일이 없습니다. 아래 후보에서 골라 보세요.</EmptyState>}
       {b.cands.length > 0 && (
         <Group title="오늘 할 일 고르기 · 후보" count={b.cands.length} hint={'＋를 누르면 오늘 할 일에 들어가요. "내일로"는 ' + md(next) + ' 할 일로 미리 골라 둡니다. 마감 임박순, 같은 마감이면 남에게 보내는 일이 위예요.'}>
-          {b.cands.map((x) => <PlanRow key={x.key} item={x} today={t} next={next} mode="pick" pmp={pmp.get(x.key)} />)}
+          <PickList id="today-cands" items={b.cands} t={t} next={next} />
         </Group>
       )}
       {b.soon.length > 0 && (
         <Fold id="today-soon" label={'7일 안에 착수할 일 ' + b.soon.length}>
-          {b.soon.map((x) => <PlanRow key={x.key} item={x} today={t} next={next} mode="pick" pmp={pmp.get(x.key)} />)}
+          <PickList id="today-soon-list" items={b.soon} t={t} next={next} />
         </Fold>
       )}
     </>

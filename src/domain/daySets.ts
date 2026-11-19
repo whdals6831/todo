@@ -15,7 +15,7 @@ export const doneDay = (x: Todo): DateStr => localDay(x.doneAt) || x.due || ''
 export const eventsOn = (d: DateStr, events: Data['events']): CalEvent[] =>
   [...events.values()].filter((e) => coversDay(e, d)).sort(byTimeKind)
 
-/** 오늘 화면에 보이는 줄: 마감이 오늘이거나 지난 일(자동) + 오늘로 고른 일. ctx 가 있으면 묶음은 하위 항목 하나하나로 */
+/** 오늘 화면에 보이는 줄: 마감이 오늘이거나 지난 일(자동) + 오늘로 고른 일. 묶음은 한 줄 (남은 하위 항목 중 가장 이른 날짜로) */
 export const todayItems = (t: DateStr, todos: Data['todos'], ctx?: PlanCtx): PlanItem[] => planItems(todos, ctx).filter((x) => inToday(x, t))
 
 /**
@@ -35,7 +35,7 @@ export function todaySet(t: DateStr, todos: Data['todos'], ctx?: PlanCtx) {
 /** 다른 날의 목록: 그날 마감인 열린 일 · 그날 끝낸 일 · (미래면) 그날 하려고 고른 일("내일로")과 그날 마감인 묶음 하위 항목 */
 export function daySet(d: DateStr, todos: Data['todos'], ctx?: PlanCtx) {
   const fut = d > todayStr()
-  const picked = new Set(fut ? planItems(todos, ctx).filter((x) => x.due === d || x.today === d).map((x) => x.todo.id) : [])
+  const picked = new Set(fut ? planItems(todos, ctx, true).filter((x) => x.due === d || x.today === d || x.todo.today === d).map((x) => x.todo.id) : [])
   const items = uniq(
     [...todos.values()].filter(
       (x) => !x.someday && ((!x.done && x.due === d) || (x.done && doneDay(x) === d) || (!x.done && picked.has(x.id))),
@@ -99,7 +99,7 @@ const afterComingVisit = (x: PlanItem, t: DateStr, events?: Data['events']) => {
 }
 
 /**
- * 오늘 할 일 화면 구성. 줄은 할 일 하나 또는 묶음의 하위 항목 하나 (묶음 제목은 따로 보이지 않는다).
+ * 오늘 할 일 화면 구성. 줄은 할 일 하나 (묶음도 한 줄, 하위 항목은 그 밑에서 펼쳐 본다).
  * 오늘 화면 = 마감이 오늘이거나 지난 일 + 오늘로 고른 일. 나머지 착수한 일은 후보 목록(cands)에서 고른다
  */
 export function todayBuckets(t: DateStr, data: Pick<Data, 'todos' | 'events'> & { ctx?: PlanCtx }) {

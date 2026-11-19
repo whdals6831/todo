@@ -65,7 +65,7 @@ export function withData<T>(repo: Repository, fn: () => Promise<T>): Promise<T> 
 function todoViews() {
   const s = S()
   const pmp = pmpDues(s)
-  const parts = new Map(planItems(s.todos, s).filter((x) => x.sub).map((x) => [x.key, x]))
+  const parts = new Map(planItems(s.todos, s, true).filter((x) => x.sub).map((x) => [x.key, x]))
   return (x: Todo) => {
     const bundle = isGroupRule(x.ruleId) && !!x.subs?.length
     return {

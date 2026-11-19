@@ -94,7 +94,7 @@ function splitItems(todos: Data['todos'], ctx?: PlanCtx): PlanItem[] {
 }
 
 /** 목록에서 접어 두는 일: 서명문서 eTMF 업로드 */
-export const isEtmfUpload = (t: Pick<Todo, 'title'>) => /eTMFs*업로드/i.test(t.title)
+export const isEtmfUpload = (t: Pick<Todo, 'title'>) => /eTMF\s*업로드/i.test(t.title)
 
 /** 고르지 않아도 오늘 화면에 보이는 일: 마감이 오늘이거나 지남 */
 export const isAuto = (x: PlanItem, t: DateStr) => !!x.due && x.due <= t

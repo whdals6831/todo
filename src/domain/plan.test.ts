@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CalEvent, Rule, Todo } from '../types/domain.ts'
 import { briefData, dayComplete, daySet, todayBuckets, todayCount } from './daySets.ts'
-import { candidates, inToday, planItems, pmpDues, type PlanCtx } from './plan.ts'
+import { candidates, inToday, isEtmfUpload, planItems, pmpDues, type PlanCtx } from './plan.ts'
 
 const T = '2026-11-19'
 beforeEach(() => {
@@ -101,5 +101,13 @@ describe('PMP 기한', () => {
     const mv: CalEvent = { id: 'mv', kind: 'visit', date: '2026-10-20', type: 'MV', project: 'AZ - Imjudo', site: '가나대병원' }
     const todos = map([{ id: 'e', title: '가나대병원 MV 서명문서 eTMF 업로드', due: '2026-11-03', eventId: 'mv', ruleId: 'r-etmf-i' }])
     expect(pmpDues({ events: new Map([[mv.id, mv]]), todos, holidays: {}, projects: [] }).get('e')).toBe('2026-11-19')
+  })
+})
+
+describe('eTMF 업로드 접기', () => {
+  it('제목에 "eTMF 업로드"가 든 일 (띄어 써도, 붙여 써도)', () => {
+    expect(isEtmfUpload({ title: '가나대병원 SIV 서명문서 eTMF 업로드' })).toBe(true)
+    expect(isEtmfUpload({ title: 'Monthly Letter etmf업로드' })).toBe(true)
+    expect(isEtmfUpload({ title: 'eTMF QC' })).toBe(false)
   })
 })

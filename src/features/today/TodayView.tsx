@@ -79,8 +79,9 @@ function Items({ id, items, t, reorder }: { id: string; items: PlanItem[]; t: Da
 }
 
 /** 고르는 목록(후보 · 곧 착수할 일): 할 일 줄 옆에 넣기·내일로. eTMF 업로드는 맨 위에 접어 두고 눌러서 펼쳐 본다 */
-function PickList({ id, items, t, next }: { id: string; items: PlanItem[]; t: DateStr; next: DateStr }) {
+function PickList({ id, items, t, next, flat }: { id: string; items: PlanItem[]; t: DateStr; next: DateStr; flat?: boolean }) {
   const row = (x: PlanItem) => <TodoRow key={x.key} todo={x.todo} extra={<PickButtons item={x} today={t} next={next} />} />
+  if (flat) return items.map(row)
   const up = items.filter((x) => isEtmfUpload(x.todo))
   return (
     <>
@@ -127,13 +128,25 @@ export function TodayLists({ t, busy }: { t: DateStr; busy?: boolean }) {
   const todos = useApp((st) => st.todos)
   const holidays = useApp((st) => st.holidays)
   const ctx = usePlanCtx()
-  const b = todayBuckets(t, { todos, events, ctx })
+  const b0 = todayBuckets(t, { todos, events, ctx })
+  /* eTMF 업로드는 어느 칸의 것이든 맨 위 한 줄에 접어 둔다 (오늘 화면의 것 먼저, 그다음 후보) */
+  const up = (x: PlanItem) => isEtmfUpload(x.todo)
+  const not = (xs: PlanItem[]) => xs.filter((x) => !up(x))
+  const etmf = [...b0.visit, ...b0.judge, ...b0.late1, ...b0.open].filter(up)
+  const etmfCands = b0.cands.filter(up)
+  const b = { ...b0, visit: not(b0.visit), judge: not(b0.judge), late1: not(b0.late1), open: not(b0.open), cands: not(b0.cands) }
   const complete = dayComplete(t, todos, ctx)
   const next = nextWork(t, holidays)
   const openTodos = b.open.map((x) => x.todo)
 
   return (
     <>
+      {etmf.length + etmfCands.length > 0 && (
+        <Fold id="today-etmf" label={'eTMF 업로드 ' + (etmf.length + etmfCands.length)}>
+          <Items id="today-etmf-list" items={etmf} t={t} />
+          <PickList id="today-etmf-cands" items={etmfCands} t={t} next={next} flat />
+        </Fold>
+      )}
       {b.visit.length > 0 && (
         <Group title="오늘 외근 업무" count={b.visit.length} hint="오늘 외근과 이어진 할 일이에요.">
           <Items id="today-visit" items={b.visit} t={t} />
@@ -145,7 +158,7 @@ export function TodayLists({ t, busy }: { t: DateStr; busy?: boolean }) {
         </Group>
       )}
       {b.late1.length > 0 && (
-        <Group title="지연 · 어제까지 마감" count={b.late1.length} over hint="마감이 지난 일은 오늘 화면에서 뺄 수 없어요. 한 번은 다음 영업일로 미룰 수 있고, 또 밀리면 위의 판정 칸으로 올라갑니다.">
+        <Group title="지연 · 어제까지 마감" count={b.late1.length} over>
           <Items id="today-late" items={b.late1} t={t} />
         </Group>
       )}
@@ -166,7 +179,7 @@ export function TodayLists({ t, busy }: { t: DateStr; busy?: boolean }) {
           <DoneFold id="today-done" items={b.done} />
         </Group>
       )}
-      {!busy && !b.visit.length && !b.late.length && !b.open.length && !b.done.length && <EmptyState>오늘 할 일이 없습니다. 아래 후보에서 골라 보세요.</EmptyState>}
+      {!busy && !etmf.length && !b.visit.length && !b.judge.length && !b.late1.length && !b.open.length && !b.done.length && <EmptyState>오늘 할 일이 없습니다. 아래 후보에서 골라 보세요.</EmptyState>}
       {b.cands.length > 0 && (
         <Group title="오늘 할 일 고르기 · 후보" count={b.cands.length} hint={'＋를 누르면 오늘 할 일에 들어가요. "내일로"는 ' + md(next) + ' 할 일로 미리 골라 둡니다. 마감 임박순, 같은 마감이면 남에게 보내는 일이 위예요.'}>
           <PickList id="today-cands" items={b.cands} t={t} next={next} />

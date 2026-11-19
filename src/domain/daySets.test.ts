@@ -69,7 +69,7 @@ describe('7일 안에 착수할 일', () => {
       { id: 'past', title: '가 SIV 방문 후 정리', due: '2026-11-10', start: '2026-10-29', eventId: 'done', ruleId: 'g-post' },
       { id: 'own', title: '그냥 할 일', due: '2026-11-04', start: '2026-11-02' },
     ])
-    expect(todayBuckets('2026-10-28', todos, events).soon.map((x) => x.id)).toEqual(['prep', 'past', 'own'])
+    expect(todayBuckets('2026-10-28', { todos, events }).soon.map((x) => x.key)).toEqual(['prep', 'past', 'own'])
   })
 })
 
@@ -93,10 +93,10 @@ describe('외근 날에는 그 외근 업무를 맨 위로', () => {
   })
 
   it('오늘 할 일: 오늘 보일 외근 업무만 맨 위 묶음으로, 지연·할 일 묶음에서는 뺀다', () => {
-    const b = todayBuckets('2026-10-28', todos, events)
-    expect(b.visit.map((x) => x.id)).toEqual(['prep', 'name'])
-    expect(b.late.map((x) => x.id)).toEqual(['late'])
-    expect(b.list.map((x) => x.id)).toEqual(['own', 'proj', 'other'])
+    const b = todayBuckets('2026-10-28', { todos, events })
+    expect(b.visit.map((x) => x.key)).toEqual(['prep', 'name'])
+    expect(b.late.map((x) => x.key)).toEqual(['late'])
+    expect(b.open.map((x) => x.key)).toEqual(['own', 'proj', 'other'])
   })
 
   it('다른 목록은 외근 업무를 앞으로, 나머지 순서는 그대로', () => {

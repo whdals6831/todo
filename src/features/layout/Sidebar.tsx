@@ -3,7 +3,7 @@ import { md } from '@/domain/date.ts'
 import { todayCount } from '@/domain/daySets.ts'
 import { Button, LinkButton } from '@/components/ui/Button.tsx'
 import { supabase } from '@/store/supabase/client.ts'
-import { setUi, setView, ui, useApp, useUi, type View } from '@/store/ui.ts'
+import { setUi, setView, ui, useApp, usePlanCtx, useUi, type View } from '@/store/ui.ts'
 import { openEvent } from '../event/openEvent.ts'
 import { Commute } from './Commute.tsx'
 import { openTodoForView } from './shortcuts.ts'
@@ -22,9 +22,10 @@ export function Sidebar() {
   const today = useUi((u) => u.today)
   const todos = useApp((st) => st.todos)
   const fuls = useApp((st) => st.fuls)
+  const ctx = usePlanCtx()
   const counts = {
     all: [...todos.values()].filter((x) => !x.done).length,
-    today: todayCount(today, todos),
+    today: todayCount(today, todos, ctx),
     ful: [...fuls.values()].filter((f) => !f.todoId).length,
   }
   /* "10/18(일)" → "10월 18일 (일)" */

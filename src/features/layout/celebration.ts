@@ -10,7 +10,7 @@ export function watchCelebration() {
       prev = null
       return
     }
-    const c = dayComplete(ui().today, st.todos)
+    const c = dayComplete(ui().today, st.todos, st)
     if (prev === false && c) setUi({ celebrate: Date.now() })
     prev = c
   })

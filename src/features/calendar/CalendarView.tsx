@@ -13,7 +13,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
 import { togglePmp, unpinDeadline } from '@/store/actions.ts'
-import { closePopover, goToday, openModal, openPopover, setUi, ui, useApp, useUi } from '@/store/ui.ts'
+import { closePopover, goToday, openModal, openPopover, setUi, ui, useApp, usePlanCtx, useUi } from '@/store/ui.ts'
 import type { CalEvent, DateStr } from '@/types/domain.ts'
 import { wasJustDropped } from '../drag/drag.ts'
 import { EventRow } from '../event/EventRow.tsx'
@@ -81,6 +81,7 @@ function MonthGrid() {
   const visitOnly = useUi((u) => u.calVisitOnly)
   const events = useApp((st) => st.events)
   const todos = useApp((st) => st.todos)
+  const ctx = usePlanCtx()
   const holidays = useApp((st) => st.holidays)
   const projects = useApp((st) => st.projects)
 
@@ -128,7 +129,7 @@ function MonthGrid() {
             >
               <span className={s.dnum}>
                 <b>{parse(d).getUTCDate()}</b>
-                {inMonth && dayComplete(d, todos) && <img className={s.yay} src={bunny} alt="이날 할 일 모두 완료" title="이날 할 일 모두 완료" />}
+                {inMonth && dayComplete(d, todos, ctx) && <img className={s.yay} src={bunny} alt="이날 할 일 모두 완료" title="이날 할 일 모두 완료" />}
                 {hol && <span className={s.hname}>{hol}</span>}
               </span>
               {lines.slice(0, 3)}
@@ -274,7 +275,8 @@ function DayPanel() {
   const evs = eventsOn(d, events)
   const projects = useApp((st) => st.projects)
   const pmp = pmpOn(d, { events, todos, holidays, projects })
-  const merged = sortTodos(dayTodos(d, todos))
+  const ctx = usePlanCtx()
+  const merged = sortTodos(dayTodos(d, todos, ctx))
   /* 그날 외근과 이어진 할 일이 맨 위 */
   const open = visitFirst(merged.filter((t) => !t.done), d, events)
 

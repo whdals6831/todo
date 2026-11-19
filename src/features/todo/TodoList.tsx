@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/Button.tsx'
 import { Fold, Label, Sub } from '@/components/ui/Layout.tsx'
 import { resetRanks } from '@/store/actions.ts'
@@ -6,11 +7,11 @@ import s from './TodoList.module.css'
 import { TodoRow } from './TodoRow.tsx'
 
 /** 끌어서 순서를 바꿀 수 있는 할 일 목록. field 는 캘린더 칸에 놓았을 때 옮길 날짜 */
-export function ReorderList({ items, field = () => 'due' }: { items: Todo[]; field?: (t: Todo) => 'due' | 'start' }) {
+export function ReorderList({ items, field = () => 'due', extra }: { items: Todo[]; field?: (t: Todo) => 'due' | 'start'; extra?: (t: Todo) => ReactNode }) {
   return (
     <div data-reorder>
       {items.map((t) => (
-        <TodoRow key={t.id} todo={t} drag={field(t)} />
+        <TodoRow key={t.id} todo={t} drag={field(t)} extra={extra?.(t)} />
       ))}
     </div>
   )
@@ -19,16 +20,16 @@ export function ReorderList({ items, field = () => 'due' }: { items: Todo[]; fie
 const isEtmfUpload = (t: Todo) => /eTMF\s*업로드/i.test(t.title)
 
 /** 열린 할 일 목록. eTMF 업로드는 맨 위에 접어 두고 눌러서 펼쳐 본다 (펼침 상태는 id 별로 기억) */
-export function OpenList({ id, items, field }: { id: string; items: Todo[]; field?: (t: Todo) => 'due' | 'start' }) {
+export function OpenList({ id, items, field, extra }: { id: string; items: Todo[]; field?: (t: Todo) => 'due' | 'start'; extra?: (t: Todo) => ReactNode }) {
   const up = items.filter(isEtmfUpload)
   return (
     <>
       {up.length > 0 && (
         <Fold id={id + '-etmf'} label={'eTMF 업로드 ' + up.length} className={s.etmf}>
-          <ReorderList items={up} field={field} />
+          <ReorderList items={up} field={field} extra={extra} />
         </Fold>
       )}
-      <ReorderList items={items.filter((x) => !isEtmfUpload(x))} field={field} />
+      <ReorderList items={items.filter((x) => !isEtmfUpload(x))} field={field} extra={extra} />
     </>
   )
 }

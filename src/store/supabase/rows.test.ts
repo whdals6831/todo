@@ -36,6 +36,15 @@ describe('행 변환', () => {
     expect(todoToRow({ ...t, checkAt: undefined, deadline: undefined })).not.toHaveProperty('check_at')
   })
 
+  it('할 일: 오늘 할 일로 고른 날도 check_at 에 두고, 빼면("") 표시를 지운 check_at 을 보낸다', () => {
+    const t: Todo = { id: 'x', title: 't', due: '2026-11-30', start: '', done: false, today: '2026-11-19', subToday: { B: '2026-11-20' } }
+    const row = todoToRow(t)
+    expect(row.check_at).toEqual({ '#today': '2026-11-19', '#today:B': '2026-11-20' })
+    expect(row).not.toHaveProperty('today')
+    expect(rowToTodo(JSON.parse(JSON.stringify(row)))).toMatchObject({ checkAt: {}, today: '2026-11-19', subToday: { B: '2026-11-20' } })
+    expect(todoToRow({ ...t, today: '', subToday: {} }).check_at).toEqual({})
+  })
+
   it('일정: 배열·빈 종료일 왕복', () => {
     const e: CalEvent = { id: 'ev1', kind: 'visit', date: '2026-10-21', endDate: '', time: '14:00', type: 'MV', skip: ['r-cl'], genKey: 'v3|…' }
     const back = rowToEvent(JSON.parse(JSON.stringify(eventToRow(e))))

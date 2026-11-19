@@ -92,6 +92,10 @@ export interface Todo {
   approvedSite?: string
   /** 캘린더 그날 목록의 "마감"으로 끌어다 올린 할 일 — 마감일에 마감 줄로도 보인다. 뺄 때는 false 로 저장한다 */
   deadline?: boolean
+  /** 오늘 할 일로 고른 날. 그 날짜에만 유효하다 (날이 바뀌면 후보로 돌아간다). 뺄 때는 "" 로 저장한다 */
+  today?: DateStr
+  /** 묶음 하위 항목을 오늘 할 일로 고른 날 (이름 → 날짜) */
+  subToday?: Record<string, DateStr>
   /** 만든 시각 (ISO) */
   created?: string
   /** 외부에서 가져온 할 일 표시 (예: 'mail') */

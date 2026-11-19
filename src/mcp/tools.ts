@@ -1,10 +1,11 @@
 import { TYPES, kindLabel, kindOf } from '../domain/constants.ts'
 import { DOW, dow, md, mkDoneAt, nowIso, shift, todayStr } from '../domain/date.ts'
 import { parseWhen } from '../domain/parseWhen.ts'
+import { planItems, pmpDues } from '../domain/plan.ts'
 import { pmpAll } from '../domain/pmp.ts'
 import { detectProject, projShort } from '../domain/project.ts'
-import { planTodos } from '../domain/rules.ts'
-import { addTodo, applySnapshot, dismissTodo, flushWrites, manualId, putEvent, putTodo, setRepository, syncEvent } from '../store/actions.ts'
+import { isGroupRule, planTodos } from '../domain/rules.ts'
+import { addTodo, applySnapshot, dismissTodo, flushWrites, manualId, pickDay, putEvent, putTodo, setRepository, syncEvent } from '../store/actions.ts'
 import type { Repository } from '../store/repository.ts'
 import { getState as S, resetState } from '../store/store.ts'
 import type { CalEvent, EventKind, Todo } from '../types/domain.ts'
@@ -22,6 +23,9 @@ type Input = Record<string, unknown>
 export const INSTRUCTIONS = [
   '이 커넥터는 CRA(임상연구 모니터요원)의 개인 업무 캘린더 앱 "To Do"의 일정·할 일을 읽고 바꿉니다. 일정이나 할 일을 다루기 전에 get_overview 로 오늘 날짜(한국 시간)·과제·기한 규칙·가까운 일정과 할 일을 먼저 확인하세요. 한국어로, 두괄식으로 짧게 답하세요.',
   '할 일에는 마감일(due)과 착수일(start)이 따로 있습니다. 착수일은 방문 내용을 쓰는 일은 방문 다음 영업일(망각곡선), 나머지는 마감 2영업일 전(계획 오류 대비 여유)으로 잡혀 있습니다. 무엇을 언제 할지 물으면 착수일 기준으로 안내하세요.',
+  '"오늘 할 일"은 사용자가 직접 고릅니다. 착수일(start)은 "이날부터 시작 가능"이라는 뜻일 뿐 "오늘 해야 함"이 아닙니다. 앱의 오늘 화면에는 ① 마감일이 오늘이거나 지난 열린 일(자동, 뺄 수 없음 — 빼려면 마감일을 바꿔야 함)과 ② today 값이 오늘 날짜인 일만 보입니다. today 는 그 날짜에만 유효해서 다음 날에는 저절로 후보로 돌아갑니다. 오늘 추천 목록을 넣을 때는 update_todo 의 today 에 오늘 날짜를 넣고(빼려면 빈 문자열), 착수일은 건드리지 마세요. 후보는 착수일이 오늘 이전이거나 없는 열린 일이며, 마감 임박순으로 보되 같은 마감이면 남에게 보내는 일(send)을 먼저 고르세요.',
+  '"○○ Preparation", "○○ 방문 후 정리" 같은 묶음(bundle=true)은 제목이 아니라 subs 의 하위 항목 하나하나가 실제 할 일입니다. 하위 항목마다 마감일·착수일·today 가 따로 있으니 그 값으로 안내하고, 하위 항목을 오늘에 넣을 때는 update_todo 에 sub(하위 항목 이름)를 함께 주세요.',
+  'pmpDue 는 본인 기준 마감과 따로 있는 PMP 기한(서명문서 eTMF 업로드: 방문 후 30일)입니다. 본인 기준 마감이 지난 일은 PMP 기한까지 남은 날을 함께 말하세요.',
   '날짜를 안내할 때는 반드시 근거(어떤 규칙, WD/CD 계산, 제외한 공휴일)를 함께 말하세요. WD는 방문 다음 영업일을 WD1로 셉니다.',
   '일정 운영 원칙: 남이 나를 기다리는 일(PM, 팀장, 기관, 의뢰사)이 1순위. 남에게 보내는 일은 요청일 전 영업일 퇴근 전을 실제 마감으로. 외부 방문이 있는 날은 그 외 1개 이하로 배치. 조건이 걸린 일은 [대기]를 붙이고 조건 확인 행위에 날짜를 겁니다. 30분 이내면 제목에 (15분)처럼 소요 시간 표기. 일정이 물리적으로 불가능하거나 위험하면 돌려 말하지 말고 지적하세요.',
   '일정 종류는 외근(visit)·회의(meeting)·교육(training)·휴가(leave)입니다. 외근(add_visit)을 추가하면 앱이 기한 규칙에 따라 할 일을 자동으로 만듭니다. 여러 개를 추가하거나 날짜를 바꾸기 전에는 무엇을 할지 먼저 보여주고 확인받으세요. 단, 사용자가 "추가해줘"처럼 분명히 요청한 한 건은 바로 실행해도 됩니다. 삭제는 반드시 확인을 받은 뒤에만 하세요.',
@@ -54,6 +58,31 @@ export function withData<T>(repo: Repository, fn: () => Promise<T>): Promise<T> 
   return run
 }
 
+/**
+ * 할 일 하나를 Claude 에 보여 줄 모양으로: 오늘로 고른 날(today), PMP 기한(pmpDue), 하위 항목(subs).
+ * 묶음(Preparation·방문 후 정리)은 하위 항목마다 그 일의 마감·착수·today 를 싣는다
+ */
+function todoViews() {
+  const s = S()
+  const pmp = pmpDues(s)
+  const parts = new Map(planItems(s.todos, s).filter((x) => x.sub).map((x) => [x.key, x]))
+  return (x: Todo) => {
+    const bundle = isGroupRule(x.ruleId) && !!x.subs?.length
+    return {
+      id: x.id, title: x.title, due: x.due, start: x.start || '', today: x.today || '', done: !!x.done, project: x.project, basis: x.basis, verify: !!x.verify,
+      pmpDue: pmp.get(x.id) || undefined,
+      bundle: bundle || undefined,
+      subs: x.subs?.map((name) => {
+        const done = !!x.done || !!x.checks?.includes(name)
+        const p = parts.get(x.id + '|' + name)
+        return bundle
+          ? { name, done, due: p?.due || x.subDue?.[name] || '', start: p?.start || '', today: x.subToday?.[name] || '', send: p?.send || undefined, pmpDue: pmp.get(x.id + '|' + name) || undefined }
+          : { name, done }
+      }),
+    }
+  }
+}
+
 /** 오늘 기준 -21일 ~ +60일의 일정과 열린(또는 최근 완료한) 할 일, 과제·기한 규칙 */
 function overview() {
   const s = S()
@@ -74,7 +103,7 @@ function overview() {
       .filter((x) => !x.done || (x.doneAt || '') >= lo)
       .sort((a, b) => (a.due || '9').localeCompare(b.due || '9'))
       .slice(0, 150)
-      .map((x) => ({ id: x.id, title: x.title, due: x.due, start: x.start || '', done: !!x.done, project: x.project, basis: x.basis, verify: !!x.verify })),
+      .map(todoViews()),
   }
 }
 
@@ -124,7 +153,7 @@ export async function runTool(name: ToolName, i: Input): Promise<string> {
         events: [...S().events.values()].filter((e) => e.date >= a && e.date <= b),
         todos: [...S().todos.values()]
           .filter((t) => (t.due || '') >= a && (t.due || '') <= b)
-          .map((t) => ({ id: t.id, title: t.title, due: t.due, start: t.start || '', done: !!t.done, project: t.project, basis: t.basis })),
+          .map(todoViews()),
       })
     }
     case 'list_deadlines':
@@ -160,8 +189,18 @@ export async function runTool(name: ToolName, i: Input): Promise<string> {
       return JSON.stringify({ id })
     }
     case 'update_todo': {
-      const t = S().todos.get(str(i.id))
-      if (!t) throw new Error('해당 id의 할 일이 없습니다')
+      const t0 = S().todos.get(str(i.id))
+      if (!t0) throw new Error('해당 id의 할 일이 없습니다')
+      /* 오늘 할 일에 넣기·빼기 (sub 가 있으면 묶음의 그 하위 항목). 마감·착수일은 그대로 둔다 */
+      const sub = str(i.sub)
+      if (sub && !(t0.subs || []).includes(sub)) throw new Error('해당 이름의 하위 항목이 없습니다: ' + sub)
+      if (i.today != null) {
+        const d = str(i.today)
+        if (d && !isDate(d)) throw new Error('today 형식은 YYYY-MM-DD 또는 빈 문자열')
+        await pickDay(t0.id, sub || undefined, d)
+      } else if (sub) throw new Error('sub 는 today 와 함께 씁니다')
+      const t = S().todos.get(t0.id) ?? t0
+      if (['title', 'due', 'start', 'done', 'doneDay'].every((k) => i[k] == null)) return '"ok"'
       const n: Todo = { ...t }
       if (i.title != null) n.title = str(i.title)
       if (i.due != null && str(i.due) !== t.due) {

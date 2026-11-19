@@ -76,26 +76,35 @@ export const eventToRow = (e: CalEvent) => toRow(e, EVENT_COLS)
 const SUB_DUE = '#due:'
 /** 마감 줄로 끌어다 올린 표시(deadline)도 컬럼 없이 check_at 에 이 key 로 둔다 */
 const PIN = '#deadline'
+/** 오늘 할 일로 고른 날(today)도 같은 방식으로. 하위 항목 것은 뒤에 ":이름" */
+const TODAY = '#today'
+const packed = (k: string) => k.startsWith(SUB_DUE) || k === PIN || k === TODAY || k.startsWith(TODAY + ':')
 export const todoToRow = (t: Todo) => {
-  const { subDue, deadline, ...rest } = t
-  const sd = Object.entries(subDue || {})
-  /* 마감 줄에서 뺀 것(deadline: false)도 check_at 을 보내야 DB 의 표시가 지워진다 */
-  if (!sd.length && deadline === undefined) return toRow(rest, TODO_COLS)
-  const extra: Record<string, string> = Object.fromEntries(sd.map(([k, v]) => [SUB_DUE + k, v]))
+  const { subDue, deadline, today, subToday, ...rest } = t
+  const extra: Record<string, string> = Object.fromEntries(Object.entries(subDue || {}).map(([k, v]) => [SUB_DUE + k, v]))
   if (deadline) extra[PIN] = '1'
+  if (today) extra[TODAY] = today
+  for (const [k, v] of Object.entries(subToday || {})) if (v) extra[TODAY + ':' + k] = v
+  /* 뺀 것(deadline: false, today: "" 등)도 check_at 을 보내야 DB 의 표시가 지워진다 */
+  const touched = [deadline, today, subToday].some((x) => x !== undefined)
+  if (!Object.keys(extra).length && !touched) return toRow(rest, TODO_COLS)
   return toRow({ ...rest, checkAt: { ...rest.checkAt, ...extra } }, TODO_COLS)
 }
 export const fulToRow = (f: Ful) => toRow(f, FUL_COLS)
 export const rowToEvent = (r: Row) => fromRow<CalEvent>(r, EVENT_COLS)
 export const rowToTodo = (r: Row): Todo => {
   const t = fromRow<Todo>(r, TODO_COLS)
-  const all = Object.entries(t.checkAt || {})
-  const packed = (k: string) => k.startsWith(SUB_DUE) || k === PIN
+  const at = t.checkAt || {}
+  const all = Object.entries(at)
   if (!all.some(([k]) => packed(k))) return t
-  const sd = all.filter(([k]) => k.startsWith(SUB_DUE))
+  const under = (pre: string) => all.filter(([k]) => k.startsWith(pre)).map(([k, v]) => [k.slice(pre.length), v] as const)
   const n: Todo = { ...t, checkAt: Object.fromEntries(all.filter(([k]) => !packed(k))) }
-  if (sd.length) n.subDue = Object.fromEntries(sd.map(([k, v]) => [k.slice(SUB_DUE.length), v]))
-  if (all.some(([k]) => k === PIN)) n.deadline = true
+  const sd = under(SUB_DUE)
+  if (sd.length) n.subDue = Object.fromEntries(sd)
+  if (PIN in at) n.deadline = true
+  if (at[TODAY]) n.today = at[TODAY]
+  const st = under(TODAY + ':')
+  if (st.length) n.subToday = Object.fromEntries(st)
   return n
 }
 export const rowToFul = (r: Row) => fromRow<Ful>(r, FUL_COLS)

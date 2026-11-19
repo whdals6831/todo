@@ -74,7 +74,7 @@ const checkAllSubs = <T extends Pick<Todo, 'subs' | 'checks' | 'checkAt' | 'done
 }
 
 /** 체크 시각에서 지운 항목은 빼고, 이름을 바꾼 항목은 따라간다 */
-const keepAt = (at: Todo['checkAt'], f: (name: string) => string | null) =>
+const keepAt = <V,>(at: Record<string, V> | undefined, f: (name: string) => string | null): Record<string, V> | undefined =>
   at && Object.fromEntries(Object.entries(at).flatMap(([k, v]) => (f(k) == null ? [] : [[f(k)!, v]])))
 
 /** 할 일 저장. 완료하면 하위 항목을 모두 체크하고, 완료 상태가 바뀌면 이어지는 할 일(FOLLOWUPS)을 만들거나 지우거나 옮긴다 */
@@ -787,13 +787,32 @@ export const withSubs = (t: Todo, subs: string[]): Todo => {
   return {
     ...t, subs, checks: (t.checks || []).filter(keep), checkAt: keepAt(t.checkAt, (x) => (keep(x) ? x : null)),
     subDue: subDue && Object.keys(subDue).length ? subDue : undefined,
+    subToday: keepAt(t.subToday, (x) => (subs.includes(x) ? x : null)),
   }
 }
 
 /** 하위 항목 이름 바꾸기 (체크·단계 체크·직접 정한 마감일도 따라간다) */
 const renamed = (t: Todo, from: string, to: string): Todo => {
   const ren = (x: string) => (underSub(x, from) ? to + x.slice(from.length) : x)
-  return { ...t, subs: (t.subs || []).map(ren), checks: (t.checks || []).map(ren), checkAt: keepAt(t.checkAt, ren), subDue: keepAt(t.subDue, ren) }
+  return { ...t, subs: (t.subs || []).map(ren), checks: (t.checks || []).map(ren), checkAt: keepAt(t.checkAt, ren), subDue: keepAt(t.subDue, ren), subToday: keepAt(t.subToday, ren) }
+}
+
+/**
+ * 오늘 할 일에 넣기·빼기: 고른 날을 d 로 둔다 ("" 이면 빼기, 내일 날짜면 "내일로"). sub 가 있으면 묶음의 그 하위 항목.
+ * 고른 날은 그 날짜에만 유효해서, 날이 바뀌면 못 끝낸 일은 저절로 후보로 돌아간다. 마감·착수일은 건드리지 않는다
+ */
+export async function pickDay(id: string, sub: string | undefined, d: DateStr) {
+  const t = S().todos.get(id)
+  if (!t) return
+  if (!sub) {
+    if ((t.today || '') !== d) await putTodo({ ...t, today: d })
+    return
+  }
+  if (!(t.subs || []).includes(sub) || (t.subToday?.[sub] || '') === d) return
+  const m = { ...t.subToday }
+  if (d) m[sub] = d
+  else delete m[sub]
+  await putTodo({ ...t, subToday: m })
 }
 
 export async function addSub(id: string, text: string) {

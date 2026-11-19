@@ -99,4 +99,16 @@ describe('커넥터 도구', () => {
     })
     expect(out.deadlines.some((d: { title: string }) => /비용/.test(d.title))).toBe(false)
   })
+
+  it('오늘 할 일에 넣고 뺀다: today 만 바뀌고 마감·착수일·규칙 연결은 그대로', async () => {
+    const { db, call } = fakeDb()
+    db.todos.set('t1', { id: 't1', title: '자료 정리', due: '2026-10-20', start: '2026-10-08', ruleId: 'r-x', basis: '근거', subs: ['가', '나'] })
+    await call('update_todo', { id: 't1', today: '2026-10-12' })
+    expect(db.todos.get('t1')).toMatchObject({ today: '2026-10-12', due: '2026-10-20', start: '2026-10-08', ruleId: 'r-x', basis: '근거' })
+    const view = (await call('get_overview')).todos.find((x: { id: string }) => x.id === 't1')
+    expect(view).toMatchObject({ today: '2026-10-12', subs: [{ name: '가', done: false }, { name: '나', done: false }] })
+    await call('update_todo', { id: 't1', today: '' })
+    expect(db.todos.get('t1')?.today).toBe('')
+    await expect(call('update_todo', { id: 't1', today: '2026-10-12', sub: '없는 항목' })).rejects.toThrow()
+  })
 })

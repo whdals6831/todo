@@ -1,7 +1,9 @@
+import { useMemo } from 'react'
 import { create } from 'zustand'
 import { useStore } from 'zustand'
 import { todayStr } from '../domain/date.ts'
 import { BRIEF_FROM_MIN } from '../domain/daySets.ts'
+import { pmpDues, type PlanCtx } from '../domain/plan.ts'
 import type { CalEvent, DateStr, EventKind } from '../types/domain.ts'
 import { appStore, type AppState } from './store.ts'
 
@@ -135,3 +137,21 @@ export function startClock() {
 
 /** 앱 데이터 구독 훅 */
 export const useApp = <T,>(selector: (s: AppState) => T) => useStore(appStore, selector)
+
+/** 오늘 할 일을 줄 단위(묶음은 하위 항목 하나하나)로 볼 때 필요한 규칙·일정 */
+export function usePlanCtx(): PlanCtx {
+  const rules = useApp((st) => st.rules)
+  const holidays = useApp((st) => st.holidays)
+  const events = useApp((st) => st.events)
+  const projects = useApp((st) => st.projects)
+  return useMemo(() => ({ rules, holidays, events, projects }), [rules, holidays, events, projects])
+}
+
+/** 본인 기준 마감과 따로 있는 PMP 기한 (줄의 key → 날짜) */
+export function usePmpDues() {
+  const events = useApp((st) => st.events)
+  const todos = useApp((st) => st.todos)
+  const holidays = useApp((st) => st.holidays)
+  const projects = useApp((st) => st.projects)
+  return useMemo(() => pmpDues({ events, todos, holidays, projects }), [events, todos, holidays, projects])
+}

@@ -44,7 +44,7 @@ Deno.serve(
           'get_overview',
           {
             title: '오늘 기준 일정·할 일 보기',
-            description: '오늘 날짜(한국 시간), 사용 안내, 과제 목록, 기한 규칙, 오늘 기준 -21일 ~ +60일의 일정과 열린 할 일을 돌려줍니다. 일정·할 일 질문에 답하거나 바꾸기 전에 먼저 부르세요.',
+            description: '오늘 날짜(한국 시간), 사용 안내, 과제 목록, 기한 규칙, 오늘 기준 -21일 ~ +60일의 일정과 열린 할 일을 돌려줍니다. 할 일마다 today(오늘 할 일로 고른 날), pmpDue(본인 기준 마감과 따로 있는 PMP 기한), subs(하위 항목 — 묶음(bundle)이면 하위 항목마다 due·start·today)가 들어 있습니다. 일정·할 일 질문에 답하거나 바꾸기 전에 먼저 부르세요.',
             annotations: read,
           },
           () => run('get_overview'),
@@ -53,7 +53,7 @@ Deno.serve(
           'list_items',
           {
             title: '기간 안의 일정·할 일 보기',
-            description: '기간 안의 일정과 (마감일 기준) 할 일을 돌려줍니다. get_overview 범위 밖의 날짜를 보거나, 바꾼 뒤 다시 확인할 때 쓰세요.',
+            description: '기간 안의 일정과 (마감일 기준) 할 일을 돌려줍니다 (today·pmpDue·subs 포함). get_overview 범위 밖의 날짜를 보거나, 바꾼 뒤 다시 확인할 때 쓰세요.',
             inputSchema: z.object({ from: date, to: date }),
             annotations: read,
           },
@@ -103,12 +103,14 @@ Deno.serve(
           'update_todo',
           {
             title: '할 일 수정',
-            description: '할 일의 제목, 마감일(due), 착수일(start), 완료 여부, 완료일(doneDay)을 바꿉니다. 며칠 전에 끝낸 일을 뒤늦게 완료 처리할 때는 done:true와 함께 doneDay를 주세요. id는 get_overview·list_items 에서 가져옵니다.',
+            description: '할 일의 제목, 마감일(due), 착수일(start), 오늘 할 일로 고른 날(today), 완료 여부, 완료일(doneDay)을 바꿉니다. 오늘 할 일에 넣으려면 today 에 오늘 날짜를, 빼려면 빈 문자열을 주세요 (착수일은 바꾸지 않습니다). 묶음의 하위 항목이면 sub 에 그 이름을 함께 주세요. 며칠 전에 끝낸 일을 뒤늦게 완료 처리할 때는 done:true와 함께 doneDay를 주세요. id는 get_overview·list_items 에서 가져옵니다.',
             inputSchema: z.object({
               id: z.string(),
               title: z.string().optional(),
               due: optDate,
               start: optDate,
+              today: z.string().optional().describe('오늘 할 일로 고른 날 YYYY-MM-DD. 빈 문자열이면 오늘 할 일에서 뺌'),
+              sub: z.string().optional().describe('묶음 하위 항목 이름 (today 를 그 하위 항목에 적용)'),
               done: z.boolean().optional(),
               doneDay: z.string().optional().describe('완료한 날짜 YYYY-MM-DD (오늘 이전만)'),
             }),

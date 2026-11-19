@@ -1,19 +1,21 @@
 import { Fragment } from 'react'
 import bunny from '@/assets/bunny.png'
-import { DOW, localDay, localHM, md, parse, shift } from '@/domain/date.ts'
+import { DOW, localDay, localHM, md, nextWork, parse, shift } from '@/domain/date.ts'
 import { briefData, dayComplete, daySet, eventsOn, todayBuckets, visitFirst } from '@/domain/daySets.ts'
+import { isAuto, type PlanItem } from '@/domain/plan.ts'
 import { sortTodos } from '@/domain/priority.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
 import { EmptyState, Fold, Group, Sub, ViewHeader } from '@/components/ui/Layout.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { projShort } from '@/domain/project.ts'
 import { cx } from '@/lib/cx.ts'
-import { setUi, useApp, useUi } from '@/store/ui.ts'
+import { setUi, useApp, usePlanCtx, usePmpDues, useUi } from '@/store/ui.ts'
 import type { DateStr, Todo } from '@/types/domain.ts'
 import { EventRow } from '../event/EventRow.tsx'
 import { QuickAdd } from '../todo/QuickAdd.tsx'
 import { DoneFold, OpenList, RankInfo } from '../todo/TodoList.tsx'
 import { RollActions, TodoRow } from '../todo/TodoRow.tsx'
+import { PlanRow, UnpickButton } from './PlanRow.tsx'
 import s from './Today.module.css'
 
 /** 오늘 할 일 (‹ › 로 다른 날도 본다) */
@@ -63,12 +65,37 @@ function DayNav({ d, today }: { d: DateStr; today: DateStr }) {
   )
 }
 
+/** 줄 묶음: 할 일은 할 일 줄로(reorder 면 끌어서 순서 변경), 묶음의 하위 항목은 가벼운 줄로 그 아래에 */
+function Items({ id, items, t, next, reorder }: { id: string; items: PlanItem[]; t: DateStr; next: DateStr; reorder?: boolean }) {
+  const pmp = usePmpDues()
+  const whole = items.filter((x) => !x.sub)
+  const by = new Map(whole.map((x) => [x.todo.id, x]))
+  /* 지난 일은 미루기, 고른 일은 오늘에서 빼기 */
+  const extra = (x: Todo) => {
+    const it = by.get(x.id)
+    if (x.due && x.due < t) return <RollActions todo={x} />
+    return it && !isAuto(it, t) ? <UnpickButton item={it} today={t} /> : undefined
+  }
+  const todos = sortTodos(whole.map((x) => x.todo))
+  return (
+    <>
+      {reorder ? <OpenList id={id} items={todos} extra={extra} /> : todos.map((x) => <TodoRow key={x.id} todo={x} extra={extra(x)} />)}
+      {items.filter((x) => x.sub).map((x) => <PlanRow key={x.key} item={x} today={t} next={next} mode="today" pmp={pmp.get(x.key)} />)}
+    </>
+  )
+}
+
 function TodayBody({ t }: { t: DateStr }) {
   const events = useApp((st) => st.events)
   const todos = useApp((st) => st.todos)
+  const holidays = useApp((st) => st.holidays)
+  const ctx = usePlanCtx()
+  const pmp = usePmpDues()
   const evs = eventsOn(t, events)
-  const b = todayBuckets(t, todos, events)
-  const complete = dayComplete(t, todos)
+  const b = todayBuckets(t, { todos, events, ctx })
+  const complete = dayComplete(t, todos, ctx)
+  const next = nextWork(t, holidays)
+  const openTodos = b.open.filter((x) => !x.sub).map((x) => x.todo)
 
   return (
     <>
@@ -87,39 +114,45 @@ function TodayBody({ t }: { t: DateStr }) {
       )}
       {b.visit.length > 0 && (
         <Group title="오늘 외근 업무" count={b.visit.length} hint="오늘 외근과 이어진 할 일이에요.">
-          {b.visit.map((x) => <TodoRow key={x.id} todo={x} extra={x.due && x.due < t ? <RollActions todo={x} /> : undefined} />)}
+          <Items id="today-visit" items={b.visit} t={t} next={next} />
         </Group>
       )}
       {b.judge.length > 0 && (
         <Group title="판정 필요 · 두 번째 밀린 일" count={b.judge.length} over hint="한 번 미룬 일이 또 밀렸어요. 날짜를 다시 잡을지, Someday로 보낼지, 지울지 정해 주세요.">
-          {b.judge.map((x) => <TodoRow key={x.id} todo={x} extra={<RollActions todo={x} />} />)}
+          <Items id="today-judge" items={b.judge} t={t} next={next} />
         </Group>
       )}
       {b.late1.length > 0 && (
-        <Group title="지연 · 어제까지 마감" count={b.late1.length} over hint="한 번은 다음 영업일로 미룰 수 있어요. 또 밀리면 위의 판정 칸으로 올라갑니다.">
-          {b.late1.map((x) => <TodoRow key={x.id} todo={x} extra={<RollActions todo={x} />} />)}
+        <Group title="지연 · 어제까지 마감" count={b.late1.length} over hint="마감이 지난 일은 오늘 화면에서 뺄 수 없어요. 한 번은 다음 영업일로 미룰 수 있고, 또 밀리면 위의 판정 칸으로 올라갑니다.">
+          <Items id="today-late" items={b.late1} t={t} next={next} />
         </Group>
       )}
-      {b.list.length > 0 && (
+      {b.open.length + b.done.length > 0 && (
         <Group
           title="할 일"
-          count={b.openN + (b.doneN ? ' · 완료 ' + b.doneN : '')}
+          count={b.open.length + (b.done.length ? ' · 완료 ' + b.done.length : '')}
+          hint="오늘 마감인 일과 내가 오늘 하려고 고른 일이에요."
           extra={
             <>
               {complete && <img className={s.yay} src={bunny} alt="" />}
               {complete && <span className={s.yayMsg}>오늘 할 일 끝!</span>}
-              <RankInfo items={b.list.filter((x) => !x.done)} />
+              <RankInfo items={openTodos} />
             </>
           }
         >
-          <OpenList id="today" items={b.list.filter((x) => !x.done)} />
-          <DoneFold id="today-done" items={b.list.filter((x) => x.done)} />
+          <Items id="today" items={b.open} t={t} next={next} reorder />
+          <DoneFold id="today-done" items={b.done} />
         </Group>
       )}
-      {!evs.length && !b.visit.length && !b.late.length && !b.list.length && <EmptyState>오늘 할 일이 없습니다.</EmptyState>}
+      {!evs.length && !b.visit.length && !b.late.length && !b.open.length && !b.done.length && <EmptyState>오늘 할 일이 없습니다. 아래 후보에서 골라 보세요.</EmptyState>}
+      {b.cands.length > 0 && (
+        <Group title="오늘 할 일 고르기 · 후보" count={b.cands.length} hint={'＋를 누르면 오늘 할 일에 들어가요. "내일로"는 ' + md(next) + ' 할 일로 미리 골라 둡니다. 마감 임박순, 같은 마감이면 남에게 보내는 일이 위예요.'}>
+          {b.cands.map((x) => <PlanRow key={x.key} item={x} today={t} next={next} mode="pick" pmp={pmp.get(x.key)} />)}
+        </Group>
+      )}
       {b.soon.length > 0 && (
         <Fold id="today-soon" label={'7일 안에 착수할 일 ' + b.soon.length}>
-          {b.soon.map((x) => <TodoRow key={x.id} todo={x} />)}
+          {b.soon.map((x) => <PlanRow key={x.key} item={x} today={t} next={next} mode="pick" pmp={pmp.get(x.key)} />)}
         </Fold>
       )}
     </>
@@ -130,7 +163,8 @@ function OtherDayBody({ d, today }: { d: DateStr; today: DateStr }) {
   const events = useApp((st) => st.events)
   const todos = useApp((st) => st.todos)
   const evs = eventsOn(d, events)
-  const ds = daySet(d, todos)
+  const ctx = usePlanCtx()
+  const ds = daySet(d, todos, ctx)
   const open = visitFirst(sortTodos(ds.open), d, events)
   const items = [...open, ...ds.done.sort((a, b) => (a.doneAt || '').localeCompare(b.doneAt || ''))]
 
@@ -149,7 +183,7 @@ function OtherDayBody({ d, today }: { d: DateStr; today: DateStr }) {
           count={ds.open.length + (ds.done.length ? ' · 완료 ' + ds.done.length : '')}
           extra={
             <>
-              {dayComplete(d, todos) && <img className={s.yay} src={bunny} alt="" />}
+              {dayComplete(d, todos, ctx) && <img className={s.yay} src={bunny} alt="" />}
               <RankInfo items={open} />
             </>
           }
@@ -169,8 +203,9 @@ function BriefCard({ d }: { d: DateStr }) {
   const todos = useApp((st) => st.todos)
   const holidays = useApp((st) => st.holidays)
   const projects = useApp((st) => st.projects)
+  const ctx = usePlanCtx()
   const now = new Date(nowMs)
-  const b = briefData(d, now, { todos, holidays })
+  const b = briefData(d, now, { todos, holidays, ctx })
   if (!b) return null
   /* 끝낸 할 일과 체크한 하위 항목을 시간 순으로. 시각을 모르는 체크는 맨 뒤 */
   const log = [

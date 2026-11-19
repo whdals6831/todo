@@ -12,7 +12,7 @@ import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
 import { addSub, dismissTodo, rollOver, toSomeday, toggleCheck, toggleDone, toggleStep } from '@/store/actions.ts'
-import { openModal, openPopover, useApp } from '@/store/ui.ts'
+import { openModal, openPopover, useApp, usePmpDues } from '@/store/ui.ts'
 import type { Todo } from '@/types/domain.ts'
 import { startDrag, wasJustDropped } from '../drag/drag.ts'
 import s from './TodoRow.module.css'
@@ -38,6 +38,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const rules = useApp((s) => s.rules)
   const holidays = useApp((s) => s.holidays)
   const copy = t.done ? '' : copyText(t, { rules, events, projects })
+  const pmp = usePmpDues().get(t.id)
   const [open, setOpen] = useState('')
   /** 이 줄을 골랐거나(과제 꼬리표 등을 누름) 하위 항목 입력칸에 쓰는 중 → 입력칸을 띄운다.
      CSS :focus 로 숨기면 줄 → 입력칸으로 포커스가 옮겨 가는 순간 칸이 잠깐 숨어 포커스를 놓치므로 상태로 둔다 */
@@ -219,6 +220,10 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
           )}
           {t.verify && <Tag tone="warn">규칙 확인 필요</Tag>}
           {t.start && !t.done && t.start !== t.due && <span>▶ 착수 {md(t.start)}</span>}
+          {/* 본인 기준 마감이 지났으면 따로 있는 PMP 기한까지 남은 날 */}
+          {pmp && !t.done && !!t.due && t.due < today && pmp !== t.due && (
+            <Tag tone={dLabel(pmp).late || dLabel(pmp).soon ? 'danger' : 'warn'}>{'PMP 기한 ' + md(pmp) + ' · ' + dLabel(pmp).t}</Tag>
+          )}
           {!!t.rolled && !t.done && (
             <span className={s.rolled}>{'이월 ' + t.rolled + '회' + (t.origDue ? ' · 원래 마감 ' + md(t.origDue) : '')}</span>
           )}

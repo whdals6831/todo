@@ -87,15 +87,7 @@ function Items({ id, items, t, next, reorder }: { id: string; items: PlanItem[];
 
 function TodayBody({ t }: { t: DateStr }) {
   const events = useApp((st) => st.events)
-  const todos = useApp((st) => st.todos)
-  const holidays = useApp((st) => st.holidays)
-  const ctx = usePlanCtx()
-  const pmp = usePmpDues()
   const evs = eventsOn(t, events)
-  const b = todayBuckets(t, { todos, events, ctx })
-  const complete = dayComplete(t, todos, ctx)
-  const next = nextWork(t, holidays)
-  const openTodos = b.open.filter((x) => !x.sub).map((x) => x.todo)
 
   return (
     <>
@@ -112,6 +104,28 @@ function TodayBody({ t }: { t: DateStr }) {
           {evs.map((e) => <EventRow key={e.id} event={e} />)}
         </Group>
       )}
+      <TodayLists t={t} busy={evs.length > 0} />
+    </>
+  )
+}
+
+/**
+ * 오늘 할 일 목록: 외근 업무 · 지연 · 할 일(오늘 마감 + 고른 일) · 후보(고르기) · 7일 안에 착수할 일.
+ * 오늘 할 일 화면과 캘린더의 오늘 목록이 함께 쓴다. busy 는 위에 일정 등 다른 줄이 있어 "없습니다" 안내가 필요 없을 때
+ */
+export function TodayLists({ t, busy }: { t: DateStr; busy?: boolean }) {
+  const events = useApp((st) => st.events)
+  const todos = useApp((st) => st.todos)
+  const holidays = useApp((st) => st.holidays)
+  const ctx = usePlanCtx()
+  const pmp = usePmpDues()
+  const b = todayBuckets(t, { todos, events, ctx })
+  const complete = dayComplete(t, todos, ctx)
+  const next = nextWork(t, holidays)
+  const openTodos = b.open.filter((x) => !x.sub).map((x) => x.todo)
+
+  return (
+    <>
       {b.visit.length > 0 && (
         <Group title="오늘 외근 업무" count={b.visit.length} hint="오늘 외근과 이어진 할 일이에요.">
           <Items id="today-visit" items={b.visit} t={t} next={next} />
@@ -144,7 +158,7 @@ function TodayBody({ t }: { t: DateStr }) {
           <DoneFold id="today-done" items={b.done} />
         </Group>
       )}
-      {!evs.length && !b.visit.length && !b.late.length && !b.open.length && !b.done.length && <EmptyState>오늘 할 일이 없습니다. 아래 후보에서 골라 보세요.</EmptyState>}
+      {!busy && !b.visit.length && !b.late.length && !b.open.length && !b.done.length && <EmptyState>오늘 할 일이 없습니다. 아래 후보에서 골라 보세요.</EmptyState>}
       {b.cands.length > 0 && (
         <Group title="오늘 할 일 고르기 · 후보" count={b.cands.length} hint={'＋를 누르면 오늘 할 일에 들어가요. "내일로"는 ' + md(next) + ' 할 일로 미리 골라 둡니다. 마감 임박순, 같은 마감이면 남에게 보내는 일이 위예요.'}>
           {b.cands.map((x) => <PlanRow key={x.key} item={x} today={t} next={next} mode="pick" pmp={pmp.get(x.key)} />)}

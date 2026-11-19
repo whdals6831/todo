@@ -20,6 +20,7 @@ import { EventRow } from '../event/EventRow.tsx'
 import es from '../event/EventRow.module.css'
 import { openEvent } from '../event/openEvent.ts'
 import { QuickAdd } from '../todo/QuickAdd.tsx'
+import { TodayLists } from '../today/TodayView.tsx'
 import { DoneFold, OpenList, RankInfo } from '../todo/TodoList.tsx'
 import s from './Calendar.module.css'
 
@@ -267,7 +268,8 @@ function PmpRow({ due: x }: { due: PmpDue }) {
 /** 고른 날의 일정과 할 일 (오늘 할 일 화면과 같은 목록) */
 function DayPanel() {
   const d = useUi((u) => u.sel)
-  useUi((u) => u.today)
+  /* 오늘이면 오늘 할 일 화면과 같은 목록: 마감이 오늘이거나 지난 일 + 고른 일, 그 아래 후보에서 고른다 */
+  const isToday = useUi((u) => u.today) === d
   const events = useApp((st) => st.events)
   const todos = useApp((st) => st.todos)
   const hol = useApp((st) => st.holidays[d])
@@ -305,7 +307,7 @@ function DayPanel() {
         <Sub className={s.dayHelp} style={{ display: 'block' }}>⋮⋮ 손잡이를 위아래로 끌면 우선순위가, 캘린더 칸에 놓으면 날짜가, 위 마감 칸에 놓으면 이날 마감으로 바뀝니다.</Sub>
       )}
       {open.length === 1 && <Sub className={s.dayHelp} style={{ display: 'block' }}>⋮⋮ 손잡이를 위 마감 칸에 놓으면 이날 마감에 올라갑니다.</Sub>}
-      {!evs.length && !pmp.length && !merged.length && <EmptyState>이날 외근과 할 일이 없습니다.</EmptyState>}
+      {!isToday && !evs.length && !pmp.length && !merged.length && <EmptyState>이날 외근과 할 일이 없습니다.</EmptyState>}
       {evs.map((e) => (
         <EventRow key={e.id} event={e} />
       ))}
@@ -316,7 +318,12 @@ function DayPanel() {
         ))}
         <div className={s.pmpDrop}>{'여기에 놓으면 ' + md(d) + ' 마감에 올라가요'}</div>
       </div>
-      {open.length > 0 && (
+      {isToday && (
+        <div style={{ marginTop: 'var(--space-5)' }}>
+          <TodayLists t={d} busy={evs.length + pmp.length > 0} />
+        </div>
+      )}
+      {!isToday && open.length > 0 && (
         <>
           <div className={s.listHead}>
             <RankInfo items={open} label="할 일" />
@@ -325,7 +332,7 @@ function DayPanel() {
           <OpenList id="cal" items={open} field={(t) => (t.due === d || !t.start ? 'due' : 'start')} />
         </>
       )}
-      <DoneFold id="cal-done" items={merged.filter((t) => t.done)} />
+      {!isToday && <DoneFold id="cal-done" items={merged.filter((t) => t.done)} />}
     </div>
   )
 }

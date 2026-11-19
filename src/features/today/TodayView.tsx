@@ -162,7 +162,7 @@ export function TodayLists({ t, busy }: { t: DateStr; busy?: boolean }) {
           <Items id="today-late" items={b.late1} t={t} />
         </Group>
       )}
-      {b.open.length + b.done.length > 0 && (
+      {(b.open.length > 0 || complete) && (
         <Group
           title="할 일"
           count={b.open.length + (b.done.length ? ' · 완료 ' + b.done.length : '')}
@@ -176,7 +176,6 @@ export function TodayLists({ t, busy }: { t: DateStr; busy?: boolean }) {
           }
         >
           <Items id="today" items={b.open} t={t} reorder />
-          <DoneFold id="today-done" items={b.done} />
         </Group>
       )}
       {!busy && !etmf.length && !b.visit.length && !b.judge.length && !b.late1.length && !b.open.length && !b.done.length && <EmptyState>오늘 할 일이 없습니다. 아래 후보에서 골라 보세요.</EmptyState>}
@@ -185,6 +184,8 @@ export function TodayLists({ t, busy }: { t: DateStr; busy?: boolean }) {
           <PickList id="today-cands" items={b.cands} t={t} next={next} />
         </Group>
       )}
+      {/* 오늘 끝낸 일은 맨 아래(7일 안에 착수할 일 바로 위)에 따로 접어 둔다 */}
+      <DoneFold id="today-done" items={b.done} />
       {b.soon.length > 0 && (
         <Fold id="today-soon" label={'7일 안에 착수할 일 ' + b.soon.length}>
           <PickList id="today-soon-list" items={b.soon} t={t} next={next} />

@@ -72,6 +72,9 @@ export const SCAN_RULE: Rule = {
 /** Tarlatamab SIV 는 eTMF 업로드가 따로 있으니 스캔만 (같은 key 로 덮어쓴다) */
 export const TARL_SIV_SCAN = { id: 'r-scan-t-siv', project: TARL, type: 'SIV', title: '{site} {type} 서명문서 스캔' }
 
+/** 엔플론시아는 eTMF 가 아니라 Paper TMF 라 스캔만 (같은 key 로 덮어쓴다) */
+export const ENF_SCAN = { id: 'r-scan-enf', project: ENF, type: '*', title: '{site} {type} 서명문서 스캔' }
+
 /** 방문 전 서명문서 준비·인쇄 규칙 */
 export const PREP_RULES: Rule[] = [
   {

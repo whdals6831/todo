@@ -1,5 +1,5 @@
 import type { CalEvent, Data, DateStr, Holidays, RuleDir, Todo } from '../types/domain.ts'
-import { kindOf } from './constants.ts'
+import { ENF, kindOf } from './constants.ts'
 import { addWorkdays, isWork, localDay, prevWork, shift, todayStr } from './date.ts'
 import { chipSite, siteShort, stripProj } from './project.ts'
 import { isGroupRule } from './rules.ts'
@@ -170,7 +170,9 @@ const LOOSE_ETMF = /업로드|approve|승인/i
 /** "어떻게 업로드할지 PM님 확인" 처럼 묻는 일은 빼고 */
 const ASKING = /확인|문의|할지/
 const ETMF_30: PmpItem = { item: 'eTMF 문서 보관', dir: 'after', n: 30, unit: 'CD' }
+/* 엔플론시아는 eTMF 가 아니라 Paper TMF 라 eTMF 기한이 없다 */
 const isLooseEtmf = (t: Todo) =>
+  t.project !== ENF && !/엔플론시아/.test(t.title) &&
   !t.eventId && !!t.created && !t.someday && ETMF.test(t.title) && LOOSE_ETMF.test(t.title) && !ASKING.test(t.title) && !titleDeadline(t) && !t.deadline
 
 function looseEtmf(t: Todo, { projects, holidays }: Pick<Data, 'projects' | 'holidays'>): PmpDue {

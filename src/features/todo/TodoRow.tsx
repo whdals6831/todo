@@ -38,7 +38,8 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const rules = useApp((s) => s.rules)
   const holidays = useApp((s) => s.holidays)
   const copy = t.done ? '' : copyText(t, { rules, events, projects })
-  const pmp = usePmpDues().get(t.id)
+  const pmpMap = usePmpDues()
+  const pmp = pmpMap.get(t.id)
   const [open, setOpen] = useState('')
   /** 이 줄을 골랐거나(과제 꼬리표 등을 누름) 하위 항목 입력칸에 쓰는 중 → 입력칸을 띄운다.
      CSS :focus 로 숨기면 줄 → 입력칸으로 포커스가 옮겨 가는 순간 칸이 잠깐 숨어 포커스를 놓치므로 상태로 둔다 */
@@ -63,6 +64,8 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const dues: Record<string, string> = { ...Object.fromEntries(Object.entries(parts).map(([k, x]) => [k, x.due])), ...(t.done ? {} : t.subDue) }
   const today = todayStr()
   const subs = (t.subs || []).map((x) => ({
+    /* eTMF 업로드 하위 항목이면 PMP 기한(방문 후 30일)을 옆에 */
+    w: !t.done && !checks.includes(x) && pmpMap.get(t.id + '|' + x) ? 'PMP 기한 ' + md(pmpMap.get(t.id + '|' + x)!) + ' · ' + dLabel(pmpMap.get(t.id + '|' + x)!).t : undefined,
     t: x, due: dues[x], ruleDue: parts[x]?.due || '', late: !!dues[x] && dues[x] < today && !checks.includes(x), soon: dues[x] === today && !checks.includes(x), docs: group ? docListsFor(x, t, notes, events) : [],
     steps: stepsFor(x, parts[x]?.steps, t),
   }))
@@ -235,7 +238,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
           {t.verify && <Tag tone="warn">규칙 확인 필요</Tag>}
           {t.start && !t.done && t.start !== t.due && <span>▶ 착수 {md(t.start)}</span>}
           {/* 본인 기준 마감이 지났으면 따로 있는 PMP 기한까지 남은 날 */}
-          {pmp && !t.done && !!t.due && t.due < today && pmp !== t.due && (
+          {pmp && !t.done && pmp !== t.due && (
             <Tag tone={dLabel(pmp).late || dLabel(pmp).soon ? 'danger' : 'warn'}>{'PMP 기한 ' + md(pmp) + ' · ' + dLabel(pmp).t}</Tag>
           )}
           {!!t.rolled && !t.done && (

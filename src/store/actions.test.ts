@@ -811,7 +811,7 @@ describe('서명문서 eTMF 업로드는 따로 · Tarlatamab SIV 는 서명문�
       config: { rules, holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [], companions: [] },
     })
     const s = getState()
-    expect(s.rules.map((r) => r.id)).toEqual(['r-scan', 'r-scan-t-siv', 'r-letter', 'r-etmf-t'])
+    expect(s.rules.map((r) => r.id)).toEqual(['r-scan', 'r-scan-enf', 'r-scan-t-siv', 'r-letter', 'r-etmf-t'])
     expect(s.todos.get('a_w_r-etmf-t')).toMatchObject({ title: '원주세브란스 SIV 서명문서 eTMF 업로드', done: false, checks: ['eTMF:SIV Report'], checkAt: { 'eTMF:SIV Report': '2026-10-20' } })
     expect(s.todos.get('a_w_g-post')).toMatchObject({ subs: ['서명문서 스캔', 'Follow-up Letter 발송'], checks: ['서명문서 스캔', '서명문서 스캔 › CV'] })
     expect(planTodos(s.events.get('w')!, s).find((p) => p.ruleId === 'g-post')!.subs).toEqual(['서명문서 스캔', 'Follow-up Letter 발송'])

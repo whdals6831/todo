@@ -75,7 +75,7 @@ export function FulView() {
       </ViewHeader>
       <div className={s.filters}>
         {['전체', ...projects.map((p) => p.name)].map((n) => (
-          <Button key={n} size="sm" pressed={draft.filter === n} onClick={() => useDraft.setState({ filter: n })}>
+          <Button key={n} size="sm" pressed={draft.filter === n} onClick={() => useDraft.setState(n === '전체' || n === '기타' || n === project ? { filter: n } : { filter: n, project: n, site: '' })}>
             {n === '전체' ? '전체' : projShort(projects, n)}
           </Button>
         ))}

@@ -1,5 +1,5 @@
 import {
-  APPROVAL_RE, APPROVAL_STEPS, BRZ, BRZ_PSV_FUL, CLAIM_RULE, ENF, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, TARL_SIV_SCAN, WID_RULE, brzPsvFulRule, inquirySubs,
+  APPROVAL_RE, APPROVAL_STEPS, BRZ, BRZ_PSV_FUL, CLAIM_RULE, ENF, ENF_SCAN, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, TARL_SIV_SCAN, WID_RULE, brzPsvFulRule, inquirySubs,
   fulPackRules, kindOf,
 } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
@@ -1391,6 +1391,28 @@ async function migrate() {
     }
     await keepSynced(fresh)
     appStore.setState({ mig: [...S().mig, 'scant1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('scanenf1')) {
+    /* 엔플론시아는 Paper TMF 라 eTMF 업로드가 없다: "서명문서 스캔"만. 열린 방문 후 정리의 하위 항목 이름도 바꾼다 (체크·문서 체크는 따라간다) */
+    const fresh = inSync()
+    const base = S().rules.find((r) => r.id === SCAN_RULE.id) ?? SCAN_RULE
+    let rules = S().rules
+    /* 스캔 규칙을 지워 둔 경우에는 더하지 않는다 */
+    if (rules.includes(base) && !rules.some((r) => r.id === ENF_SCAN.id)) {
+      const i = rules.indexOf(base)
+      const add = { ...base, ...ENF_SCAN, basis: '본인 기준: 방문 때 받아 온 서명문서는 다음 영업일(WD1)에 스캔 (Paper TMF 라 eTMF 업로드 없음)' }
+      rules = i < 0 ? [...rules, add] : [...rules.slice(0, i + 1), add, ...rules.slice(i + 1)]
+    }
+    appStore.setState({ rules })
+    for (const ev of [...S().events.values()]) {
+      if (kindOf(ev) !== 'visit' || ev.project !== ENF) continue
+      const b = S().todos.get(safeId('a_' + ev.id + '_' + GROUPS.post.id))
+      const from = subLabel(ev, base.title, S().projects)
+      if (b && !b.done && b.subs?.includes(from)) await renameSub(b.id, from, subLabel(ev, ENF_SCAN.title, S().projects))
+    }
+    await keepSynced(fresh)
+    appStore.setState({ mig: [...S().mig, 'scanenf1'] })
     await putConfig()
   }
   if (!S().mig.includes('enfsteps1')) {

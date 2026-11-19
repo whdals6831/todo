@@ -817,11 +817,15 @@ export async function pickDay(id: string, sub: string | undefined, d: DateStr) {
   await putTodo({ ...t, subToday: m })
 }
 
-export async function addSub(id: string, text: string) {
+/** 하위 항목 추가. after 가 있으면 그 하위 항목 바로 아래에, 없으면 맨 아래에 */
+export async function addSub(id: string, text: string, after?: string) {
   const t = S().todos.get(id)
   const v = text.trim()
   if (!t || !v || (t.subs || []).includes(v)) return
-  await putTodo(withSubs(t, [...(t.subs || []), v]))
+  const subs = [...(t.subs || [])]
+  const at = after == null ? -1 : subs.indexOf(after)
+  subs.splice(at < 0 ? subs.length : at + 1, 0, v)
+  await putTodo(withSubs(t, subs))
 }
 
 /** 하위 항목 글자 고치기: 체크도 따라가고, 비우면 지운다. 이미 있는 이름으로는 바꾸지 않는다 */

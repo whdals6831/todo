@@ -6,7 +6,7 @@ import { pmpAll, pmpOn, type PmpDue } from '@/domain/pmp.ts'
 import { dLabel, sortTodos } from '@/domain/priority.ts'
 import { chipSite, projShort } from '@/domain/project.ts'
 import { Button, IconButton } from '@/components/ui/Button.tsx'
-import { EmptyState, Label, Sub } from '@/components/ui/Layout.tsx'
+import { EmptyState, Fold, Label, Sub } from '@/components/ui/Layout.tsx'
 import { Popover } from '@/components/ui/Popover.tsx'
 import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { SegmentedControl } from '@/components/ui/SegmentedControl.tsx'
@@ -313,11 +313,19 @@ function DayPanel() {
       ))}
       {/* 마감 칸: 할 일을 끌어다 놓으면 이날 마감으로 옮겨 마감 줄에 올린다. 놓을 자리는 끄는 동안에만 보인다 */}
       <div data-drop-deadline={d} className={s.pmpZone}>
-        {pmp.map((x) => (
+        {pmp.filter((x) => !x.doneDay).map((x) => (
           <PmpRow key={x.key} due={x} />
         ))}
         <div className={s.pmpDrop}>{'여기에 놓으면 ' + md(d) + ' 마감에 올라가요'}</div>
       </div>
+      {/* 끝낸 마감은 남은 마감 밑에 접어 두고 눌러서 펼쳐 본다 */}
+      {pmp.some((x) => x.doneDay) && (
+        <Fold id="cal-pmp-done" label={'완료한 마감 ' + pmp.filter((x) => x.doneDay).length}>
+          {pmp.filter((x) => x.doneDay).map((x) => (
+            <PmpRow key={x.key} due={x} />
+          ))}
+        </Fold>
+      )}
       {isToday && (
         <div style={{ marginTop: 'var(--space-5)' }}>
           <TodayLists t={d} busy={evs.length + pmp.length > 0} />

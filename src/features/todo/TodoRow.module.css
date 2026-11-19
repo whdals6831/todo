@@ -201,6 +201,15 @@
   font-family: inherit;
   cursor: pointer;
 }
+/* 아직 마감일이 없는 하위 항목: 줄에 올리거나 골랐을 때만 "＋ 마감일" */
+.subDueNone {
+  color: var(--color-faint);
+  opacity: 0;
+}
+li:hover > .subDueNone,
+.subDueNone:focus-visible {
+  opacity: 1;
+}
 .subDueBtn:hover {
   text-decoration: underline;
   text-underline-offset: 3px;

@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { Fragment, useRef, useState, type ReactNode } from 'react'
 import { localDay, md, todayStr } from '@/domain/date.ts'
 import { dLabel, dueTone } from '@/domain/priority.ts'
 import { projShort } from '@/domain/project.ts'
@@ -11,7 +11,7 @@ import { ConfirmLine } from '@/components/ui/Layout.tsx'
 import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
-import { addSub, dismissTodo, rollOver, toSomeday, toggleCheck, toggleDone, toggleStep } from '@/store/actions.ts'
+import { addSub, editSub as saveSub, dismissTodo, rollOver, toSomeday, toggleCheck, toggleDone, toggleStep } from '@/store/actions.ts'
 import { openModal, openPopover, useApp, usePmpDues } from '@/store/ui.ts'
 import type { Todo } from '@/types/domain.ts'
 import { startDrag, wasJustDropped } from '../drag/drag.ts'
@@ -43,6 +43,8 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   /** 이 줄을 골랐거나(과제 꼬리표 등을 누름) 하위 항목 입력칸에 쓰는 중 → 입력칸을 띄운다.
      CSS :focus 로 숨기면 줄 → 입력칸으로 포커스가 옮겨 가는 순간 칸이 잠깐 숨어 포커스를 놓치므로 상태로 둔다 */
   const [picked, setPicked] = useState(false)
+  /** 하위 항목 이름을 고치다 Enter → 그 바로 아래에 새 하위 항목 입력칸 (몇 번째 줄 아래인지, 없으면 -1) */
+  const [addAt, setAddAt] = useState(-1)
   /* 지난 미완료는 보라(urgent), 오늘·내일 마감은 빨강(soon) */
   const tone = dueTone(t)
   const urgent = tone === 'late'
@@ -61,7 +63,7 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const dues: Record<string, string> = { ...Object.fromEntries(Object.entries(parts).map(([k, x]) => [k, x.due])), ...(t.done ? {} : t.subDue) }
   const today = todayStr()
   const subs = (t.subs || []).map((x) => ({
-    t: x, due: dues[x], late: !!dues[x] && dues[x] < today && !checks.includes(x), soon: dues[x] === today && !checks.includes(x), docs: group ? docListsFor(x, t, notes, events) : [],
+    t: x, due: dues[x], ruleDue: parts[x]?.due || '', late: !!dues[x] && dues[x] < today && !checks.includes(x), soon: dues[x] === today && !checks.includes(x), docs: group ? docListsFor(x, t, notes, events) : [],
     steps: stepsFor(x, parts[x]?.steps, t),
   }))
   const checked = (items: { t: string }[], pre: string) => items.filter((d) => checks.includes(pre + d.t)).length
@@ -87,26 +89,32 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
 
   /* 체크해도 편집 창이 열리지 않게. 하위 항목(sub)은 글자를 눌러 고치고, 줄을 골랐으면 맨 아래에 입력칸 */
   const checklist = (
-    items: { t: string; w?: string; due?: string; late?: boolean; soon?: boolean; docs?: typeof lists; steps?: string[] }[],
+    items: { t: string; w?: string; due?: string; ruleDue?: string; late?: boolean; soon?: boolean; docs?: typeof lists; steps?: string[] }[],
     pre: string,
     sub = false,
     toggle = (name: string) => toggleCheck(t.id, pre + name),
   ) => (
-    <ol className={cx(s.docs, sub && Object.keys(dues).length > 0 && s.subList)} onClick={(e) => e.stopPropagation()}>
+    <ol className={cx(s.docs, sub && (!t.done || Object.keys(dues).length > 0) && s.subList)} onClick={(e) => e.stopPropagation()}>
       {items.map((d, i) => {
         const on = checks.includes(pre + d.t)
         return (
-          <li key={i} className={cx(on && s.docOn, d.late && s.subLate, d.soon && s.subSoon)}>
+          <Fragment key={i}>
+          <li className={cx(on && s.docOn, d.late && s.subLate, d.soon && s.subSoon)}>
             <RoundCheckbox checked={on} onToggle={() => toggle(d.t)} label={d.t + ' 체크'} />
-            {sub ? <SubText id={t.id} text={d.t} /> : <span className={s.docT}>{d.t}</span>}
-            {d.due &&
-              (sub ? (
-                <button type="button" className={cx(s.subDue, s.subDueBtn, d.late && s.late, d.soon && s.soonT)} title="눌러서 하위 항목 편집" onClick={() => editSub(t.id, d.t)}>
-                  {md(d.due)}
-                </button>
-              ) : (
-                <span className={cx(s.subDue, d.late && s.late, d.soon && s.soonT)}>{md(d.due)}</span>
-              ))}
+            {sub ? <SubText id={t.id} text={d.t} due={d.due || ''} ruleDue={d.ruleDue || ''} onEnter={() => setAddAt(i)} /> : <span className={s.docT}>{d.t}</span>}
+            {/* 하위 항목 마감일: 눌러서 고친다 (아직 없으면 "＋ 마감일") */}
+            {sub && !t.done ? (
+              <button
+                type="button"
+                className={cx(s.subDue, s.subDueBtn, !d.due && s.subDueNone, d.late && s.late, d.soon && s.soonT)}
+                title="눌러서 하위 항목 마감일 고치기 (이름·삭제도)"
+                onClick={() => editSub(t.id, d.t)}
+              >
+                {d.due ? md(d.due) : '＋ 마감일'}
+              </button>
+            ) : (
+              d.due && <span className={cx(s.subDue, d.late && s.late, d.soon && s.soonT)}>{md(d.due)}</span>
+            )}
             {d.w && <span className={s.docW}>{d.w}</span>}
             {d.docs?.map((l) => {
               const key = d.t + '|' + l.key
@@ -125,6 +133,12 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
               </div>
             )}
           </li>
+          {sub && addAt === i && (
+            <li key={'add' + i}>
+              <SubAdd id={t.id} after={d.t} onAdded={() => setAddAt(i + 1)} onClose={() => setAddAt((x) => (x === i ? -1 : x))} />
+            </li>
+          )}
+          </Fragment>
         )
       })}
       {sub && picked && (
@@ -242,17 +256,52 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
 }
 
 /** 하위 항목 글자: 누르면 그 자리에서 고친다 (Enter·바깥을 누르면 저장, Esc 는 취소, 비우면 지움) */
-function SubText({ id, text }: { id: string; text: string }) {
+/**
+ * 하위 항목 이름: 누르면 그 자리에서 고친다. Enter 는 저장하고 바로 아래에 새 하위 항목 칸을 연다(onEnter),
+ * 다른 곳을 누르면 저장, Esc 는 취소. 비우면 원래 이름 그대로 (지우기는 날짜를 눌러 여는 편집 창에서)
+ */
+function SubText({ id, text, due, ruleDue, onEnter }: { id: string; text: string; due: string; ruleDue: string; onEnter: () => void }) {
+  const [v, setV] = useState<string | null>(null)
+  const cancel = useRef(false)
+  if (v == null) {
+    return (
+      <span
+        className={cx(s.docT, s.subT)}
+        title="눌러서 이름 고치기 · Enter 를 누르면 바로 아래에 하위 항목 추가"
+        /* 줄이 골라져 추가 칸이 잠깐 보이지 않게 */
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setV(text)}
+      >
+        {text}
+      </span>
+    )
+  }
+  const save = () => {
+    const to = v.trim()
+    /* 이름을 바꾸면 규칙과의 연결이 끊기므로 보이던 날짜를 그대로 남긴다 */
+    if (!cancel.current && to && to !== text) void saveSub(id, text, to, due, ruleDue)
+    cancel.current = false
+    setV(null)
+  }
   return (
-    <span
-      className={cx(s.docT, s.subT)}
-      title="눌러서 하위 항목 편집 (이름·마감일·삭제)"
-      /* 줄이 골라져 추가 칸이 잠깐 보이지 않게 */
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={() => editSub(id, text)}
-    >
-      {text}
-    </span>
+    <input
+      className={cx(s.docT, s.subAdd, s.subEdit)}
+      autoFocus
+      value={v}
+      aria-label="하위 항목 이름"
+      onChange={(e) => setV(e.target.value)}
+      onBlur={save}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          cancel.current = true
+          e.currentTarget.blur()
+        }
+        if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+        e.preventDefault()
+        save()
+        onEnter()
+      }}
+    />
   )
 }
 
@@ -279,23 +328,27 @@ function CopyLine({ text }: { text: string }) {
 }
 
 /** 하위 항목 맨 아래에서 바로 한 줄 더 (Enter 로 추가하고 계속 쓴다. 쓴 채로 벗어나도 추가, Esc 는 취소) */
-function SubAdd({ id }: { id: string }) {
+function SubAdd({ id, after, onAdded, onClose }: { id: string; after?: string; onAdded?: () => void; onClose?: () => void }) {
   const [v, setV] = useState('')
   const cancel = useRef(false)
-  const add = () => {
-    if (v.trim() && !cancel.current) void addSub(id, v)
+  /* after 가 있으면 그 하위 항목 바로 아래 칸: 추가하면 새 줄 아래로 내려가고(onAdded), 빈 채로 벗어나면 닫힌다(onClose) */
+  const add = (close?: boolean) => {
+    const ok = !!v.trim() && !cancel.current
+    if (ok) void addSub(id, v, after)
     cancel.current = false
     setV('')
+    if (ok && !close) onAdded?.()
+    else onClose?.()
   }
   return (
     <input
       className={s.subAdd}
-      data-sub-add
+      {...(after == null ? { 'data-sub-add': true } : { autoFocus: true })}
       value={v}
       placeholder="+ 하위 항목 추가 (Enter)"
       aria-label="하위 항목 추가"
       onChange={(e) => setV(e.target.value)}
-      onBlur={add}
+      onBlur={() => add(true)}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           cancel.current = true

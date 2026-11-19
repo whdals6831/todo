@@ -54,7 +54,33 @@ function visitOf(t: Pick<Todo, 'title' | 'project' | 'eventId'>, events: Map<str
 }
 
 /** 방문 뒤 eTMF 에 올릴 문서 (과제 → 방문 종류 → 문서 이름) */
-const ETMF_DOCS: Record<string, Record<string, string[]>> = {
+/** w 는 문서 옆에 붙는 짧은 안내 */
+const ETMF_DOCS: Record<string, Record<string, (string | NoteItem)[]>> = {
+  /* Breztri PMP v1.0 (13.1~13.4 방문별 취득 문서 · 9.4.2 Document date 기준 30일 이내 업로드) */
+  'AZ - Breztri': {
+    PSV: [
+      { t: 'Confidentiality Agreement', w: '방문 전에 서명받았으면 서명일부터 30일' },
+      'PSV Confirmation Letter', 'PSV Checklist', '개인정보처리동의서', 'Signed CV', 'GCP 교육 이수증',
+      '의뢰사 기관선정 승인 메일', 'DD (HCP/HCO Due Diligence)', 'Site Selection Confirmation Letter', 'PSV Follow-up Letter',
+      { t: 'PSV Report', w: 'PM 승인본' },
+    ],
+    SIV: [
+      'SIV Pre-Checklist', 'SIV Confirmation Letter',
+      { t: '개인정보처리동의서 · CV · GCP 교육 이수증', w: 'PSV 때 못 받았거나 추가된 인력 · GCP 는 2년 이내' },
+      'Delegation log', 'Site Visit Record', 'Attendee List', 'Training Signature Form', 'Source Document Agreement', 'Study Material Receipt',
+      { t: '기관 계약서 · 조사비 지급 문서 (통장·신분증 사본)', w: 'Non-IRB 기관만' },
+      'SIV Follow-up Letter', { t: 'SIV Report', w: 'PM 승인본' },
+    ],
+    MV: [
+      'MV Pre-Checklist', 'MV Confirmation Letter', 'Site Visit Record',
+      { t: '개인정보처리동의서 · CV · GCP · Delegation log · Training Signature Form', w: '인력이 바뀌었을 때만' },
+      'MV Follow-up Letter', { t: 'MV Report', w: 'PM 승인본' },
+    ],
+    COV: [
+      'COV Confirmation Letter', 'Site Visit Record', 'Delegation log', 'Subject Screening/Enrollment Log', 'Study Material Receipt', 'ISF Checklist',
+      'COV Follow-up Letter', { t: 'COV Report', w: 'PM 승인본' },
+    ],
+  },
   'Amgen - Tarlatamab': {
     SIV: [
       'SIV pre-Checklist', 'SIV Confirmation Letter', 'Delegation log', 'Training signature form', 'Attendee List',
@@ -67,5 +93,5 @@ const ETMF_DOCS: Record<string, Record<string, string[]>> = {
 export function etmfDocsFor(t: DocTodo, events: Map<string, CalEvent>): NoteItem[] {
   if (!ETMF_RE.test(t.title)) return []
   const { project, type } = visitOf(t, events)
-  return (ETMF_DOCS[project]?.[type.toUpperCase()] || []).map((x) => ({ t: x }))
+  return (ETMF_DOCS[project]?.[type.toUpperCase()] || []).map((x) => (typeof x === 'string' ? { t: x } : x))
 }

@@ -41,7 +41,12 @@ describe('eTMF 에 올릴 문서', () => {
 
   it('eTMF 할 일이 아니거나, 목록이 없는 과제·방문 종류면 붙이지 않는다', () => {
     expect(etmfDocsFor({ title: '탈라타맙 원주세브란스 SIVR 작성', project: 'Amgen - Tarlatamab' }, events)).toEqual([])
-    expect(etmfDocsFor({ title: 'Breztri 가나대병원 PSV 서명문서 eTMF 업로드', eventId: 'e1' }, events)).toEqual([])
+    expect(etmfDocsFor({ title: '엔플론시아 가나의원 SIV 서명문서 eTMF 업로드', project: 'MSD - 엔플론시아' }, events)).toEqual([])
+  })
+
+  it('Breztri 는 PMP 의 방문별 문서 목록 (PSV: 기관선정 승인 메일·DD·승인된 PSVR 포함)', () => {
+    const docs = etmfDocsFor({ title: 'Breztri 가나대병원 PSV 서명문서 eTMF 업로드', project: 'AZ - Breztri' }, events).map((d) => d.t)
+    expect(docs).toEqual(expect.arrayContaining(['Confidentiality Agreement', '의뢰사 기관선정 승인 메일', 'DD (HCP/HCO Due Diligence)', 'PSV Report']))
   })
 })
 

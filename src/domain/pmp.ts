@@ -19,6 +19,8 @@ interface PmpItem {
   from?: string
   /** 내 일이 아니라(PM 업무) 마감일이 지나면 저절로 끝낸 것으로 본다 */
   auto?: boolean
+  /** 마감 줄 이름 뒤에 붙는 짧은 안내 (항목 이름은 체크 기록에 쓰이므로 그대로 둔다) */
+  tip?: string
 }
 
 const CL = /Confirmation Letter/i
@@ -41,7 +43,8 @@ const AZ: PmpItem[] = [
 /** 과제별 PMP 기한 (공통 비교표: 방문·보고서·문서) */
 export const PMP_DEADLINES: Record<string, PmpItem[]> = {
   'AZ - Imjudo': AZ,
-  'AZ - Breztri': AZ,
+  /* Breztri PMP 9.4.2: 30일은 Document date(마지막 서명일)부터 센다. 여기서는 방문일부터 세므로 방문 전에 서명받은 문서는 더 이르다 */
+  'AZ - Breztri': AZ.map((x) => (x.item === 'eTMF 문서 보관' ? { ...x, tip: '서명일부터 30일 · 방문 전 서명 문서는 더 빨리' } : x)),
   'MSD - 엔플론시아': [
     { item: 'Confirmation Letter', types: ['SIV'], dir: 'before', n: 1, unit: 'CD', todo: CL },
     { item: 'Confirmation Letter', types: ['MV', 'COV'], dir: 'before', n: 0, unit: 'CD', todo: CL },
@@ -136,7 +139,7 @@ export function pmpFor(ev: CalEvent, { todos, holidays }: Pick<Data, 'todos' | '
       ? linked.every((t) => t.done) ? linked.map((t) => t.day).sort().at(-1) || '' : ''
       : markDay(ev, tag) || (x.auto && date < todayStr() ? date : '')
     out.push({
-      key: ev.id + '|' + i, project: ev.project || '', item: x.item, label: siteShort(ev.site) + ' ' + ev.type + ' · ' + x.item,
+      key: ev.id + '|' + i, project: ev.project || '', item: x.item, label: siteShort(ev.site) + ' ' + ev.type + ' · ' + x.item + (x.tip ? ' (' + x.tip + ')' : ''),
       chip: chipSite(ev.site) + ' ' + ev.type + ' ' + chipItem(x.item), date, doneDay, linked: linked.length > 0,
       refs: linked.map((t) => (t.sub ? { id: t.id, sub: t.sub } : { id: t.id })),
       mark: linked.length ? undefined : { eventId: ev.id, tag, day: markDay(ev, tag) },

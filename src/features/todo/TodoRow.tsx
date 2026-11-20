@@ -11,7 +11,7 @@ import { ConfirmLine } from '@/components/ui/Layout.tsx'
 import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
-import { addSub, editSub as saveSub, dismissTodo, rollOver, toSomeday, toggleCheck, toggleDone, toggleStep } from '@/store/actions.ts'
+import { addSub, editSub as saveSub, dismissTodo, moveSub, rollOver, toSomeday, toggleCheck, toggleDone, toggleStep } from '@/store/actions.ts'
 import { openModal, openPopover, useApp, usePmpDues } from '@/store/ui.ts'
 import type { Todo } from '@/types/domain.ts'
 import { startDrag, wasJustDropped } from '../drag/drag.ts'
@@ -107,14 +107,27 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
             {sub ? <SubText id={t.id} text={d.t} due={d.due || ''} ruleDue={d.ruleDue || ''} onEnter={() => setAddAt(i)} /> : <span className={s.docT}>{d.t}</span>}
             {/* 하위 항목 마감일: 눌러서 고친다 (아직 없으면 "＋ 마감일") */}
             {sub && !t.done ? (
-              <button
-                type="button"
-                className={cx(s.subDue, s.subDueBtn, !d.due && s.subDueNone, d.late && s.late, d.soon && s.soonT)}
-                title="눌러서 하위 항목 마감일 고치기 (이름·삭제도)"
-                onClick={() => editSub(t.id, d.t)}
-              >
-                {d.due ? md(d.due) : '＋ 마감일'}
-              </button>
+              <span className={s.subEnd}>
+                {/* 순서 바꾸기: 줄에 올렸을 때만 보인다 */}
+                {items.length > 1 && (
+                  <span className={s.subMove}>
+                    <button type="button" className={s.subMoveBtn} disabled={i === 0} title="위로" aria-label={d.t + ' 위로'} onClick={() => void moveSub(t.id, d.t, -1)}>
+                      ▲
+                    </button>
+                    <button type="button" className={s.subMoveBtn} disabled={i === items.length - 1} title="아래로" aria-label={d.t + ' 아래로'} onClick={() => void moveSub(t.id, d.t, 1)}>
+                      ▼
+                    </button>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className={cx(s.subDue, s.subDueBtn, !d.due && s.subDueNone, d.late && s.late, d.soon && s.soonT)}
+                  title="눌러서 하위 항목 마감일 고치기 (이름·삭제도)"
+                  onClick={() => editSub(t.id, d.t)}
+                >
+                  {d.due ? md(d.due) : '＋ 마감일'}
+                </button>
+              </span>
             ) : (
               d.due && <span className={cx(s.subDue, d.late && s.late, d.soon && s.soonT)}>{md(d.due)}</span>
             )}

@@ -168,7 +168,7 @@ export interface FollowUp {
   /** 이어진 할 일(followOf)을 끝내도 만든다 */
   chain?: boolean
   title: (x: string) => string
-  subs?: (x: string) => string[]
+  subs?: (x: string, project: string) => string[]
   basis: string
 }
 
@@ -186,9 +186,10 @@ export const FOLLOWUPS: FollowUp[] = [
     visitN: 10,
     startN: 1,
     title: (x) => x.trim().replace(REPORT_DONE, (_, pre: string, v: string) => pre + v.toUpperCase() + 'R FUL'),
-    subs: (x) => {
+    subs: (x, project) => {
       const v = REPORT_DONE.exec(x.trim())![2].toUpperCase()
-      return [v + 'R 수정', 'T-Sign', 'T-Sign본 WID 업로드']
+      /* SIV 는 승인된 SIVR 을 기관에 보낸다 (ISF 보관용). Imjudo 는 "SIVR 송부" 할 일이 따로 생기므로 빼고 */
+      return [v + 'R 수정', 'T-Sign', 'T-Sign본 WID 업로드', ...(v === 'SIV' && project !== IMJ ? ['SIVR 기관 발송'] : [])]
     },
     basis: '본인 기준: 리포트 FUL 끝낸 다음 영업일부터, PM 마감(방문 후 WD10)까지 리포트 수정·T-Sign·WID 업로드',
   },

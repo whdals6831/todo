@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_HOLIDAYS as holidays, IMJ } from './constants.ts'
 import type { CalEvent } from '../types/domain.ts'
-import { MONTHLY, isVisitSub, visitBase, lastMonday, monthlyPlan, monthlyTitle, nextMonth, visitSkip, visitSubs } from './monthly.ts'
+import { MONTHLY, isVisitSub, visitBase, lastMonday, lastMondayEarly, monthlyPlan, monthlyTitle, nextMonth, visitSkip, visitSubs } from './monthly.ts'
 
 const plan = MONTHLY[0]
 
@@ -50,5 +50,13 @@ describe('매월 마지막 주 월요일 할 일', () => {
     expect(isVisitSub('Imjudo 가나대병원 MV (11/20)') && isVisitSub('Breztri 다라의원 Add-on')).toBe(true)
     expect(isVisitSub('영수증 정리')).toBe(false)
     expect(visitBase('Imjudo 가나대병원 MV (11/20)')).toBe('Imjudo 가나대병원 MV')
+  })
+
+  it('Monthly Letter 작성: 마지막 주 월요일, 그달 마지막 날이 월요일이면 그 전 주 월요일', () => {
+    expect(lastMondayEarly('2026-11')).toBe('2026-11-23')
+    expect(lastMondayEarly('2026-12')).toBe('2026-12-28')
+    const x = MONTHLY.find((m) => m.id === 'mletter')!
+    expect(monthlyPlan('2026-11', x, {})).toMatchObject({ start: '2026-11-23', due: '2026-11-23' })
+    expect(monthlyTitle(x, '2026-11')).toBe('11월 Monthly Letter 작성')
   })
 })

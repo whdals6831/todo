@@ -4,7 +4,7 @@ import {
 } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
 import { fulMatch } from '../domain/ful.ts'
-import { MONTHLY, isVisitSub, monthlyPlan, monthlyTitle, nextMonth, visitBase, visitList, visitSkip, visitSubs } from '../domain/monthly.ts'
+import { MONTHLY, isVisitSub, monthlyPlan, monthlyTitle, nextMonth, projectSubs, visitBase, visitList, visitSkip, visitSubs } from '../domain/monthly.ts'
 import { projShort, safeId, sameSite, siteCore, siteCoreRaw, siteShort, stripProj } from '../domain/project.ts'
 import { GROUPS, genKey, isGroupRule, manualTwin, normRule, planTodos, rulesFor, subLabel, type PlannedPart, type PlannedTodo } from '../domain/rules.ts'
 import {
@@ -206,7 +206,7 @@ async function followUpsOnDone(t: Todo, only?: string) {
     if ((t.followOf && !f.chain) || (only && f.id !== only) || (f.project && t.project !== f.project) || !f.match(t.title || '')) continue
     const id = followId(t, f.id)
     if (S().todos.has(id)) continue
-    const subs = f.subs?.(t.title)
+    const subs = f.subs?.(t.title, t.project || '')
     await putTodo({
       id, title: f.title(t.title), project: t.project || '', ...followDates(t, f), time: '', tbd: false, autoDue: false, done: false, followOf: t.id,
       ...(subs?.length ? { subs } : {}), created: new Date().toISOString(),
@@ -828,6 +828,17 @@ export async function addSub(id: string, text: string, after?: string) {
   await putTodo(withSubs(t, subs))
 }
 
+/** 하위 항목을 한 칸 위(-1)·아래(1)로 옮긴다 */
+export async function moveSub(id: string, name: string, dir: -1 | 1) {
+  const t = S().todos.get(id)
+  const subs = [...(t?.subs || [])]
+  const i = subs.indexOf(name)
+  const j = i + dir
+  if (!t || i < 0 || j < 0 || j >= subs.length) return
+  ;[subs[i], subs[j]] = [subs[j], subs[i]]
+  await putTodo({ ...t, subs })
+}
+
 /** 하위 항목 글자 고치기: 체크도 따라가고, 비우면 지운다. 이미 있는 이름으로는 바꾸지 않는다 */
 export async function renameSub(id: string, from: string, to: string) {
   const t = S().todos.get(id)
@@ -1415,6 +1426,15 @@ async function migrate() {
     appStore.setState({ mig: [...S().mig, 'scanenf1'] })
     await putConfig()
   }
+  if (!S().mig.includes('sivrsub1')) {
+    /* 열려 있는 SIVR FUL 에도 "SIVR 기관 발송"을 단다 (Imjudo 는 SIVR 송부 할 일이 따로 생기므로 빼고) */
+    for (const t of [...S().todos.values()]) {
+      if (t.done || !t.followOf || t.project === IMJ || !/(^|s)SIVR FUL$/i.test(t.title.trim()) || t.subs?.includes('SIVR 기관 발송')) continue
+      await putTodo({ ...t, subs: [...(t.subs || []), 'SIVR 기관 발송'] })
+    }
+    appStore.setState({ mig: [...S().mig, 'sivrsub1'] })
+    await putConfig()
+  }
   if (!S().mig.includes('enfsteps1')) {
     /* 엔플론시아 계약서·ICF Site specific 업데이트에 단계 (Preparation 에서 그 항목 밑에 보인다).
        오늘 이후 엔플론시아 SIV 의 열린 Preparation 에 없으면 맨 위(날짜 순 자리)에 넣는다 */
@@ -1549,7 +1569,7 @@ async function syncMonthly() {
       const p = monthlyPlan(month, x, S().holidays)
       const id = safeId('m_' + x.id + '_' + month)
       if (p.due < today || S().todos.has(id)) continue
-      const subs = x.visits ? visitSubs(month, S().events.values(), S().projects, x) : []
+      const subs = x.visits ? visitSubs(month, S().events.values(), S().projects, x) : x.projects ? projectSubs(S().projects) : []
       await putTodo({
         id, title: monthlyTitle(x, month), project: x.project || '', start: p.start, due: p.due, time: '', tbd: false, autoDue: false, done: false,
         basis: p.basis, startBasis: p.startBasis, subs: subs.length ? subs : undefined, created: new Date().toISOString(),

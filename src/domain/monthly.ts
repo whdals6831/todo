@@ -12,6 +12,10 @@ export interface Monthly {
   start?: number
   due?: number
   lastMon?: boolean
+  /** lastMon 과 같되, 그달 마지막 날이 월요일이면 그 전 주 월요일 (월말까지 한 주가 남게) */
+  early?: boolean
+  /** 과제를 하위 항목으로 단다 (기타 제외) */
+  projects?: boolean
   /** 그달 외근을 하위 항목으로 단다 (과제 약칭 · 기관 · 방문 종류) */
   visits?: boolean
   basis: string
@@ -20,6 +24,7 @@ export interface Monthly {
 export const MONTHLY: Monthly[] = [
   { id: 'plan', title: 'Monthly 업무 계획 보고', start: 24, due: 28, basis: '본인 기준: 매월 24~28일 보고' },
   { id: 'imj-enroll', title: '이뮤도 등록 현황 메일 발송', project: IMJ, lastMon: true, basis: '본인 기준: 매월 마지막 주 월요일 발송' },
+  { id: 'mletter', title: '{m}월 Monthly Letter 작성', lastMon: true, early: true, projects: true, basis: '본인 기준: 월말 전 마지막 주 월요일에 모든 과제 Monthly Letter 작성 (그달 마지막 날이 월요일이면 그 전 주 월요일)' },
   { id: 'claim', title: '{m}월 비용청구', lastMon: true, visits: true, basis: '본인 기준: 매월 마지막 주 월요일, 그달 외근 비용청구' },
 ]
 
@@ -35,6 +40,15 @@ export function lastMonday(month: string): DateStr {
   while (dow(d) !== 1) d = shift(d, -1)
   return d
 }
+
+/** 그달 마지막 날이 월요일이면 그 전 주 월요일, 아니면 마지막 월요일 */
+export function lastMondayEarly(month: string): DateStr {
+  const d = lastMonday(month)
+  return d === shift(nextMonth(month) + '-01', -1) ? shift(d, -7) : d
+}
+
+/** 과제 목록 할 일의 하위 항목: 과제 약칭 (기타 제외) */
+export const projectSubs = (projects: Project[]) => projects.filter((p) => p.name !== '기타').map((p) => p.short || p.name)
 
 /** 매월 할 일의 제목 (그달 숫자를 채운다) */
 export const monthlyTitle = (x: Monthly, month: string) => x.title.replace('{m}', String(Number(month.slice(5))))
@@ -69,7 +83,7 @@ export const visitSubs = (...a: Parameters<typeof visitList>) => visitList(...a)
  */
 export function monthlyPlan(month: string, x: Monthly, hol: Holidays) {
   if (x.lastMon) {
-    const d0 = lastMonday(month)
+    const d0 = x.early ? lastMondayEarly(month) : lastMonday(month)
     const d = nextWorkOrSame(d0, hol)
     return {
       start: d, due: d,

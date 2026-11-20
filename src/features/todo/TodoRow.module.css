@@ -206,7 +206,7 @@
   color: var(--color-faint);
   opacity: 0;
 }
-li:hover > .subDueNone,
+li:hover > .subEnd > .subDueNone,
 .subDueNone:focus-visible {
   opacity: 1;
 }
@@ -307,4 +307,36 @@ li:hover > .subDueNone,
   flex-wrap: wrap;
   gap: var(--space-1-5);
   margin-top: var(--space-2);
+}
+
+/* 하위 항목 오른쪽: 순서 바꾸기(▲▼) + 마감일 */
+.subEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.subMove {
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+}
+li:hover > .subEnd > .subMove,
+.subMove:focus-within {
+  opacity: 1;
+}
+.subMoveBtn {
+  padding: 0 5px;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.subMoveBtn:hover:not(:disabled) {
+  color: var(--color-fg);
+}
+.subMoveBtn:disabled {
+  opacity: 0.25;
+  cursor: default;
 }

@@ -96,6 +96,8 @@ export interface Todo {
   today?: DateStr
   /** 묶음 하위 항목을 오늘 할 일로 고른 날 (이름 → 날짜) */
   subToday?: Record<string, DateStr>
+  /** 하위 항목 밑의 단계를 직접 고친 것 (하위 항목 이름 → 단계 목록). 없으면 규칙·결재 상신 기본 단계, [] 이면 단계 없음 */
+  subSteps?: Record<string, string[]>
   /** 만든 시각 (ISO) */
   created?: string
   /** 외부에서 가져온 할 일 표시 (예: 'mail') */

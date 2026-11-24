@@ -11,7 +11,7 @@ import { ConfirmLine } from '@/components/ui/Layout.tsx'
 import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
-import { addSub, editSub as saveSub, dismissTodo, moveSub, removeSub, rollOver, toSomeday, toggleCheck, toggleDone, toggleStep } from '@/store/actions.ts'
+import { addSub, dismissTodo, moveSub, removeSub, rollOver, toSomeday, toggleCheck, toggleDone, toggleStep } from '@/store/actions.ts'
 import { openModal, openPopover, useApp, usePmpDues } from '@/store/ui.ts'
 import type { Todo } from '@/types/domain.ts'
 import { startDrag, wasJustDropped } from '../drag/drag.ts'
@@ -44,8 +44,6 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   /** 이 줄을 골랐거나(과제 꼬리표 등을 누름) 하위 항목 입력칸에 쓰는 중 → 입력칸을 띄운다.
      CSS :focus 로 숨기면 줄 → 입력칸으로 포커스가 옮겨 가는 순간 칸이 잠깐 숨어 포커스를 놓치므로 상태로 둔다 */
   const [picked, setPicked] = useState(false)
-  /** 하위 항목 이름을 고치다 Enter → 그 바로 아래에 새 하위 항목 입력칸 (몇 번째 줄 아래인지, 없으면 -1) */
-  const [addAt, setAddAt] = useState(-1)
   /** 하위 항목을 끌어서 순서 바꾸기: 끄는 줄(from)과 놓을 자리(to 번째 줄 앞) */
   const [dragSub, setDragSub] = useState<{ from: number; to: number } | null>(null)
   /* 지난 미완료는 보라(urgent), 오늘·내일 마감은 빨강(soon) */
@@ -98,6 +96,8 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
     pre: string,
     sub = false,
     toggle = (name: string) => toggleCheck(t.id, pre + name),
+    /** 단계(하위 항목의 하위 항목) 글자를 누르면 그 하위 항목 편집 창 */
+    edit?: () => void,
   ) => (
     <ol className={cx(s.docs, sub && (!t.done || Object.keys(dues).length > 0) && s.subList)} onClick={(e) => e.stopPropagation()}>
       {items.map((d, i) => {
@@ -141,7 +141,15 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
               : {})}
           >
             <RoundCheckbox checked={on} onToggle={() => toggle(d.t)} label={d.t + ' 체크'} />
-            {sub ? <SubText id={t.id} text={d.t} due={d.due || ''} ruleDue={d.ruleDue || ''} onEnter={() => setAddAt(i)} /> : <span className={s.docT}>{d.t}</span>}
+            {sub ? (
+              <SubText id={t.id} text={d.t} />
+            ) : edit ? (
+              <span className={cx(s.docT, s.subT)} title="눌러서 고치기·빼기" onClick={edit}>
+                {d.t}
+              </span>
+            ) : (
+              <span className={s.docT}>{d.t}</span>
+            )}
             {/* 하위 항목 마감일: 눌러서 고친다 (아직 없으면 "＋ 마감일") */}
             {sub && !t.done ? (
               <span className={s.subEnd}>
@@ -172,15 +180,10 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
             {/* 단계: 다 체크하면 이 하위 항목도 체크된다 (끝낸 하위 항목이면 접어 둔다) */}
             {!on && !!d.steps?.length && (
               <div className={s.subDocs}>
-                {checklist(d.steps.map((x) => ({ t: x })), d.t + ' › ', false, (x) => toggleStep(t.id, d.t, x, d.steps!))}
+                {checklist(d.steps.map((x) => ({ t: x })), d.t + ' › ', false, (x) => toggleStep(t.id, d.t, x, d.steps!), t.done ? undefined : () => editSub(t.id, d.t))}
               </div>
             )}
           </li>
-          {sub && addAt === i && (
-            <li key={'add' + i}>
-              <SubAdd id={t.id} after={d.t} onAdded={() => setAddAt(i + 1)} onClose={() => setAddAt((x) => (x === i ? -1 : x))} />
-            </li>
-          )}
           </Fragment>
         )
       })}
@@ -298,59 +301,12 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   )
 }
 
-/** 하위 항목 글자: 누르면 그 자리에서 고친다 (Enter·바깥을 누르면 저장, Esc 는 취소, 비우면 지움) */
-/**
- * 하위 항목 이름: 누르면 그 자리에서 고친다. Enter 는 저장하고 바로 아래에 새 하위 항목 칸을 연다(onEnter),
- * 다른 곳을 누르면 저장, Esc 는 취소. 비우면 원래 이름 그대로 (지우기는 날짜를 눌러 여는 편집 창에서)
- */
-function SubText({ id, text, due, ruleDue, onEnter }: { id: string; text: string; due: string; ruleDue: string; onEnter: () => void }) {
-  const [v, setV] = useState<string | null>(null)
-  const cancel = useRef(false)
-  const box = useRef<HTMLLIElement | null>(null)
-  if (v == null) {
-    return (
-      <span
-        className={cx(s.docT, s.subT)}
-        title="눌러서 이름 고치기 (Enter: 바로 아래에 추가) · 끌어서 순서 바꾸기"
-        onClick={() => setV(text)}
-      >
-        {text}
-      </span>
-    )
-  }
-  const save = () => {
-    const to = v.trim()
-    /* 이름을 바꾸면 규칙과의 연결이 끊기므로 보이던 날짜를 그대로 남긴다 */
-    if (!cancel.current && to && to !== text) void saveSub(id, text, to, due, ruleDue)
-    cancel.current = false
-    setV(null)
-  }
+/** 하위 항목 글자: 누르면 편집 창 (이름·마감일·그 밑의 하위 항목·삭제) */
+function SubText({ id, text }: { id: string; text: string }) {
   return (
-    <input
-      ref={(el) => {
-        /* 글자를 고치는 동안에는 줄 끌기를 꺼서 마우스로 글자를 고를 수 있게, 닫힐 때 다시 켠다 */
-        if (el) {
-          box.current = el.closest('li')
-          box.current?.setAttribute('draggable', 'false')
-        } else box.current?.setAttribute('draggable', 'true')
-      }}
-      className={cx(s.docT, s.subAdd, s.subEdit)}
-      autoFocus
-      value={v}
-      aria-label="하위 항목 이름"
-      onChange={(e) => setV(e.target.value)}
-      onBlur={save}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          cancel.current = true
-          e.currentTarget.blur()
-        }
-        if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
-        e.preventDefault()
-        save()
-        onEnter()
-      }}
-    />
+    <span className={cx(s.docT, s.subT)} title="눌러서 편집 (이름·마감일·하위 항목) · 끌어서 순서 바꾸기" onClick={() => editSub(id, text)}>
+      {text}
+    </span>
   )
 }
 

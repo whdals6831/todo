@@ -1169,3 +1169,27 @@ describe('체크 되돌리기 (Ctrl+Z)', () => {
     expect(get().done).toBeFalsy()
   })
 })
+
+describe('하위 항목의 하위 항목(단계) 고치기', () => {
+  it('결재 상신의 기본 단계를 고치면 직접 고친 단계로 남고, 뺀 단계의 체크는 지운다 (저장 모양도 왕복)', async () => {
+    const A = await import('./actions.ts')
+    const R = await import('./supabase/rows.ts')
+    const { stepsFor } = await import('../domain/specials.ts')
+    const id = await A.addTodo({ title: '단계 연습', due: '2026-10-12', subs: ['Precheck list 결재 상신', '다른 일'], done: false })
+    const get = () => getState().todos.get(id)!
+    const sub = 'Precheck list 결재 상신'
+    const base = stepsFor(sub, undefined, get())!
+    await A.toggleStep(id, sub, '상신', base)
+    await A.toggleStep(id, sub, '수정', base)
+    await A.editSub(id, sub, sub, '', '', { list: ['상신', 'PM 승인 확인', '새 단계'], base })
+    expect(stepsFor(sub, undefined, get())).toEqual(['상신', 'PM 승인 확인', '새 단계'])
+    expect(get().checks).toEqual([sub + ' › 상신'])
+    expect(R.rowToTodo(JSON.parse(JSON.stringify(R.todoToRow(get())))).subSteps).toEqual({ [sub]: ['상신', 'PM 승인 확인', '새 단계'] })
+    /* 단계를 건드리지 않으면 기본 단계 그대로 (따로 남기지 않는다) */
+    await A.editSub(id, '다른 일', '다른 일', '2026-10-10', '', { list: [], base: [] })
+    expect(get().subSteps?.['다른 일']).toBeUndefined()
+    /* 이름을 바꾸면 단계도 따라간다 */
+    await A.editSub(id, sub, '결재 올리기', '', '')
+    expect(get().subSteps).toEqual({ '결재 올리기': ['상신', 'PM 승인 확인', '새 단계'] })
+  })
+})

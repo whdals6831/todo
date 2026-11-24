@@ -78,8 +78,10 @@ export const ENF_PREP_STEPS: Record<string, string[]> = Object.fromEntries(
   ENF_SS_RULES.map((r) => [r.title.replace('{site} SIV ', ''), r.steps || []]),
 )
 
-/** 하위 항목 밑 단계: 규칙의 단계 → 엔플론시아 "SIV 예정" 준비 단계 → 결재 상신이면 결재 단계 */
-export function stepsFor(sub: string, ruleSteps: string[] | undefined, t: Pick<Todo, 'prepKey' | 'done'>): string[] | undefined {
+/** 하위 항목 밑 단계: 직접 고친 단계 → 규칙의 단계 → 엔플론시아 "SIV 예정" 준비 단계 → 결재 상신이면 결재 단계 */
+export function stepsFor(sub: string, ruleSteps: string[] | undefined, t: Pick<Todo, 'prepKey' | 'done' | 'subSteps'>): string[] | undefined {
+  const own = t.subSteps?.[sub]
+  if (own) return own.length ? own : undefined
   if (ruleSteps?.length) return ruleSteps
   if (t.prepKey === 'PREP' && !t.done && ENF_PREP_STEPS[sub]) return ENF_PREP_STEPS[sub]
   return APPROVAL_RE.test(sub) ? APPROVAL_STEPS : undefined

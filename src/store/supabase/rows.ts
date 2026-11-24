@@ -78,15 +78,18 @@ const SUB_DUE = '#due:'
 const PIN = '#deadline'
 /** 오늘 할 일로 고른 날(today)도 같은 방식으로. 하위 항목 것은 뒤에 ":이름" */
 const TODAY = '#today'
-const packed = (k: string) => k.startsWith(SUB_DUE) || k === PIN || k === TODAY || k.startsWith(TODAY + ':')
+/** 직접 고친 하위 항목 단계(subSteps)도 같은 방식으로: 값은 단계 목록의 JSON */
+const STEPS = '#steps:'
+const packed = (k: string) => k.startsWith(SUB_DUE) || k === PIN || k === TODAY || k.startsWith(TODAY + ':') || k.startsWith(STEPS)
 export const todoToRow = (t: Todo) => {
-  const { subDue, deadline, today, subToday, ...rest } = t
+  const { subDue, deadline, today, subToday, subSteps, ...rest } = t
   const extra: Record<string, string> = Object.fromEntries(Object.entries(subDue || {}).map(([k, v]) => [SUB_DUE + k, v]))
   if (deadline) extra[PIN] = '1'
   if (today) extra[TODAY] = today
   for (const [k, v] of Object.entries(subToday || {})) if (v) extra[TODAY + ':' + k] = v
   /* 뺀 것(deadline: false, today: "" 등)도 check_at 을 보내야 DB 의 표시가 지워진다 */
-  const touched = [deadline, today, subToday].some((x) => x !== undefined)
+  for (const [k, v] of Object.entries(subSteps || {})) extra[STEPS + k] = JSON.stringify(v)
+  const touched = [deadline, today, subToday, subSteps].some((x) => x !== undefined)
   if (!Object.keys(extra).length && !touched) return toRow(rest, TODO_COLS)
   return toRow({ ...rest, checkAt: { ...rest.checkAt, ...extra } }, TODO_COLS)
 }
@@ -105,6 +108,15 @@ export const rowToTodo = (r: Row): Todo => {
   if (at[TODAY]) n.today = at[TODAY]
   const st = under(TODAY + ':')
   if (st.length) n.subToday = Object.fromEntries(st)
+  const ss = under(STEPS).flatMap(([k, v]) => {
+    try {
+      const a: unknown = JSON.parse(v)
+      return Array.isArray(a) ? [[k, a.map(String)] as const] : []
+    } catch {
+      return []
+    }
+  })
+  if (ss.length) n.subSteps = Object.fromEntries(ss)
   return n
 }
 export const rowToFul = (r: Row) => fromRow<Ful>(r, FUL_COLS)

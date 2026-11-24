@@ -40,6 +40,20 @@
   font-size: var(--text-sm);
   color: var(--color-fg);
 }
+/* 하위 항목 편집 창의 단계: 그 자리에서 고치는 칸 */
+.stepInput {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+.stepInput:focus {
+  outline: none;
+  box-shadow: 0 1px 0 0 var(--color-fg);
+}
 .subAdd {
   display: flex;
   gap: var(--space-1-5);

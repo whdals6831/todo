@@ -813,13 +813,14 @@ export const withSubs = (t: Todo, subs: string[]): Todo => {
     ...t, subs, checks: (t.checks || []).filter(keep), checkAt: keepAt(t.checkAt, (x) => (keep(x) ? x : null)),
     subDue: subDue && Object.keys(subDue).length ? subDue : undefined,
     subToday: keepAt(t.subToday, (x) => (subs.includes(x) ? x : null)),
+    subSteps: keepAt(t.subSteps, (x) => (subs.includes(x) ? x : null)),
   }
 }
 
 /** 하위 항목 이름 바꾸기 (체크·단계 체크·직접 정한 마감일도 따라간다) */
 const renamed = (t: Todo, from: string, to: string): Todo => {
   const ren = (x: string) => (underSub(x, from) ? to + x.slice(from.length) : x)
-  return { ...t, subs: (t.subs || []).map(ren), checks: (t.checks || []).map(ren), checkAt: keepAt(t.checkAt, ren), subDue: keepAt(t.subDue, ren), subToday: keepAt(t.subToday, ren) }
+  return { ...t, subs: (t.subs || []).map(ren), checks: (t.checks || []).map(ren), checkAt: keepAt(t.checkAt, ren), subDue: keepAt(t.subDue, ren), subToday: keepAt(t.subToday, ren), subSteps: keepAt(t.subSteps, ren) }
 }
 
 /**
@@ -878,17 +879,31 @@ export async function renameSub(id: string, from: string, to: string) {
  * 하위 항목 편집 창: 이름과 마감일. 마감일이 규칙 날짜(ruleDue)와 같거나 비면 직접 정한 날짜를 지운다.
  * 이름을 바꾸면 규칙과의 연결이 끊기므로 보이던 날짜를 그대로 직접 정한 날짜로 남긴다
  */
-export async function editSub(id: string, from: string, to: string, due: DateStr, ruleDue = '') {
+export async function editSub(id: string, from: string, to: string, due: DateStr, ruleDue = '', steps?: { list: string[]; base: string[] }) {
   const t0 = S().todos.get(id)
   const v = to.trim()
   if (!t0 || !v || !(t0.subs || []).includes(from)) return
   const move = v !== from && !(t0.subs || []).includes(v)
-  const t = move ? renamed(t0, from, v) : t0
+  let t = move ? renamed(t0, from, v) : t0
   const name = move ? v : from
   const sd = { ...t.subDue }
   if (due && (move || due !== ruleDue)) sd[name] = due
   else delete sd[name]
-  await putTodo({ ...t, subDue: Object.keys(sd).length ? sd : undefined })
+  t = { ...t, subDue: Object.keys(sd).length ? sd : undefined }
+  /* 단계(하위 항목의 하위 항목)를 고쳤으면 직접 고친 단계로 남기고, 없어진 단계의 체크는 지운다.
+     이름을 바꿔 규칙과 끊기는 경우에도 보이던 단계를 그대로 남긴다 */
+  if (steps) {
+    const list = [...new Set(steps.list.map((x) => x.trim()).filter(Boolean))]
+    const same = list.length === steps.base.length && list.every((x, i) => x === steps.base[i])
+    if (!same || move || t.subSteps?.[name]) {
+      const gone = (x: string) => x.startsWith(name + DOC_SEP) && !list.includes(x.slice((name + DOC_SEP).length)) && steps.base.includes(x.slice((name + DOC_SEP).length))
+      t = {
+        ...t, subSteps: { ...t.subSteps, [name]: list },
+        checks: (t.checks || []).filter((x) => !gone(x)), checkAt: keepAt(t.checkAt, (x) => (gone(x) ? null : x)),
+      }
+    }
+  }
+  await putTodo(t)
 }
 
 /** 하위 항목 지우기. 남은 하위 항목을 다 체크했으면 할 일도 끝낸 것으로 */

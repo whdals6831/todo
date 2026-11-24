@@ -7,6 +7,7 @@ import { CheckField, Field, FormGrid, Input, Select } from '@/components/ui/Fiel
 import { ConfirmLine } from '@/components/ui/Layout.tsx'
 import { Modal, ModalFoot } from '@/components/ui/Modal.tsx'
 import { bundleParts } from '@/domain/rules.ts'
+import { stepsFor } from '@/domain/specials.ts'
 import { addTodo, dismissTodo, editSub, manualId, putTodo, removeSub, syncChildren, withSubs } from '@/store/actions.ts'
 import { getState } from '@/store/store.ts'
 import { closeModal, openModal, ui, useApp } from '@/store/ui.ts'
@@ -66,18 +67,7 @@ function SubsField({ subs, onDone }: { subs: ReturnType<typeof useSubs>; onDone:
   return (
     <div className={s.subs}>
       하위 항목 (선택) · 아무 칸에서나 Shift+Enter 로 바로 쓰기
-      {subs.items.length > 0 && (
-        <ol className={s.subList}>
-          {subs.items.map((x) => (
-            <li key={x}>
-              {x}
-              <IconButton variant="mini" label={x + ' 빼기'} onClick={() => subs.setItems(subs.items.filter((y) => y !== x))}>
-                ×
-              </IconButton>
-            </li>
-          ))}
-        </ol>
-      )}
+      {/* 쓰는 칸이 목록 위에: 목록이 길어도 아래로 내려가지 않고 바로 쓴다 */}
       <div className={s.subAdd}>
         <Input
           data-sub-input
@@ -92,6 +82,18 @@ function SubsField({ subs, onDone }: { subs: ReturnType<typeof useSubs>; onDone:
           추가
         </Button>
       </div>
+      {subs.items.length > 0 && (
+        <ol className={s.subList}>
+          {subs.items.map((x) => (
+            <li key={x}>
+              {x}
+              <IconButton variant="mini" label={x + ' 빼기'} onClick={() => subs.setItems(subs.items.filter((y) => y !== x))}>
+                ×
+              </IconButton>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   )
 }
@@ -179,20 +181,29 @@ export function TodoAddModal({ due: due0 }: { due?: DateStr }) {
   )
 }
 
-/** 하위 항목 편집: 이름·마감일 고치기, 지우기. 마감일을 비우면 규칙 날짜로 */
+/** 하위 항목 편집: 이름·마감일, 그 밑의 하위 항목(단계) 고치기·더하기·빼기, 지우기. 마감일을 비우면 규칙 날짜로 */
 export function SubEditModal({ todo: t, sub }: { todo: Todo; sub: string }) {
   const rules = useApp((st) => st.rules)
   const holidays = useApp((st) => st.holidays)
   const events = useApp((st) => st.events)
   const projects = useApp((st) => st.projects)
-  const ruleDue = bundleParts(t, { rules, holidays, events, projects })[sub]?.due || ''
+  const part = bundleParts(t, { rules, holidays, events, projects })[sub]
+  const ruleDue = part?.due || ''
+  const base = stepsFor(sub, part?.steps, t) || []
   const [name, setName] = useState(sub)
   const [due, setDue] = useState(t.subDue?.[sub] || ruleDue)
+  const [steps, setSteps] = useState(base)
+  const [draft, setDraft] = useState('')
   const [confirming, setConfirming] = useState(false)
+  const all = draft.trim() ? [...steps, draft.trim()] : steps
+  const addStep = () => {
+    setSteps(all)
+    setDraft('')
+  }
   const save = async () => {
     if (!name.trim()) return
     closeModal()
-    await editSub(t.id, sub, name, due, ruleDue)
+    await editSub(t.id, sub, name, due, ruleDue, { list: all, base })
   }
   return (
     <Modal title="하위 항목 편집" onClose={closeModal}>
@@ -203,6 +214,40 @@ export function SubEditModal({ todo: t, sub }: { todo: Todo; sub: string }) {
         <Field label="마감일">
           <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
         </Field>
+        <div className={s.subs}>
+          이 항목의 하위 항목 (선택) · 글자를 눌러 고치고, × 로 빼요
+          <div className={s.subAdd}>
+            <Input
+              size="sm"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={onEnter(() => (draft.trim() ? addStep() : save()))}
+              placeholder="예: 상신 → Enter (빈칸에서 Enter 는 저장)"
+              aria-label="하위 항목 추가"
+            />
+            <Button size="sm" onClick={addStep}>
+              추가
+            </Button>
+          </div>
+          {steps.length > 0 && (
+            <ol className={s.subList}>
+              {steps.map((x, i) => (
+                <li key={i}>
+                  <input
+                    className={s.stepInput}
+                    value={x}
+                    aria-label={'하위 항목 ' + (i + 1)}
+                    onChange={(e) => setSteps(steps.map((y, k) => (k === i ? e.target.value : y)))}
+                    onKeyDown={onEnter(save)}
+                  />
+                  <IconButton variant="mini" label={x + ' 빼기'} onClick={() => setSteps(steps.filter((_, k) => k !== i))}>
+                    ×
+                  </IconButton>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
       </FormGrid>
       <div className={s.info}>
         <div className={s.basis}>{'할 일: ' + t.title}</div>

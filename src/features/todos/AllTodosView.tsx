@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button.tsx'
 import { EmptyState, Fold, Group, Label, ViewHeader } from '@/components/ui/Layout.tsx'
 import { openModal, setUi, useApp, useUi } from '@/store/ui.ts'
 import { openEvent } from '../event/openEvent.ts'
-import { PlainList } from '../todo/TodoList.tsx'
+import { PlainList, ReorderList } from '../todo/TodoList.tsx'
 import s from './AllTodos.module.css'
 
 /** 전체 할 일: 과제별로 걸러서 지연 · 오늘 · 7일 안 · 그 이후 · TBD */
@@ -42,7 +42,8 @@ export function AllTodosView() {
       </div>
       {groups.map((g) => (
         <Group key={g.name} title={g.name} count={g.items.length} over={g.over}>
-          <PlainList items={g.items} />
+          {/* ⋮⋮ 손잡이로 끌어 묶음 안에서 순서를 바꾼다 */}
+          <ReorderList items={g.items} />
         </Group>
       ))}
       {!groups.length && <EmptyState>남은 할 일이 없습니다. 위의 + 일정으로 외근을 등록하면 기한에 맞춘 할 일이 생깁니다.</EmptyState>}

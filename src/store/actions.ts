@@ -828,14 +828,14 @@ export async function addSub(id: string, text: string, after?: string) {
   await putTodo(withSubs(t, subs))
 }
 
-/** 하위 항목을 한 칸 위(-1)·아래(1)로 옮긴다 */
-export async function moveSub(id: string, name: string, dir: -1 | 1) {
+/** 하위 항목을 끌어서 옮긴다: name 을 지금 목록의 to 번째 줄 앞으로 (to 가 줄 수와 같으면 맨 아래로) */
+export async function moveSub(id: string, name: string, to: number) {
   const t = S().todos.get(id)
   const subs = [...(t?.subs || [])]
   const i = subs.indexOf(name)
-  const j = i + dir
-  if (!t || i < 0 || j < 0 || j >= subs.length) return
-  ;[subs[i], subs[j]] = [subs[j], subs[i]]
+  if (!t || i < 0 || to === i || to === i + 1) return
+  subs.splice(i, 1)
+  subs.splice(to > i ? to - 1 : to, 0, name)
   await putTodo({ ...t, subs })
 }
 
@@ -1424,6 +1424,16 @@ async function migrate() {
     }
     await keepSynced(fresh)
     appStore.setState({ mig: [...S().mig, 'scanenf1'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('sangsin1')) {
+    /* 결재 상신 단계 맨 앞에 "상신": 예전 단계 그대로 하위 항목으로 달려 있는 열린 결재 상신 할 일에도 넣는다 */
+    const old = APPROVAL_STEPS.slice(1)
+    for (const t of [...S().todos.values()]) {
+      if (t.done || !APPROVAL_RE.test(t.title) || t.subs?.includes(APPROVAL_STEPS[0]) || !old.every((x) => t.subs?.includes(x))) continue
+      await putTodo({ ...t, subs: [APPROVAL_STEPS[0], ...(t.subs || [])] })
+    }
+    appStore.setState({ mig: [...S().mig, 'sangsin1'] })
     await putConfig()
   }
   if (!S().mig.includes('sivrsub1')) {

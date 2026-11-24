@@ -1046,7 +1046,7 @@ describe('하위 항목 편집 창 · 결재 상신 단계', () => {
     expect(stepsFor('Precheck list 결재 상신 (SIV Material·PPT 포함)', [], { done: false })).toEqual(APPROVAL_STEPS)
     expect(stepsFor('계약서 Site specific 업데이트', ['작성'], { done: false })).toEqual(['작성'])
     expect(stepsFor('바인더 정리', undefined, { done: false })).toBeUndefined()
-    expect(APPROVAL_STEPS).toEqual(['수정', 'PM 승인 확인', 'T-Sign 요청', 'T-Sign 업로드'])
+    expect(APPROVAL_STEPS).toEqual(['상신', '수정', 'PM 승인 확인', 'T-Sign 요청', 'T-Sign 업로드'])
 
     const id = await addTodo({ title: '가나대 계약서 결재 상신', done: false })
     expect(getState().todos.get(id)!.subs).toEqual(APPROVAL_STEPS)

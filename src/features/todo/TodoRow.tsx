@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { localDay, md, todayStr } from '@/domain/date.ts'
 import { dLabel, dueTone } from '@/domain/priority.ts'
 import { projShort } from '@/domain/project.ts'
@@ -11,7 +11,7 @@ import { ConfirmLine } from '@/components/ui/Layout.tsx'
 import { RoundCheckbox } from '@/components/ui/RoundCheckbox.tsx'
 import { Tag } from '@/components/ui/Tag.tsx'
 import { cx } from '@/lib/cx.ts'
-import { addSub, editSub as saveSub, dismissTodo, moveSub, rollOver, toSomeday, toggleCheck, toggleDone, toggleStep } from '@/store/actions.ts'
+import { addSub, editSub as saveSub, dismissTodo, moveSub, removeSub, rollOver, toSomeday, toggleCheck, toggleDone, toggleStep } from '@/store/actions.ts'
 import { openModal, openPopover, useApp, usePmpDues } from '@/store/ui.ts'
 import type { Todo } from '@/types/domain.ts'
 import { startDrag, wasJustDropped } from '../drag/drag.ts'
@@ -46,6 +46,8 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
   const [picked, setPicked] = useState(false)
   /** 하위 항목 이름을 고치다 Enter → 그 바로 아래에 새 하위 항목 입력칸 (몇 번째 줄 아래인지, 없으면 -1) */
   const [addAt, setAddAt] = useState(-1)
+  /** 하위 항목을 끌어서 순서 바꾸기: 끄는 줄(from)과 놓을 자리(to 번째 줄 앞) */
+  const [dragSub, setDragSub] = useState<{ from: number; to: number } | null>(null)
   /* 지난 미완료는 보라(urgent), 오늘·내일 마감은 빨강(soon) */
   const tone = dueTone(t)
   const urgent = tone === 'late'
@@ -102,23 +104,48 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
         const on = checks.includes(pre + d.t)
         return (
           <Fragment key={i}>
-          <li className={cx(on && s.docOn, d.late && s.subLate, d.soon && s.subSoon)}>
+          <li
+            className={cx(
+              on && s.docOn, d.late && s.subLate, d.soon && s.subSoon,
+              sub && !t.done && items.length > 1 && s.subDrag,
+              sub && dragSub?.from === i && s.subDragging,
+              sub && dragSub && dragSub.from !== i && dragSub.to === i && s.dropBefore,
+              sub && dragSub && dragSub.from !== i && i === items.length - 1 && dragSub.to === items.length && s.dropAfter,
+            )}
+            {...(sub && !t.done && items.length > 1
+              ? {
+                  /* 줄을 끌어서 위아래로 옮긴다 (이름을 고치는 중에는 SubText 가 잠깐 꺼 둔다) */
+                  draggable: true,
+                  title: '끌어서 순서 바꾸기',
+                  onDragStart: (e: DragEvent<HTMLLIElement>) => {
+                    if (e.target !== e.currentTarget) return
+                    e.dataTransfer.effectAllowed = 'move'
+                    e.dataTransfer.setData('text/plain', d.t)
+                    setDragSub({ from: i, to: i })
+                  },
+                  onDragOver: (e: DragEvent<HTMLLIElement>) => {
+                    if (!dragSub) return
+                    e.preventDefault()
+                    const r = e.currentTarget.getBoundingClientRect()
+                    const to = e.clientY < r.top + r.height / 2 ? i : i + 1
+                    if (to !== dragSub.to) setDragSub({ from: dragSub.from, to })
+                  },
+                  onDrop: (e: DragEvent<HTMLLIElement>) => {
+                    if (!dragSub) return
+                    e.preventDefault()
+                    void moveSub(t.id, items[dragSub.from].t, dragSub.to)
+                    setDragSub(null)
+                  },
+                  onDragEnd: () => setDragSub(null),
+                }
+              : {})}
+          >
             <RoundCheckbox checked={on} onToggle={() => toggle(d.t)} label={d.t + ' 체크'} />
             {sub ? <SubText id={t.id} text={d.t} due={d.due || ''} ruleDue={d.ruleDue || ''} onEnter={() => setAddAt(i)} /> : <span className={s.docT}>{d.t}</span>}
             {/* 하위 항목 마감일: 눌러서 고친다 (아직 없으면 "＋ 마감일") */}
             {sub && !t.done ? (
               <span className={s.subEnd}>
-                {/* 순서 바꾸기: 줄에 올렸을 때만 보인다 */}
-                {items.length > 1 && (
-                  <span className={s.subMove}>
-                    <button type="button" className={s.subMoveBtn} disabled={i === 0} title="위로" aria-label={d.t + ' 위로'} onClick={() => void moveSub(t.id, d.t, -1)}>
-                      ▲
-                    </button>
-                    <button type="button" className={s.subMoveBtn} disabled={i === items.length - 1} title="아래로" aria-label={d.t + ' 아래로'} onClick={() => void moveSub(t.id, d.t, 1)}>
-                      ▼
-                    </button>
-                  </span>
-                )}
+                <SubDel id={t.id} name={d.t} />
                 <button
                   type="button"
                   className={cx(s.subDue, s.subDueBtn, !d.due && s.subDueNone, d.late && s.late, d.soon && s.soonT)}
@@ -279,13 +306,12 @@ export function TodoRow({ todo: t, drag, extra, highlight }: Props) {
 function SubText({ id, text, due, ruleDue, onEnter }: { id: string; text: string; due: string; ruleDue: string; onEnter: () => void }) {
   const [v, setV] = useState<string | null>(null)
   const cancel = useRef(false)
+  const box = useRef<HTMLLIElement | null>(null)
   if (v == null) {
     return (
       <span
         className={cx(s.docT, s.subT)}
-        title="눌러서 이름 고치기 · Enter 를 누르면 바로 아래에 하위 항목 추가"
-        /* 줄이 골라져 추가 칸이 잠깐 보이지 않게 */
-        onMouseDown={(e) => e.preventDefault()}
+        title="눌러서 이름 고치기 (Enter: 바로 아래에 추가) · 끌어서 순서 바꾸기"
         onClick={() => setV(text)}
       >
         {text}
@@ -301,6 +327,13 @@ function SubText({ id, text, due, ruleDue, onEnter }: { id: string; text: string
   }
   return (
     <input
+      ref={(el) => {
+        /* 글자를 고치는 동안에는 줄 끌기를 꺼서 마우스로 글자를 고를 수 있게, 닫힐 때 다시 켠다 */
+        if (el) {
+          box.current = el.closest('li')
+          box.current?.setAttribute('draggable', 'false')
+        } else box.current?.setAttribute('draggable', 'true')
+      }}
       className={cx(s.docT, s.subAdd, s.subEdit)}
       autoFocus
       value={v}
@@ -318,6 +351,25 @@ function SubText({ id, text, due, ruleDue, onEnter }: { id: string; text: string
         onEnter()
       }}
     />
+  )
+}
+
+/** 하위 항목 지우기: × 를 누르면 "삭제?"로 바뀌고, 한 번 더 눌러야 지운다 (마우스를 떼면 되돌아간다) */
+function SubDel({ id, name }: { id: string; name: string }) {
+  const [ask, setAsk] = useState(false)
+  return (
+    <span className={cx(s.subMove, ask && s.subAsk)} onMouseLeave={() => setAsk(false)}>
+      <button
+        type="button"
+        className={cx(s.subMoveBtn, ask && s.subDelAsk)}
+        title="하위 항목 삭제"
+        aria-label={name + (ask ? ' 삭제 확인' : ' 삭제')}
+        onBlur={() => setAsk(false)}
+        onClick={() => (ask ? void removeSub(id, name) : setAsk(true))}
+      >
+        {ask ? '삭제?' : '✕'}
+      </button>
+    </span>
   )
 }
 

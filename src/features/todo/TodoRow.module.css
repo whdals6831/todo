@@ -340,3 +340,25 @@ li:hover > .subEnd > .subMove,
   opacity: 0.25;
   cursor: default;
 }
+
+/* 하위 항목 끌어서 순서 바꾸기 */
+.subDrag {
+  cursor: grab;
+}
+.subDragging {
+  opacity: 0.4;
+}
+.dropBefore {
+  box-shadow: 0 -2px 0 0 var(--color-fg);
+}
+.dropAfter {
+  box-shadow: 0 2px 0 0 var(--color-fg);
+}
+/* 삭제 확인 중에는 계속 보이게, 빨갛게 */
+.subAsk {
+  opacity: 1;
+}
+.subDelAsk {
+  color: var(--color-danger, #c0392b);
+  font-weight: var(--weight-semibold);
+}

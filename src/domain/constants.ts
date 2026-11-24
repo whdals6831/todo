@@ -111,7 +111,7 @@ export const WID_RULE: Rule = {
 }
 
 /** 결재 상신 일에 늘 붙는 단계 (묶음 하위 항목이면 그 밑에, 낱개 할 일이면 하위 항목으로) */
-export const APPROVAL_STEPS = ['수정', 'PM 승인 확인', 'T-Sign 요청', 'T-Sign 업로드']
+export const APPROVAL_STEPS = ['상신', '수정', 'PM 승인 확인', 'T-Sign 요청', 'T-Sign 업로드']
 export const APPROVAL_RE = /결재\s*상신/
 
 /**

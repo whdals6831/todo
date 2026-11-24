@@ -699,7 +699,30 @@ const reopen = (t: Todo): Todo => {
   return { ...t, done: false, doneAt: null, checks: (t.checks || []).filter(keep), checkAt: keepAt(t.checkAt, (x) => (keep(x) ? x : null)) }
 }
 
+/*
+ * 체크 되돌리기 (Ctrl+Z): 체크·완료를 누르기 직전의 체크 상태를 쌓아 두었다가 하나씩 되돌린다.
+ * 그 사이에 고친 제목·날짜는 건드리지 않고 체크·완료만 되돌린다 (이 창에서 한 것만, 새로고침하면 비운다)
+ */
+type CheckSnap = Pick<Todo, 'id' | 'done' | 'doneAt' | 'checks' | 'checkAt'>
+const undoStack: CheckSnap[] = []
+const remember = (t: Todo) => {
+  undoStack.push({ id: t.id, done: t.done, doneAt: t.doneAt, checks: t.checks, checkAt: t.checkAt })
+  if (undoStack.length > 50) undoStack.shift()
+}
+
+/** 마지막 체크·완료를 되돌린다. 되돌린 것이 있으면 true */
+export async function undoCheck() {
+  for (let x = undoStack.pop(); x; x = undoStack.pop()) {
+    const t = S().todos.get(x.id)
+    if (!t) continue
+    await putTodo({ ...t, done: x.done, doneAt: x.doneAt, checks: x.checks, checkAt: x.checkAt })
+    return true
+  }
+  return false
+}
+
 export async function toggleDone(t: Todo) {
+  remember(t)
   await putTodo(t.done ? reopen(t) : { ...t, done: true, doneAt: doneStamp(t) })
 }
 
@@ -726,6 +749,7 @@ const settleDone = (t: Todo): Todo => {
 export async function toggleCheck(id: string, name: string) {
   const t = S().todos.get(id)
   if (!t) return
+  remember(t)
   const n = setCheck(t, name, !(t.checks || []).includes(name))
   await putTodo((t.subs || []).includes(name) ? settleDone(n) : n)
 }
@@ -734,6 +758,7 @@ export async function toggleCheck(id: string, name: string) {
 export async function toggleStep(id: string, sub: string, step: string, steps: string[]) {
   const t = S().todos.get(id)
   if (!t) return
+  remember(t)
   const key = (x: string) => sub + DOC_SEP + x
   const n = setCheck(t, key(step), !(t.checks || []).includes(key(step)))
   await putTodo(settleDone(setCheck(n, sub, steps.every((x) => n.checks?.includes(key(x))))))

@@ -1149,3 +1149,23 @@ describe('할 일을 끌어다 마감 줄에 올리기 (pinDeadline)', () => {
     expect(lines('2026-10-22').map((x) => x.chip)).toEqual(['Training File 업데이트'])
   })
 })
+
+describe('체크 되돌리기 (Ctrl+Z)', () => {
+  it('방금 한 체크·완료를 하나씩 원래대로 (그 사이 고친 제목은 그대로)', async () => {
+    const A = await import('./actions.ts')
+    const id = await A.addTodo({ title: '되돌리기 연습', due: '2026-10-12', subs: ['가', '나'], done: false })
+    const get = () => getState().todos.get(id)!
+    await A.toggleCheck(id, '가')
+    await A.putTodo({ ...get(), title: '제목 고침' })
+    await A.toggleCheck(id, '나')
+    expect(get()).toMatchObject({ done: true, checks: ['가', '나'] })
+    expect(await A.undoCheck()).toBe(true)
+    expect(get()).toMatchObject({ done: false, checks: ['가'], title: '제목 고침' })
+    await A.undoCheck()
+    expect(get().checks || []).toEqual([])
+    await A.toggleDone(get())
+    expect(get().done).toBe(true)
+    await A.undoCheck()
+    expect(get().done).toBeFalsy()
+  })
+})

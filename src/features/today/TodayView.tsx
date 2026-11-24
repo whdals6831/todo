@@ -13,7 +13,7 @@ import { setUi, useApp, usePlanCtx, useUi } from '@/store/ui.ts'
 import type { DateStr, Todo } from '@/types/domain.ts'
 import { EventRow } from '../event/EventRow.tsx'
 import { QuickAdd } from '../todo/QuickAdd.tsx'
-import { DoneFold, OpenList, RankInfo } from '../todo/TodoList.tsx'
+import { DoneFold, OpenList, RankInfo, ReorderList } from '../todo/TodoList.tsx'
 import { RollActions, TodoRow } from '../todo/TodoRow.tsx'
 import { PickButtons, UnpickButton } from './PlanRow.tsx'
 import s from './Today.module.css'
@@ -75,12 +75,13 @@ function Items({ id, items, t, reorder }: { id: string; items: PlanItem[]; t: Da
     return it && !isAuto(it, t) ? <UnpickButton item={it} today={t} /> : undefined
   }
   const todos = sortTodos(items.map((x) => x.todo))
-  return reorder ? <OpenList id={id} items={todos} extra={extra} /> : todos.map((x) => <TodoRow key={x.id} todo={x} extra={extra(x)} />)
+  /* 어느 칸이든 ⋮⋮ 손잡이로 끌어 순서를 바꾸거나 캘린더 칸·마감 칸에 놓을 수 있다 */
+  return reorder ? <OpenList id={id} items={todos} extra={extra} /> : <ReorderList items={todos} extra={extra} />
 }
 
 /** 고르는 목록(후보 · 곧 착수할 일): 할 일 줄 옆에 넣기·내일로. eTMF 업로드는 맨 위에 접어 두고 눌러서 펼쳐 본다 */
 function PickList({ id, items, t, next, flat }: { id: string; items: PlanItem[]; t: DateStr; next: DateStr; flat?: boolean }) {
-  const row = (x: PlanItem) => <TodoRow key={x.key} todo={x.todo} extra={<PickButtons item={x} today={t} next={next} />} />
+  const row = (x: PlanItem) => <TodoRow key={x.key} todo={x.todo} drag="due" extra={<PickButtons item={x} today={t} next={next} />} />
   if (flat) return items.map(row)
   const up = items.filter((x) => isEtmfUpload(x.todo))
   return (

@@ -1214,3 +1214,19 @@ describe('엔플론시아 SIV Contract·Site Specific ICF (enfss2)', () => {
     expect(stepsFor('Site Specific ICF', undefined, s.todos.get('prep')!)).toEqual(['ICF 작성', 'ASF 작성', '결재 상신', 'T-sign 요청', 'WID에 T-sign 본 업로드'])
   })
 })
+
+describe('엔플론시아 다가오는 SIV Preparation 에 Contract·Site Specific ICF (enfss3)', () => {
+  const MIG = ['claim1', 'enfprep2', 'subdone1', 'enfsteps1', 'scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2', 'docs1', 'enfbeta1', 'enfss2']
+  const cl: Rule = { id: 'r-e-cl', key: 'CL', type: 'SIV', project: ENF, title: '{site} SIV Confirmation Letter 발송', dir: 'before', n: 2, unit: 'ADD', send: false, verify: false, start: 'due', startN: 0 }
+  it('오늘 이후 방문의 열린 Preparation 맨 앞에 넣고 마감은 오늘, 오늘 방문은 그대로', async () => {
+    vi.setSystemTime(new Date('2026-11-26T10:00:00+09:00'))
+    const ev = (id: string, date: string): CalEvent => ({ ...visit, id, type: 'SIV', project: ENF, site: id + '의원', date, createdDate: '2026-11-24', genKey: 'old' })
+    const prep = (id: string): Todo => ({ id: 'a_' + id + '_g-prep', title: id + '의원 SIV Preparation', ruleId: 'g-prep', eventId: id, project: ENF, done: false, due: '2026-11-25', subs: ['Confirmation Letter 발송'] })
+    await replaceAll({
+      events: [ev('star', '2026-12-01'), ev('song', '2026-11-26')], fuls: [], todos: [prep('star'), prep('song')],
+      config: { rules: [...ENF_SS_RULES, cl], holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [], companions: [] },
+    })
+    expect(getState().todos.get('a_star_g-prep')).toMatchObject({ subs: ['Contract', 'Site Specific ICF', 'Confirmation Letter 발송'], subDue: { Contract: '2026-11-26', 'Site Specific ICF': '2026-11-26' } })
+    expect(getState().todos.get('a_song_g-prep')!.subs).toEqual(['Confirmation Letter 발송'])
+  })
+})

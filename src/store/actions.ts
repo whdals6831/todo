@@ -1632,6 +1632,29 @@ async function migrate() {
     appStore.setState({ mig: [...S().mig, 'enfss2'] })
     await putConfig()
   }
+  if (!S().mig.includes('enfss3')) {
+    /* 이미 등록한 다가오는 엔플론시아 SIV 의 열린 Preparation 에도 Contract·Site Specific ICF 를 맨 앞에 넣는다
+       ("외근 등록한 날" 일은 처음 등록할 때만 생기므로). 마감은 등록일이 아니라 넣은 오늘로 */
+    const fresh = inSync()
+    const ss = new Set(ENF_SS_RULES.map((r) => r.id))
+    const today = todayStr()
+    for (const ev of [...S().events.values()]) {
+      if (kindOf(ev) !== 'visit' || ev.project !== ENF || ev.type !== 'SIV' || ev.date <= today) continue
+      const old = S().todos.get(safeId('a_' + ev.id + '_' + GROUPS.prep.id))
+      if (!old || old.done) continue
+      const p = planTodos(ev, S()).find((x) => x.ruleId === GROUPS.prep.id)
+      const add = (p?.parts || []).filter((x) => ss.has(x.ruleId) && !old.subs?.includes(x.sub)).map((x) => x.sub)
+      if (!add.length) continue
+      await putTodo({
+        ...old,
+        subs: [...add, ...(old.subs || [])],
+        subDue: { ...old.subDue, ...Object.fromEntries(add.map((x) => [x, today])) },
+      })
+    }
+    await keepSynced(fresh)
+    appStore.setState({ mig: [...S().mig, 'enfss3'] })
+    await putConfig()
+  }
 }
 
 /**

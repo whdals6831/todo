@@ -64,8 +64,8 @@ export function newSiteMail(t: NewTodo, ctx: Ctx): { main: NewTodo; ca: NewTodo 
 
 /** 엔플론시아 SIV 준비 하위 항목 (계약서·ICF 가 맨 먼저). key 는 외근 규칙의 key — 외근을 등록하면 그 규칙의 일로 합친다 */
 export const ENF_PREP: { key: string; sub: string }[] = [
-  { key: 'CONTRACT', sub: '계약서 Site specific 업데이트' },
-  { key: 'ICF', sub: 'ICF Site specific 업데이트' },
+  { key: 'CONTRACT', sub: 'Contract' },
+  { key: 'ICF', sub: 'Site Specific ICF' },
   { key: 'SSPPT', sub: 'PPT Site specific 업데이트 (ICF 삽입 등 일괄 검토)' },
   { key: 'SSSIGN', sub: '서명서류 Site specific 업데이트' },
   { key: 'BINDER', sub: '바인더 제작 요청 (중앙문화사, 오전 중)' },

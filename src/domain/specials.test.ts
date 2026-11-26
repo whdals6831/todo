@@ -68,7 +68,7 @@ describe('특수 키워드 흐름', () => {
     expect(sp?.kind).toBe('enf')
     expect(sp?.items).toHaveLength(1)
     expect(sp?.items[0]).toMatchObject({ title: '엔플론시아 자차의원 SIV Preparation', prepKey: 'PREP', prepSite: '자차의원', due: '2026-10-13' })
-    expect(sp?.items[0].subs?.slice(0, 2)).toEqual(['계약서 Site specific 업데이트', 'ICF Site specific 업데이트'])
+    expect(sp?.items[0].subs?.slice(0, 2)).toEqual(['Contract', 'Site Specific ICF'])
     expect(specialFor({ title: '엔플론시아 금천 원장님께 SIV 메세지' }, ctx)).toBeNull()
   })
 })

@@ -1,5 +1,5 @@
 import {
-  APPROVAL_RE, APPROVAL_STEPS, BRZ, BRZ_PSV_FUL, CLAIM_RULE, ENF, ENF_SCAN, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, TARL_SIV_SCAN, WID_RULE, brzPsvFulRule, inquirySubs,
+  APPROVAL_RE, APPROVAL_STEPS, BRZ, BRZ_PSV_FUL, CLAIM_RULE, ENF, ENF_SCAN, ENF_SS_RENAME, ENF_SS_RULES, IMJ, ISF_RULE, KTX_RULE, MV_SITE_RULE, PREP_RULES, PRE_SIV, SCAN_RULE, TARL_SIV_SCAN, WID_RULE, brzPsvFulRule, inquirySubs,
   fulPackRules, kindOf,
 } from '../domain/constants.ts'
 import { addWorkdays, localDay, md, nextWorkOrSame, nowIso, prevWork, todayStr } from '../domain/date.ts'
@@ -1599,6 +1599,37 @@ async function migrate() {
     const secs = s.notes?.[ENF]
     const notes = s.notes && secs ? { ...s.notes, [ENF]: secs.map(fix) } : s.notes
     appStore.setState({ notes, mig: [...s.mig, 'enfsiv2'] })
+    await putConfig()
+  }
+  if (!S().mig.includes('enfss2')) {
+    /* 엔플론시아 SIV 계약서·ICF → "Contract"(작성 · 결재 상신 · 의뢰사 직인 확인 → 계약서 2부 인쇄),
+       "Site Specific ICF"(ICF 작성 · ASF 작성 · 결재 상신 · T-sign 요청 · WID에 T-sign 본 업로드).
+       규칙의 이름·단계를 바꾸고, 열린 할 일(외근 Preparation·"SIV 예정" 준비)의 하위 항목 이름과 체크·날짜도 새 이름으로 옮긴다 */
+    const fresh = inSync()
+    const ss = new Map(ENF_SS_RULES.map((r) => [r.id, r]))
+    appStore.setState({ rules: S().rules.map((r) => (ss.has(r.id) ? { ...r, title: ss.get(r.id)!.title, steps: [...(ss.get(r.id)!.steps || [])] } : r)) })
+    const ren = (x: string) => {
+      for (const [from, to] of Object.entries(ENF_SS_RENAME)) {
+        if (x === from) return to
+        if (x.startsWith(from + DOC_SEP)) return to + x.slice(from.length)
+      }
+      return x
+    }
+    const renKeys = <T,>(o?: Record<string, T>) => (o ? Object.fromEntries(Object.entries(o).map(([k, v]) => [ren(k), v])) : o)
+    for (const t of [...S().todos.values()]) {
+      if (t.done || t.project !== ENF || !t.subs?.some((x) => x in ENF_SS_RENAME)) continue
+      await putTodo({
+        ...t,
+        subs: t.subs.map(ren),
+        checks: t.checks?.map(ren),
+        checkAt: renKeys(t.checkAt),
+        subDue: renKeys(t.subDue),
+        subToday: renKeys(t.subToday),
+        subSteps: renKeys(t.subSteps),
+      })
+    }
+    await keepSynced(fresh)
+    appStore.setState({ mig: [...S().mig, 'enfss2'] })
     await putConfig()
   }
 }

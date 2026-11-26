@@ -538,7 +538,7 @@ describe('SIV Pre-Checklist 하위 항목 (presiv1)', () => {
   })
 })
 
-describe('엔플론시아 SIV 계약서·ICF Site specific 업데이트 (enfss1)', () => {
+describe('엔플론시아 SIV 계약서·Site Specific ICF (enfss1)', () => {
   const MIG = ['claim1', 'scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'group1', 'group2']
   const cl: Rule = { id: 'r-e-cl', key: 'CL', type: 'SIV', project: ENF, title: '{site} SIV CL', dir: 'before', n: 2, unit: 'ADD', send: false, verify: false, start: 'due', startN: 0 }
   const old: CalEvent = { ...visit, id: 'old', type: 'SIV', project: ENF, site: '제일산부인과', date: '2026-10-23', createdDate: '2026-10-08' }
@@ -556,7 +556,7 @@ describe('엔플론시아 SIV 계약서·ICF Site specific 업데이트 (enfss1)
   it('새로 등록한 엔플론시아 SIV 에는 Preparation 맨 위에 등록 당일로 생긴다 (SIV 예정 준비 할 일은 넘겨받는다)', async () => {
     await replaceAll({
       events: [], fuls: [],
-      todos: [{ id: 'prep', title: '엔플론시아 가나의원 ICF Site specific 업데이트', due: '2026-10-13', project: ENF, prepSite: '가나의원', prepKey: 'ICF', done: false }],
+      todos: [{ id: 'prep', title: '엔플론시아 가나의원 Site Specific ICF', due: '2026-10-13', project: ENF, prepSite: '가나의원', prepKey: 'ICF', done: false }],
       config: { rules: [cl], holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [], companions: [] },
     })
     const ev: CalEvent = { ...visit, id: 'new', type: 'SIV', project: ENF, site: '가나의원', date: '2026-10-21', createdDate: '2026-10-12' }
@@ -564,8 +564,8 @@ describe('엔플론시아 SIV 계약서·ICF Site specific 업데이트 (enfss1)
     await syncEvent(ev)
     expect(todos().map((t) => t.id)).toEqual(['a_new_g-prep'])
     const t = todos()[0]
-    expect(t).toMatchObject({ title: '가나의원 SIV Preparation', subs: ['계약서 Site specific 업데이트', 'ICF Site specific 업데이트', 'CL'], start: '2026-10-12', due: '2026-10-14' })
-    expect(partDues(t, getState())).toEqual({ '계약서 Site specific 업데이트': '2026-10-12', 'ICF Site specific 업데이트': '2026-10-12', CL: '2026-10-14' })
+    expect(t).toMatchObject({ title: '가나의원 SIV Preparation', subs: ['Contract', 'Site Specific ICF', 'CL'], start: '2026-10-12', due: '2026-10-14' })
+    expect(partDues(t, getState())).toEqual({ 'Contract': '2026-10-12', 'Site Specific ICF': '2026-10-12', CL: '2026-10-14' })
   })
 })
 
@@ -857,10 +857,10 @@ describe('하위 항목을 다 체크하면 완료 · 단계 (enfsteps1, subdone
       config: { rules, holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [], companions: [] },
     })
     const s = getState()
-    expect(s.rules.find((r) => r.id === 'r-e-ssicf')!.steps).toEqual(['작성', 'ASF 작성', 'WID 상신', 'PM 결재 확인', 'T-sign 요청', 'WID에 T-sign 본 업로드'])
+    expect(s.rules.find((r) => r.id === 'r-e-ssicf')!.steps).toEqual(['ICF 작성', 'ASF 작성', '결재 상신', 'T-sign 요청', 'WID에 T-sign 본 업로드'])
     expect(s.events.get('sc')!.skip).toEqual([])
-    expect(s.todos.get('a_sc_g-prep')!.subs).toEqual(['계약서 Site specific 업데이트', 'ICF Site specific 업데이트', 'CL', '내 할 일'])
-    expect(bundleParts(s.todos.get('a_sc_g-prep')!, s)['계약서 Site specific 업데이트'].steps).toEqual(['작성', 'WID 결재 상신', 'PM 승인 확인'])
+    expect(s.todos.get('a_sc_g-prep')!.subs).toEqual(['Contract', 'Site Specific ICF', 'CL', '내 할 일'])
+    expect(bundleParts(s.todos.get('a_sc_g-prep')!, s)['Contract'].steps).toEqual(['작성', '결재 상신', '의뢰사 직인 확인 → 계약서 2부 인쇄'])
     expect(s.todos.get('full')).toMatchObject({ done: true, doneAt: '2026-10-09T02:00:00.000Z' })
   })
 })
@@ -900,8 +900,8 @@ describe('엔플론시아 SIV 예정 → 외근 Preparation 으로 합치기', (
       events: [], fuls: [],
       todos: [{
         id: 'prep', title: '엔플론시아 가나의원 SIV Preparation', project: ENF, prepKey: 'PREP', prepSite: '가나의원', done: false, due: '2026-10-14',
-        subs: ['계약서 Site specific 업데이트', 'ICF Site specific 업데이트', '바인더 제작 요청 (중앙문화사, 오전 중)', 'Confirmation Letter 발송', '내가 단 것'],
-        checks: ['계약서 Site specific 업데이트', 'ICF Site specific 업데이트 › 작성', '바인더 제작 요청 (중앙문화사, 오전 중)'], note: '원장님 확인',
+        subs: ['Contract', 'Site Specific ICF', '바인더 제작 요청 (중앙문화사, 오전 중)', 'Confirmation Letter 발송', '내가 단 것'],
+        checks: ['Contract', 'Site Specific ICF › 작성', '바인더 제작 요청 (중앙문화사, 오전 중)'], note: '원장님 확인',
       }],
       config: { rules: [...ENF_SS_RULES, cl, ppt], holidays: DEFAULT_HOLIDAYS, mig: DONE_MIG, notes: null, projects: [], companions: [] },
     })
@@ -910,8 +910,8 @@ describe('엔플론시아 SIV 예정 → 외근 Preparation 으로 합치기', (
     await syncEvent(ev)
     expect(todos().map((t) => t.id)).toEqual(['a_new_g-prep'])
     expect(todos()[0]).toMatchObject({
-      subs: ['계약서 Site specific 업데이트', 'ICF Site specific 업데이트', 'Confirmation Letter 발송', 'PPT Site specific 업데이트 (ICF 삽입 등 일괄 검토)', '바인더 제작 요청 (중앙문화사, 오전 중)', '내가 단 것'],
-      checks: ['계약서 Site specific 업데이트', 'ICF Site specific 업데이트 › 작성', '바인더 제작 요청 (중앙문화사, 오전 중)'],
+      subs: ['Contract', 'Site Specific ICF', 'Confirmation Letter 발송', 'PPT Site specific 업데이트 (ICF 삽입 등 일괄 검토)', '바인더 제작 요청 (중앙문화사, 오전 중)', '내가 단 것'],
+      checks: ['Contract', 'Site Specific ICF › 작성', '바인더 제작 요청 (중앙문화사, 오전 중)'],
       note: '엔플론시아 가나의원 SIV Preparation: 원장님 확인',
     })
   })
@@ -1044,7 +1044,7 @@ describe('하위 항목 편집 창 · 결재 상신 단계', () => {
 
   it('결재 상신: 묶음 하위 항목이면 단계로, 낱개 할 일이면 하위 항목으로 수정·PM 승인 확인·T-Sign 요청·T-Sign 업로드', async () => {
     expect(stepsFor('Precheck list 결재 상신 (SIV Material·PPT 포함)', [], { done: false })).toEqual(APPROVAL_STEPS)
-    expect(stepsFor('계약서 Site specific 업데이트', ['작성'], { done: false })).toEqual(['작성'])
+    expect(stepsFor('Contract', ['작성'], { done: false })).toEqual(['작성'])
     expect(stepsFor('바인더 정리', undefined, { done: false })).toBeUndefined()
     expect(APPROVAL_STEPS).toEqual(['상신', '수정', 'PM 승인 확인', 'T-Sign 요청', 'T-Sign 업로드'])
 
@@ -1191,5 +1191,26 @@ describe('하위 항목의 하위 항목(단계) 고치기', () => {
     /* 이름을 바꾸면 단계도 따라간다 */
     await A.editSub(id, sub, '결재 올리기', '', '')
     expect(get().subSteps).toEqual({ '결재 올리기': ['상신', 'PM 승인 확인', '새 단계'] })
+  })
+})
+
+describe('엔플론시아 SIV Contract·Site Specific ICF (enfss2)', () => {
+  const MIG = ['claim1', 'enfprep2', 'subdone1', 'enfsteps1', 'scant1', 'etmfsolo1', 'ktx2', 'ktx1', 'scan1', 'prep1', 'ful5', 'isf1', 'etmf10', 'brzss1', 'fulpack1', 'fulpack2', 'fulpack3', 'imjmv1', 'brzful1', 'rptfix1', 'rptfix2', 'sivrsend1', 'chkat1', 'enflunch1', 'wid1', 'sivrprint1', 'presiv1', 'enfss1', 'group1', 'group2', 'docs1', 'enfbeta1']
+  it('옛 계약서·ICF 규칙과 열린 준비 할 일의 하위 항목을 새 이름·단계로 바꾼다', async () => {
+    const old = ENF_SS_RULES.map((r) => ({ ...r, title: r.title.replace(/Contract$/, '계약서 Site specific 업데이트').replace(/Site Specific ICF$/, 'ICF Site specific 업데이트'), steps: ['작성'] }))
+    await replaceAll({
+      events: [], fuls: [],
+      todos: [{
+        id: 'prep', title: '엔플론시아 가나의원 SIV Preparation', project: ENF, prepKey: 'PREP', prepSite: '가나의원', done: false, due: '2026-10-14',
+        subs: ['계약서 Site specific 업데이트', 'ICF Site specific 업데이트', '내가 단 것'],
+        checks: ['계약서 Site specific 업데이트 › 작성'], subDue: { 'ICF Site specific 업데이트': '2026-10-13' },
+      }],
+      config: { rules: old, holidays: DEFAULT_HOLIDAYS, mig: MIG, notes: null, projects: [], companions: [] },
+    })
+    const s = getState()
+    expect(s.rules.find((r) => r.id === 'r-e-sscontract')).toMatchObject({ title: '{site} SIV Contract', steps: ['작성', '결재 상신', '의뢰사 직인 확인 → 계약서 2부 인쇄'] })
+    expect(s.rules.find((r) => r.id === 'r-e-ssicf')).toMatchObject({ title: '{site} SIV Site Specific ICF', steps: ['ICF 작성', 'ASF 작성', '결재 상신', 'T-sign 요청', 'WID에 T-sign 본 업로드'] })
+    expect(s.todos.get('prep')).toMatchObject({ subs: ['Contract', 'Site Specific ICF', '내가 단 것'], checks: ['Contract › 작성'], subDue: { 'Site Specific ICF': '2026-10-13' } })
+    expect(stepsFor('Site Specific ICF', undefined, s.todos.get('prep')!)).toEqual(['ICF 작성', 'ASF 작성', '결재 상신', 'T-sign 요청', 'WID에 T-sign 본 업로드'])
   })
 })

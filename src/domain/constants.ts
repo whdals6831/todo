@@ -142,15 +142,18 @@ export const PRE_SIV = {
   subs: ['SIV Pre-checklist 작성', '수정', 'PM 승인 확인', 'T-Sign 요청', 'WID에 T-Sign본 업로드'],
 }
 
-/** 엔플론시아 SIV 를 등록하면 제일 먼저: 계약서·ICF Site specific 업데이트 (등록한 날 착수·마감 → Preparation 맨 위).
+/** 엔플론시아 SIV 를 등록하면 제일 먼저: Contract·Site Specific ICF (등록한 날 착수·마감 → Preparation 맨 위).
     key 가 "SIV 예정" 준비 할 일과 같아서, 준비 할 일이 있으면 그것을 넘겨받는다 */
+/** enfss2 이전의 하위 항목 이름 → 지금 이름 */
+export const ENF_SS_RENAME: Record<string, string> = { '계약서 Site specific 업데이트': 'Contract', 'ICF Site specific 업데이트': 'Site Specific ICF' }
+
 export const ENF_SS_RULES: Rule[] = (
   [
-    ['CONTRACT', 'r-e-sscontract', '계약서', ['작성', 'WID 결재 상신', 'PM 승인 확인']],
-    ['ICF', 'r-e-ssicf', 'ICF', ['작성', 'ASF 작성', 'WID 상신', 'PM 결재 확인', 'T-sign 요청', 'WID에 T-sign 본 업로드']],
+    ['CONTRACT', 'r-e-sscontract', 'Contract', ['작성', '결재 상신', '의뢰사 직인 확인 → 계약서 2부 인쇄']],
+    ['ICF', 'r-e-ssicf', 'Site Specific ICF', ['ICF 작성', 'ASF 작성', '결재 상신', 'T-sign 요청', 'WID에 T-sign 본 업로드']],
   ] as const
 ).map(([key, id, what, steps]) => ({
-  id, key, type: 'SIV', project: ENF, title: '{site} SIV ' + what + ' Site specific 업데이트', steps: [...steps],
+  id, key, type: 'SIV', project: ENF, title: '{site} SIV ' + what, steps: [...steps],
   dir: 'after', n: 0, unit: 'ADD', send: false, verify: false, basis: '본인 기준: Non-IRB 기관 급한 개시 → 계약서·ICF 가 가장 먼저 (등록 당일)', start: 'reg', startN: 0,
 }))
 
